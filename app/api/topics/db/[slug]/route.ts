@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cleanRssText } from "@/lib/rss";
 import { createServiceRoleClient } from "../../../../../utils/supabase/server";
 
 type DbTopicRow = {
@@ -160,7 +161,7 @@ export async function GET(
       articles: articles.map((article) => ({
         id: article.id,
         title: article.title,
-        description: article.description ?? "",
+        description: article.description ? cleanRssText(article.description) : "",
         category: article.category ?? "",
         region: article.region ?? "",
         sourceId: article.source_id ?? "",

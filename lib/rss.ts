@@ -4,16 +4,20 @@ import type { NewsItem, NewsSource } from "@/types/news";
 const CACHE_TTL_MS = 10 * 60 * 1000;
 let cache: { createdAt: number; items: NewsItem[] } | null = null;
 
-function decodeHtml(value: string): string {
+function decodeHtmlEntities(value: string): string {
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/<[^>]*>/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
+    .replace(/&#x27;/g, "'");
+}
+
+export function cleanRssText(value: string): string {
+  return decodeHtmlEntities(value)
+    .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -21,12 +25,12 @@ function decodeHtml(value: string): string {
 function getTagValue(xml: string, tagName: string): string {
   const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
   const match = xml.match(regex);
-  return match ? decodeHtml(match[1]) : "";
+  return match ? cleanRssText(match[1]) : "";
 }
 
 function getAtomLink(entry: string): string {
   const hrefMatch = entry.match(/<link[^>]+href=["']([^"']+)["'][^>]*>/i);
-  if (hrefMatch?.[1]) return decodeHtml(hrefMatch[1]);
+  if (hrefMatch?.[1]) return decodeHtmlEntities(hrefMatch[1]).trim();
   return getTagValue(entry, "link");
 }
 
