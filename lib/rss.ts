@@ -58,8 +58,14 @@ function parseRssItems(xml: string, source: NewsSource): NewsItem[] {
     .map((block) => {
       const title = getTagValue(block, "title");
       const link = itemBlocks.length ? getTagValue(block, "link") : getAtomLink(block);
-      const description = getTagValue(block, "description") || getTagValue(block, "summary") || getTagValue(block, "content");
-      const dateValue = getTagValue(block, "pubDate") || getTagValue(block, "published") || getTagValue(block, "updated");
+      const description =
+        getTagValue(block, "description") ||
+        getTagValue(block, "summary") ||
+        getTagValue(block, "content");
+      const dateValue =
+        getTagValue(block, "pubDate") ||
+        getTagValue(block, "published") ||
+        getTagValue(block, "updated");
 
       if (!title || !link) return null;
 
@@ -102,20 +108,20 @@ export async function getNewsItems(options?: {
   refresh?: boolean;
 }) {
   const now = Date.now();
-  const useCache = cache && !options?.refresh && now - cache.createdAt < CACHE_TTL_MS;
+  const useCache = !!cache && !options?.refresh && now - cache.createdAt < CACHE_TTL_MS;
 
   let items: NewsItem[];
 
- if (useCache && cache) {
-  items = cache.items;
-} else {
-  const enabledSources = rssSources.filter((source) => source.enabled);
-  const settled = await Promise.allSettled(enabledSources.map(fetchSource));
+  if (useCache && cache) {
+    items = cache.items;
+  } else {
+    const enabledSources = rssSources.filter((source) => source.enabled);
+    const settled = await Promise.allSettled(enabledSources.map(fetchSource));
 
-  items = settled.flatMap((result) =>
-    result.status === "fulfilled" ? result.value : []
-  );
-}
+    items = settled.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : []
+    );
+
     const seen = new Set<string>();
     items = items.filter((item) => {
       const key = item.link || item.title;
@@ -145,6 +151,7 @@ export async function getNewsItems(options?: {
       item.description.toLowerCase().includes(q) ||
       item.sourceName.toLowerCase().includes(q) ||
       item.category.toLowerCase().includes(q);
+
     return matchCategory && matchQuery;
   });
 
