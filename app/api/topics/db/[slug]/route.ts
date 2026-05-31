@@ -27,9 +27,15 @@ type DbTopicArticleRow = {
 type DbArticleRow = {
   id: string;
   title: string;
+  description: string | null;
+  category: string | null;
+  region: string | null;
+  source_id: string | null;
   source_name: string | null;
   link: string | null;
   published_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 export async function GET(
@@ -100,9 +106,15 @@ export async function GET(
         .select(`
           id,
           title,
+          description,
+          category,
+          region,
+          source_id,
           source_name,
           link,
-          published_at
+          published_at,
+          created_at,
+          updated_at
         `)
         .in("id", articleIds)
         .returns<DbArticleRow[]>();
@@ -148,9 +160,15 @@ export async function GET(
       articles: articles.map((article) => ({
         id: article.id,
         title: article.title,
+        description: article.description ?? "",
+        category: article.category ?? "",
+        region: article.region ?? "",
+        sourceId: article.source_id ?? "",
         sourceName: article.source_name ?? "",
         link: article.link ?? "#",
         publishedAt: article.published_at,
+        createdAt: article.created_at,
+        updatedAt: article.updated_at,
       })),
     };
 

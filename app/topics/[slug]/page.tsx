@@ -1,9 +1,18 @@
+import Link from "next/link";
+import { headers } from "next/headers";
+
 type TopicArticle = {
   id: string;
   title: string;
+  description: string;
+  category: string;
+  region: string;
+  sourceId: string;
   sourceName: string;
   link: string;
   publishedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 };
 
 type TopicDetail = {
@@ -26,6 +35,8 @@ type TopicDetail = {
 
 function formatRelativeTime(dateString: string) {
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "時間未知";
+
   const now = new Date();
 
   const diffMs = now.getTime() - date.getTime();
@@ -42,7 +53,13 @@ function formatRelativeTime(dateString: string) {
 }
 
 async function getTopic(slug: string): Promise<TopicDetail | null> {
-  const res = await fetch(`http://localhost:3000/api/topics/db/${slug}`, {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("host");
+  const protocol = requestHeaders.get("x-forwarded-proto") ?? "http";
+
+  if (!host) return null;
+
+  const res = await fetch(`${protocol}://${host}/api/topics/db/${slug}`, {
     cache: "no-store",
   });
 
@@ -70,12 +87,12 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
           可能是今天沒有命中這個主題的新聞，或系統仍在整理最新資料。
         </p>
 
-        <a
+        <Link
           href="/"
           className="mt-6 inline-block rounded-full bg-slate-900 px-5 py-3 text-sm font-medium text-white hover:bg-slate-700"
         >
           返回首頁
-        </a>
+        </Link>
       </div>
     </main>
   );
@@ -84,12 +101,12 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
   return (
     <main className="min-h-screen bg-white p-6 md:p-10">
       <div className="mx-auto max-w-5xl">
-        <a
+        <Link
           href="/"
           className="mb-4 inline-block text-sm text-slate-500 hover:text-slate-800"
         >
           ← 返回首頁
-        </a>
+        </Link>
 
         <div className="relative">
   	<img
@@ -177,10 +194,26 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                   {article.title}
                 </div>
 
-                <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+                {article.description && (
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+                    {article.description}
+                  </p>
+                )}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
                   <span className="rounded-full bg-slate-100 px-3 py-1">
-                    {article.sourceName}
+                    {article.sourceName || "未知來源"}
                   </span>
+                  {article.category && (
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">
+                      {article.category}
+                    </span>
+                  )}
+                  {article.region && (
+                    <span className="rounded-full bg-slate-50 px-3 py-1">
+                      {article.region}
+                    </span>
+                  )}
                   {article.publishedAt && (
                     <span>｜ {formatRelativeTime(article.publishedAt)}</span>
                   )}

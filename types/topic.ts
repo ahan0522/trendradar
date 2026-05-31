@@ -15,9 +15,15 @@ export type HomepageTopicCard = {
 export type TopicArticle = {
   id: string;
   title: string;
+  description?: string;
+  category?: string;
+  region?: string;
+  sourceId?: string;
   sourceName: string;
   link: string;
   publishedAt: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 };
 
 export type TopicDetail = {
