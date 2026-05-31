@@ -18,6 +18,9 @@ type DbTopicRow = {
   bullets: string[] | null;
   subtopics: string[] | null;
   tags: string[] | null;
+  rule_key: string | null;
+  keywords: string[] | null;
+  discovery_mode: string | null;
   status: string | null;
 };
 
@@ -65,6 +68,9 @@ export async function GET(
         bullets,
         subtopics,
         tags,
+        rule_key,
+        keywords,
+        discovery_mode,
         status
       `)
       .eq("slug", slug)
@@ -158,6 +164,9 @@ export async function GET(
       bullets: Array.isArray(topic.bullets) ? topic.bullets : [],
       subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
       tags: Array.isArray(topic.tags) ? topic.tags : [],
+      ruleKey: topic.rule_key ?? "",
+      keywords: Array.isArray(topic.keywords) ? topic.keywords : [],
+      discoveryMode: topic.discovery_mode ?? "rule_based",
       articles: articles.map((article) => ({
         id: article.id,
         title: article.title,

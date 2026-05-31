@@ -41,5 +41,8 @@ export type TopicDetail = {
   bullets: string[];
   subtopics: string[];
   tags: string[];
+  ruleKey?: string;
+  keywords?: string[];
+  discoveryMode?: string;
   articles: TopicArticle[];
 };
