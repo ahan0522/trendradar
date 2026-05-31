@@ -79,20 +79,20 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
                 </div>
 
-                <div className="grid gap-5 p-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                  <div>
-                    <div className="mb-3">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                <div className="grid gap-5 p-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                  <div className="space-y-3">
+                    <div>
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-600">
                         {topic.category}
                       </span>
                     </div>
 
-                    <h2 className="text-3xl font-bold tracking-tight text-slate-900">
+                    <h2 className="text-3xl font-bold leading-tight tracking-tight text-slate-950 md:text-4xl">
                       {topic.title}
                     </h2>
                   </div>
 
-                  <div className="border-t border-slate-100 pt-4 md:min-w-40 md:border-t-0 md:pt-0 md:text-right">
+                  <div className="border-t border-slate-100 pt-4 md:min-w-44 md:border-t-0 md:pt-0 md:text-right">
                     <div className="space-y-1 text-sm leading-6 text-slate-500">
                       <div>熱度 {topic.heatScore}</div>
                       <div>
