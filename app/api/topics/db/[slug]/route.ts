@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanRssText } from "@/lib/rss";
+import { generateArticleQuickSummary } from "@/lib/topic-ai";
 import { createServiceRoleClient } from "../../../../../utils/supabase/server";
 
 type DbTopicRow = {
@@ -167,19 +168,29 @@ export async function GET(
       ruleKey: topic.rule_key ?? "",
       keywords: Array.isArray(topic.keywords) ? topic.keywords : [],
       discoveryMode: topic.discovery_mode ?? "rule_based",
-      articles: articles.map((article) => ({
-        id: article.id,
-        title: article.title,
-        description: article.description ? cleanRssText(article.description) : "",
-        category: article.category ?? "",
-        region: article.region ?? "",
-        sourceId: article.source_id ?? "",
-        sourceName: article.source_name ?? "",
-        link: article.link ?? "#",
-        publishedAt: article.published_at,
-        createdAt: article.created_at,
-        updatedAt: article.updated_at,
-      })),
+      articles: articles.map((article) => {
+        const description = article.description ? cleanRssText(article.description) : "";
+        const sourceName = article.source_name ?? "";
+
+        return {
+          id: article.id,
+          title: article.title,
+          description,
+          quickSummary: generateArticleQuickSummary({
+            title: article.title,
+            description,
+            sourceName,
+          }),
+          category: article.category ?? "",
+          region: article.region ?? "",
+          sourceId: article.source_id ?? "",
+          sourceName,
+          link: article.link ?? "#",
+          publishedAt: article.published_at,
+          createdAt: article.created_at,
+          updatedAt: article.updated_at,
+        };
+      }),
     };
 
     return NextResponse.json({

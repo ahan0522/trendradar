@@ -5,6 +5,7 @@ type TopicArticle = {
   id: string;
   title: string;
   description: string;
+  quickSummary?: string;
   category: string;
   region: string;
   sourceId: string;
@@ -278,7 +279,7 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                 <div>
                   <div className="text-sm font-semibold text-blue-700">來源文章</div>
                   <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                    系統納入的原始新聞
+                    不用點開也能快速看懂
                   </h2>
                 </div>
                 <div className="text-sm text-slate-500">
@@ -299,10 +300,15 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                       {article.title}
                     </div>
 
-                    {article.description && (
-                      <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-                        {article.description}
-                      </p>
+                    {(article.quickSummary || article.description) && (
+                      <div className="mt-3 rounded-xl bg-blue-50/60 p-4">
+                        <div className="text-xs font-semibold text-blue-700">
+                          AI 快讀摘要
+                        </div>
+                        <p className="mt-1 text-sm leading-6 text-slate-700">
+                          {article.quickSummary || article.description}
+                        </p>
+                      </div>
                     )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">

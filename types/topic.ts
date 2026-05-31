@@ -16,6 +16,7 @@ export type TopicArticle = {
   id: string;
   title: string;
   description?: string;
+  quickSummary?: string;
   category?: string;
   region?: string;
   sourceId?: string;

@@ -23,6 +23,40 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function compactText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function trimToSentence(value: string, maxLength: number) {
+  const text = compactText(value);
+  if (text.length <= maxLength) return text;
+
+  const sentenceEnd = text.slice(0, maxLength).search(/[。！？.!?](?=[^。！？.!?]*$)/);
+  if (sentenceEnd > 40) {
+    return text.slice(0, sentenceEnd + 1);
+  }
+
+  return `${text.slice(0, maxLength).trim()}...`;
+}
+
+export function generateArticleQuickSummary(article: TopicAiInputArticle) {
+  const title = compactText(article.title);
+  const description = compactText(article.description ?? "");
+
+  if (description) {
+    const withoutDuplicateTitle = description.startsWith(title)
+      ? compactText(description.slice(title.length))
+      : description;
+
+    return trimToSentence(withoutDuplicateTitle || description, 140);
+  }
+
+  return trimToSentence(
+    `這篇新聞由 ${article.sourceName} 報導，重點聚焦於「${title}」的最新進展。`,
+    140
+  );
+}
+
 export async function generateTopicAiSummary(
   input: TopicAiInput
 ): Promise<TopicAiOutput> {
