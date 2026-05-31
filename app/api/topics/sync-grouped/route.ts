@@ -24,6 +24,15 @@ type PersistedArticle = {
   link: string;
 };
 
+type SyncedTopic = {
+  slug: string;
+  title: string;
+  articleCount: number;
+  sourceCount: number;
+  heatScore: number;
+  linkedArticleCount: number;
+};
+
 function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
@@ -63,7 +72,17 @@ function isAuthorized(request: Request) {
   return bearer === token;
 }
 
+function getTriggerSource(request: Request) {
+  return request.headers.get("user-agent")?.toLowerCase().includes("vercel")
+    ? "vercel-cron"
+    : "manual";
+}
+
 async function handleSyncGrouped(request: Request) {
+  const startedAt = Date.now();
+  const runId =
+    crypto.randomUUID?.() ?? `sync-${startedAt}-${Math.random().toString(36).slice(2)}`;
+
   if (!isAuthorized(request)) {
     return NextResponse.json(
       {
@@ -87,6 +106,11 @@ async function handleSyncGrouped(request: Request) {
 
   try {
     const supabase = createServiceRoleClient();
+
+    console.info("[sync-grouped] started", {
+      runId,
+      triggeredBy: getTriggerSource(request),
+    });
 
     const newsItems = await getNewsItems({
       category: "全部",
@@ -141,23 +165,26 @@ async function handleSyncGrouped(request: Request) {
     // 2. 再做主題分群
     const groupedTopics = groupArticlesToHomepageTopics(articles);
 
-    const syncedTopics: Array<{
-      slug: string;
-      title: string;
-      articleCount: number;
-      sourceCount: number;
-      heatScore: number;
-    }> = [];
+    const syncedTopics: SyncedTopic[] = [];
+    let linkedArticleCount = 0;
+    let skippedTopicsWithoutRule = 0;
+    let skippedTopicsWithoutArticles = 0;
 
     for (const grouped of groupedTopics) {
       const rule = topicRules.find((item) => item.key === grouped.slug);
-      if (!rule) continue;
+      if (!rule) {
+        skippedTopicsWithoutRule += 1;
+        continue;
+      }
 
       const matchedArticles = articles.filter((article) =>
         articleMatchesRule(article, rule.keywords)
       );
 
-      if (matchedArticles.length === 0) continue;
+      if (matchedArticles.length === 0) {
+        skippedTopicsWithoutArticles += 1;
+        continue;
+      }
 
       const aiResult = await generateTopicAiSummary({
         topicTitle: rule.title,
@@ -233,6 +260,8 @@ async function handleSyncGrouped(request: Request) {
         })
         .filter(Boolean);
 
+      linkedArticleCount += topicArticleRows.length;
+
       const { error: topicArticlesError } = await supabase
         .from("topic_articles")
         .upsert(topicArticleRows as { topic_id: string; article_id: string }[], {
@@ -255,28 +284,45 @@ async function handleSyncGrouped(request: Request) {
         articleCount: grouped.articleCount,
         sourceCount: grouped.sourceCount,
         heatScore: grouped.heatScore,
+        linkedArticleCount: topicArticleRows.length,
       });
     }
 
-    return NextResponse.json({
+    const summary = {
       ok: true,
+      runId,
       mode: "topics-sync-grouped",
-      triggeredBy: request.headers.get("user-agent")?.toLowerCase().includes("vercel")
-        ? "vercel-cron"
-        : "manual",
+      triggeredBy: getTriggerSource(request),
       syncedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
       articleCount: articles.length,
       persistedArticleCount: persistedArticles?.length ?? 0,
+      groupedTopicCount: groupedTopics.length,
       topicCount: syncedTopics.length,
+      linkedArticleCount,
+      skippedTopicsWithoutRule,
+      skippedTopicsWithoutArticles,
       topics: syncedTopics,
-    });
+    };
+
+    console.info("[sync-grouped] completed", summary);
+
+    return NextResponse.json(summary);
   } catch (error) {
     const message = error instanceof Error ? error.message : "未知錯誤";
+
+    console.error("[sync-grouped] failed", {
+      runId,
+      durationMs: Date.now() - startedAt,
+      error: message,
+    });
 
     return NextResponse.json(
       {
         ok: false,
+        runId,
         error: `sync-grouped 執行失敗: ${message}`,
+        durationMs: Date.now() - startedAt,
       },
       { status: 500 }
     );
