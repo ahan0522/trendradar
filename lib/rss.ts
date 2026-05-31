@@ -111,10 +111,11 @@ export async function getNewsItems(options?: {
 } else {
   const enabledSources = rssSources.filter((source) => source.enabled);
   const settled = await Promise.allSettled(enabledSources.map(fetchSource));
-  ...
-}
-    items = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 
+  items = settled.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : []
+  );
+}
     const seen = new Set<string>();
     items = items.filter((item) => {
       const key = item.link || item.title;
