@@ -1,0 +1,68 @@
+import type { NewsSource } from "@/types/news";
+
+export const rssSources: NewsSource[] = [
+  {
+    id: "google-news-tw-top",
+    name: "Google News 台灣熱門",
+    category: "新聞",
+    region: "台灣",
+    url: "https://news.google.com/rss?hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    enabled: true,
+  },
+  {
+    id: "google-news-world",
+    name: "Google News 國際",
+    category: "國際",
+    region: "全球",
+    url: "https://news.google.com/rss/headlines/section/topic/WORLD?hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    enabled: true,
+  },
+  {
+    id: "google-news-business",
+    name: "Google News 財經",
+    category: "財經",
+    region: "台灣 / 全球",
+    url: "https://news.google.com/rss/headlines/section/topic/BUSINESS?hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    enabled: true,
+  },
+  {
+    id: "google-news-sports",
+    name: "Google News 體育",
+    category: "體育",
+    region: "台灣 / 全球",
+    url: "https://news.google.com/rss/headlines/section/topic/SPORTS?hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    enabled: true,
+  },
+  {
+    id: "google-news-technology",
+    name: "Google News 科技",
+    category: "3C",
+    region: "台灣 / 全球",
+    url: "https://news.google.com/rss/headlines/section/topic/TECHNOLOGY?hl=zh-TW&gl=TW&ceid=TW:zh-Hant",
+    enabled: true,
+  },
+  {
+    id: "the-verge",
+    name: "The Verge",
+    category: "3C",
+    region: "全球",
+    url: "https://www.theverge.com/rss/index.xml",
+    enabled: true,
+  },
+  {
+    id: "techcrunch",
+    name: "TechCrunch",
+    category: "AI",
+    region: "全球",
+    url: "https://techcrunch.com/feed/",
+    enabled: true,
+  },
+  {
+    id: "polygon",
+    name: "Polygon",
+    category: "遊戲",
+    region: "全球",
+    url: "https://www.polygon.com/rss/index.xml",
+    enabled: true,
+  },
+];
