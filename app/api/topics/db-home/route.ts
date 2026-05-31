@@ -22,7 +22,7 @@ export async function GET() {
       `)
       .eq("status", "active")
       .order("heat_score", { ascending: false })
-      .limit(4);
+      .limit(6);
 
     if (error) {
       return NextResponse.json(
