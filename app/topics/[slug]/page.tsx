@@ -205,6 +205,17 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
               <p className="mt-4 text-lg leading-8 text-slate-700">
                 {topic.summary || "目前尚未產生摘要，系統會在下一次同步時補上。"}
               </p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                {(topic.tags.length ? topic.tags : [topic.category]).map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-blue-50 px-3 py-1.5 text-sm text-blue-700"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
@@ -237,40 +248,21 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
               <div className="text-sm font-semibold text-blue-700">主題脈絡</div>
               <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                子主題與標籤
+                目前可拆出的子主題
               </h2>
 
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <div>
-                  <div className="text-sm font-medium text-slate-500">子主題</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(topic.subtopics.length
-                      ? topic.subtopics
-                      : ["尚未拆分子主題"]
-                    ).map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm font-medium text-slate-500">相關標籤</div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(topic.tags.length ? topic.tags : [topic.category]).map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-blue-50 px-4 py-2 text-sm text-blue-700"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {(topic.subtopics.length
+                  ? topic.subtopics
+                  : ["尚未拆分子主題"]
+                ).map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700"
+                  >
+                    {item}
+                  </span>
+                ))}
               </div>
             </section>
 
@@ -296,20 +288,20 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                     rel="noreferrer"
                     className="block rounded-xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50"
                   >
-                    <div className="text-base font-semibold leading-6 text-slate-950">
-                      {article.title}
-                    </div>
-
                     {(article.quickSummary || article.description) && (
-                      <div className="mt-3 rounded-xl bg-blue-50/60 p-4">
+                      <div className="rounded-xl bg-blue-50/60 p-4">
                         <div className="text-xs font-semibold text-blue-700">
-                          AI 快讀摘要
+                          重點快讀
                         </div>
-                        <p className="mt-1 text-sm leading-6 text-slate-700">
+                        <p className="mt-1 text-base leading-7 text-slate-800">
                           {article.quickSummary || article.description}
                         </p>
                       </div>
                     )}
+
+                    <div className="mt-3 text-sm leading-6 text-slate-500">
+                      原始標題：{article.title}
+                    </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
                       <span className="rounded-full bg-slate-100 px-3 py-1">

@@ -262,6 +262,21 @@ async function handleSyncGrouped(request: Request) {
 
       linkedArticleCount += topicArticleRows.length;
 
+      const { error: deleteTopicArticlesError } = await supabase
+        .from("topic_articles")
+        .delete()
+        .eq("topic_id", topicId);
+
+      if (deleteTopicArticlesError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `清理舊 topic_articles 失敗: ${deleteTopicArticlesError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
       const { error: topicArticlesError } = await supabase
         .from("topic_articles")
         .upsert(topicArticleRows as { topic_id: string; article_id: string }[], {
