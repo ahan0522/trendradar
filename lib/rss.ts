@@ -106,11 +106,13 @@ export async function getNewsItems(options?: {
 
   let items: NewsItem[];
 
-  if (useCache) {
-    items = cache.items;
-  } else {
-    const enabledSources = rssSources.filter((source) => source.enabled);
-    const settled = await Promise.allSettled(enabledSources.map(fetchSource));
+ if (useCache && cache) {
+  items = cache.items;
+} else {
+  const enabledSources = rssSources.filter((source) => source.enabled);
+  const settled = await Promise.allSettled(enabledSources.map(fetchSource));
+  ...
+}
     items = settled.flatMap((result) => (result.status === "fulfilled" ? result.value : []));
 
     const seen = new Set<string>();
