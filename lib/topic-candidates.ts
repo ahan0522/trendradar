@@ -62,7 +62,11 @@ const STOP_WORDS = new Set([
   "ftnn",
   "msn",
   "line",
+  "pnn",
+  "moneydj",
   "today",
+  "快評",
+  "下一個",
   "自由",
   "自由體育",
   "自由財經",
@@ -147,12 +151,12 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
-  if (/0050|etf|成分股|換股|換血|概念股|股市|台股|美股|金融|傳產|漲停/.test(value)) {
-    return "財經";
-  }
-
   if (/輝達|黃仁勳|nvidia|openai|anthropic|ai|晶片|半導體|伺服器|hbm|記憶體|散熱/.test(value.toLowerCase())) {
     return "AI";
+  }
+
+  if (/0050|etf|成分股|換股|換血|概念股|股市|台股|美股|金融|傳產|漲停/.test(value)) {
+    return "財經";
   }
 
   if (/中國海警|海警|台海|東海|日菲|美防長|伊朗|美軍|中東|以色列|印太|國防/.test(value)) {
@@ -273,14 +277,11 @@ function makeCandidateSlug(title: string, keywords: string[], index: number) {
 
 function makeCandidateSummary(
   articles: NewsArticle[],
-  keywords: string[],
-  title: string,
-  category: string
+  title: string
 ) {
   const sourceCount = new Set(articles.map((article) => article.sourceName)).size;
-  const keywordText = keywords.slice(0, 3).join("、");
 
-  return `這組新聞聚焦「${title}」，目前有 ${articles.length} 篇文章、${sourceCount} 家來源共同報導。可先從「${keywordText || category}」幾個線索快速掌握事件脈絡。`;
+  return `這組新聞聚焦「${title}」，目前有 ${articles.length} 篇文章、${sourceCount} 家來源共同報導，代表多家媒體正在追蹤同一事件。`;
 }
 
 function cleanTitle(value: string) {
@@ -405,7 +406,7 @@ export function discoverCandidateTopics(
         id: `candidate-${index + 1}`,
         slug: makeCandidateSlug(title, keywords, index),
         title,
-        summary: makeCandidateSummary(cluster, keywords, title, category),
+        summary: makeCandidateSummary(cluster, title),
         category,
         keywords,
         articleCount: cluster.length,
