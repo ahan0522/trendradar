@@ -205,8 +205,16 @@ function inferTopicTitleFromSignals(value: string) {
     return "高通與台灣半導體供應鏈";
   }
 
+  if (/ai競賽|高盛|零件|記憶體|hbm|散熱|電源|伺服器/.test(value)) {
+    return "AI 伺服器零件與供應鏈";
+  }
+
   if (/中國海警|海警|台海|東海|日菲|領土主權|執法巡查/.test(value)) {
     return "東海與台海周邊執法爭議";
+  }
+
+  if (/伊朗|美軍基地|革命衛隊|中東|襲擊美軍|以色列/.test(value)) {
+    return "伊朗與美軍基地衝突";
   }
 
   if (/流星|火流星|nasa|tnt|麻州/.test(value)) {
