@@ -117,7 +117,7 @@ export default function HomePage() {
                     <div className="space-y-0.5 text-xs leading-5 text-slate-500">
                       <div>熱度 {topic.heatScore}</div>
                       <div>
-                        {topic.sourceCount} 家媒體 ｜ {topic.articleCount} 篇文章
+                        {topic.sourceCount} 家媒體 ｜ {topic.articleCount} 篇原始文章
                       </div>
                       <div>{formatRelativeTime(topic.updatedAt)}</div>
                     </div>
