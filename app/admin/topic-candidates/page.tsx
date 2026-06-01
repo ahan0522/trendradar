@@ -39,9 +39,9 @@ function formatRelativeTime(dateString: string | null) {
 }
 
 function getCandidateQuality(topic: CandidateTopic) {
-  if (topic.articleCount >= 4 && topic.sourceCount >= 2) return "值得檢查";
-  if (topic.articleCount >= 2) return "候選";
-  return "偏弱";
+  if (topic.publishable) return "可上首頁";
+  if (topic.qualityScore >= 55) return "需觀察";
+  return "偏雜訊";
 }
 
 function MetricPill({ children }: { children: React.ReactNode }) {
@@ -96,10 +96,28 @@ function CandidateCard({ topic }: { topic: CandidateTopic }) {
       <div className="mt-4 flex flex-wrap gap-2">
         <MetricPill>{topic.category}</MetricPill>
         <MetricPill>熱度 {topic.heatScore}</MetricPill>
+        <MetricPill>品質 {topic.qualityScore}</MetricPill>
         <MetricPill>{topic.sourceCount} 家媒體</MetricPill>
         <MetricPill>{topic.articleCount} 篇文章</MetricPill>
         <MetricPill>{formatRelativeTime(topic.latestPublishedAt)}</MetricPill>
       </div>
+
+      <p className="mt-4 rounded-xl bg-emerald-50/70 p-3 text-sm leading-6 text-slate-700">
+        {topic.summary}
+      </p>
+
+      {!topic.publishable && topic.rejectionReasons.length > 0 && (
+        <div className="mt-3 rounded-xl bg-amber-50 p-3">
+          <div className="text-xs font-semibold text-amber-700">
+            暫不自動上首頁原因
+          </div>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-amber-800">
+            {topic.rejectionReasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mt-4">
         <div className="text-xs font-semibold text-slate-500">候選關鍵字</div>

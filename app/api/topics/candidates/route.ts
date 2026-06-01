@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
       articleCount: newsItems.length,
       candidateCount: candidates.length,
+      publishableCount: candidates.filter((candidate) => candidate.publishable).length,
       candidates,
     });
   } catch (error) {

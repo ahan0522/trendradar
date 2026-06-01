@@ -10,12 +10,17 @@ type NewsArticle = {
 
 export type CandidateTopic = {
   id: string;
+  slug: string;
   title: string;
+  summary: string;
   category: string;
   keywords: string[];
   articleCount: number;
   sourceCount: number;
   heatScore: number;
+  qualityScore: number;
+  publishable: boolean;
+  rejectionReasons: string[];
   latestPublishedAt: string;
   articles: Array<{
     id: string;
@@ -168,6 +173,25 @@ function makeCandidateTitle(articles: NewsArticle[], keywords: string[]) {
   return keywords.slice(0, 2).join(" / ") || "候選主題";
 }
 
+function makeCandidateSlug(title: string, keywords: string[], index: number) {
+  const base = [...keywords.slice(0, 3), title]
+    .join("-")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return base || `candidate-${index + 1}`;
+}
+
+function makeCandidateSummary(articles: NewsArticle[], keywords: string[]) {
+  const sourceCount = new Set(articles.map((article) => article.sourceName)).size;
+  const category = getDominantCategory(articles);
+  const keywordText = keywords.slice(0, 3).join("、");
+
+  return `這組新聞集中在「${keywordText || category}」相關事件，共有 ${articles.length} 篇文章、${sourceCount} 家來源，適合作為可能的新興大主題觀察。`;
+}
+
 function cleanTitle(value: string) {
   return value
     .replace(/\s+-\s+[^-]{2,40}$/g, "")
@@ -188,6 +212,36 @@ function computeHeatScore(articles: NewsArticle[]) {
   }).length;
 
   return sourceCount * 30 + articleCount * 10 + recentCount * 20;
+}
+
+function evaluateCandidate(input: {
+  title: string;
+  keywords: string[];
+  articleCount: number;
+  sourceCount: number;
+}) {
+  let qualityScore = 0;
+  const rejectionReasons: string[] = [];
+
+  if (input.articleCount >= 4) qualityScore += 35;
+  else if (input.articleCount >= 2) qualityScore += 20;
+  else rejectionReasons.push("文章數不足");
+
+  if (input.sourceCount >= 2) qualityScore += 35;
+  else rejectionReasons.push("來源數不足，可能只是單一來源連發");
+
+  if (input.keywords.length >= 3) qualityScore += 15;
+  else rejectionReasons.push("可用關鍵字太少");
+
+  if (input.title.length <= 28) qualityScore += 15;
+  else if (input.title.length <= 42) qualityScore += 8;
+  else rejectionReasons.push("候選名稱仍太像新聞標題");
+
+  return {
+    qualityScore,
+    publishable: qualityScore >= 70 && rejectionReasons.length === 0,
+    rejectionReasons,
+  };
 }
 
 export function discoverCandidateTopics(
@@ -237,15 +291,27 @@ export function discoverCandidateTopics(
     .map((cluster, index) => {
       const keywords = getTopKeywords(cluster, 6);
       const sourceCount = new Set(cluster.map((article) => article.sourceName)).size;
+      const title = makeCandidateTitle(cluster, keywords);
+      const evaluation = evaluateCandidate({
+        title,
+        keywords,
+        articleCount: cluster.length,
+        sourceCount,
+      });
 
       return {
         id: `candidate-${index + 1}`,
-        title: makeCandidateTitle(cluster, keywords),
+        slug: makeCandidateSlug(title, keywords, index),
+        title,
+        summary: makeCandidateSummary(cluster, keywords),
         category: getDominantCategory(cluster),
         keywords,
         articleCount: cluster.length,
         sourceCount,
         heatScore: computeHeatScore(cluster),
+        qualityScore: evaluation.qualityScore,
+        publishable: evaluation.publishable,
+        rejectionReasons: evaluation.rejectionReasons,
         latestPublishedAt: getLatestPublishedAt(cluster),
         articles: cluster.slice(0, 8).map((article) => ({
           id: article.id,
