@@ -86,6 +86,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "市場正在關注 0050 成分股調整，相關概念股、傳產與金融股可能受到資金配置變化影響。";
   }
 
+  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
+    return "中東停火與美伊談判受到關注，焦點在以色列、黎巴嫩與伊朗相關表態是否影響後續區域局勢。";
+  }
+
   if (/伊朗|美軍|革命衛隊|德黑蘭|美伊|科威特|軍事設施/.test(value)) {
     return "伊朗與美軍相關衝突升溫，報導焦點放在軍事行動、反擊說法，以及中東安全局勢是否進一步擴大。";
   }
@@ -109,6 +113,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
 
   if (/0050|成分股|換股|換血/i.test(text)) {
     return `0050 成分股調整進入市場關注期，焦點在可能納入或剔除的個股，以及 ETF 資金配置變動對 AI 概念股、傳產與金融股的影響${sourceText}。`;
+  }
+
+  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(text)) {
+    return `中東停火與美伊談判相關消息升溫，報導焦點集中在以色列、黎巴嫩、伊朗與美方斡旋之間的互動，以及局勢是否會進一步擴大${sourceText}。`;
   }
 
   if (/伊朗|美軍|革命衛隊|德黑蘭|中東/.test(text)) {

@@ -259,6 +259,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "美中台海安全論述";
   }
 
+  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
+    return "中東停火與美伊談判";
+  }
+
   if (/伊朗|美軍基地|革命衛隊|中東|襲擊美軍|以色列/.test(value)) {
     return "伊朗與美軍基地衝突";
   }
@@ -341,6 +345,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
     return /伊朗|美軍|革命衛隊|德黑蘭/.test(sourceText);
   }
 
+  if (title === "中東停火與美伊談判") {
+    return /黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|伊朗/.test(sourceText);
+  }
+
   if (title === "東海與台海周邊執法爭議") {
     return /東海|台灣以東|日菲|中國海警|執法巡查/.test(sourceText);
   }
@@ -368,7 +376,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /0050|etf|伊朗|美軍|台海|東海|中國海警|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
     text
   );
 }

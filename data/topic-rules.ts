@@ -17,7 +17,7 @@ export const topicRules = [
     key: "iphone",
     title: "iPhone",
     category: "3C",
-    keywords: ["iphone", "apple", "ios", "siri", "apple intelligence"],
+    keywords: ["iphone", "ios", "siri", "apple intelligence"],
     imagePrompt: "clean product editorial cover for iPhone and Apple AI",
   },
   {
