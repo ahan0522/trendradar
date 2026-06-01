@@ -153,6 +153,10 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/員工薪酬|平均薪資|薪資破|薪酬|日月光/.test(value)) {
+    return "財經";
+  }
+
   if (/0050|etf|成分股|換股|換血/.test(value)) {
     return "財經";
   }
@@ -223,6 +227,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "0050 成分股調整";
   }
 
+  if (/員工薪酬|平均薪資|薪資破|薪酬/.test(value) && /日月光|台積電|半導體/.test(value)) {
+    return "半導體員工薪酬排行";
+  }
+
   if (/黃仁勳|輝達|nvidia|背板|mgx/.test(value)) {
     if (/背板|mgx|供應鏈|台廠|概念股|漲停/.test(value)) {
       return "AI 供應鏈與輝達概念股";
@@ -235,7 +243,7 @@ function inferTopicTitleFromSignals(value: string) {
     return "輝達與黃仁勳動態";
   }
 
-  if (/高通|qualcomm|台積電|供應鏈/.test(value)) {
+  if (/高通|qualcomm/.test(value) && /台積電|供應鏈|半導體/.test(value)) {
     return "高通與台灣半導體供應鏈";
   }
 
@@ -316,11 +324,61 @@ function computeHeatScore(articles: NewsArticle[]) {
   return sourceCount * 30 + articleCount * 10 + recentCount * 20;
 }
 
+function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
+  const sourceText = articles
+    .map((article) => `${article.title} ${article.description ?? ""}`)
+    .join(" ");
+
+  if (title === "AI 伺服器零件與供應鏈") {
+    return /ai|高盛|mlcc|零件|記憶體|伺服器/i.test(sourceText);
+  }
+
+  if (title === "0050 成分股調整") {
+    return /0050|成分股|換股|換血/.test(sourceText);
+  }
+
+  if (title === "伊朗與美軍基地衝突") {
+    return /伊朗|美軍|革命衛隊|德黑蘭/.test(sourceText);
+  }
+
+  if (title === "東海與台海周邊執法爭議") {
+    return /東海|台灣以東|日菲|中國海警|執法巡查/.test(sourceText);
+  }
+
+  if (title === "美中台海安全論述") {
+    return /美國|美防長|台灣|台海|香格里拉|印太/.test(sourceText);
+  }
+
+  if (title === "半導體員工薪酬排行") {
+    return /員工薪酬|平均薪資|薪資破|薪酬|日月光|台積電/.test(sourceText);
+  }
+
+  const titleTokens = tokenize(title).filter((token) => token.length >= 2);
+  if (titleTokens.length === 0) return true;
+
+  const articleText = normalizeText(sourceText);
+
+  const matchedTokenCount = titleTokens.filter((token) =>
+    articleText.includes(token)
+  ).length;
+
+  return matchedTokenCount >= Math.min(2, titleTokens.length);
+}
+
+function hasStrongEventSignal(title: string, keywords: string[]) {
+  const text = `${title} ${keywords.join(" ")}`.toLowerCase();
+
+  return /0050|etf|伊朗|美軍|台海|東海|中國海警|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+    text
+  );
+}
+
 function evaluateCandidate(input: {
   title: string;
   keywords: string[];
   articleCount: number;
   sourceCount: number;
+  articles: NewsArticle[];
 }) {
   let qualityScore = 0;
   const rejectionReasons: string[] = [];
@@ -339,9 +397,27 @@ function evaluateCandidate(input: {
   else if (input.title.length <= 42) qualityScore += 8;
   else rejectionReasons.push("候選名稱仍太像新聞標題");
 
+  if (titleHasSourceEvidence(input.title, input.articles)) {
+    qualityScore += 10;
+  } else {
+    qualityScore -= 25;
+    rejectionReasons.push("候選名稱缺少來源文章佐證");
+  }
+
+  if (input.articleCount === 2 && input.sourceCount === 2) {
+    if (hasStrongEventSignal(input.title, input.keywords)) {
+      qualityScore += 5;
+    } else {
+      qualityScore -= 20;
+      rejectionReasons.push("兩篇文章候選缺少明確事件訊號");
+    }
+  }
+
+  qualityScore = Math.max(0, Math.min(100, qualityScore));
+
   return {
     qualityScore,
-    publishable: qualityScore >= 70 && rejectionReasons.length === 0,
+    publishable: qualityScore >= 80 && rejectionReasons.length === 0,
     rejectionReasons,
   };
 }
@@ -406,6 +482,7 @@ export function discoverCandidateTopics(
         keywords,
         articleCount: cluster.length,
         sourceCount,
+        articles: cluster,
       });
 
       return {
