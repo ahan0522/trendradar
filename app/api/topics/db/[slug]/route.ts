@@ -114,6 +114,27 @@ function dedupeSimilarArticles(articles: ResponseArticle[]) {
     .slice(0, 8);
 }
 
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function buildReadableBullets(
+  topicBullets: string[] | null,
+  articles: ResponseArticle[]
+) {
+  const articleSummaries = uniqueStrings(
+    articles
+      .map((article) => article.quickSummary)
+      .filter((summary) => summary.length >= 12)
+  ).slice(0, 4);
+
+  if (articleSummaries.length > 0) {
+    return articleSummaries;
+  }
+
+  return Array.isArray(topicBullets) ? topicBullets : [];
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -244,6 +265,8 @@ export async function GET(
 
     const dedupedArticles = dedupeSimilarArticles(responseArticles);
 
+    const responseBullets = buildReadableBullets(topic.bullets, dedupedArticles);
+
     const responseTopic = {
       id: topic.id,
       slug: topic.slug,
@@ -259,7 +282,7 @@ export async function GET(
         topic.last_synced_at ??
         new Date().toISOString(),
       summary: topic.summary ?? "",
-      bullets: Array.isArray(topic.bullets) ? topic.bullets : [],
+      bullets: responseBullets,
       subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
       tags: Array.isArray(topic.tags) ? topic.tags : [],
       ruleKey: topic.rule_key ?? "",

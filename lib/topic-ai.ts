@@ -66,6 +66,18 @@ function removeMediaNoise(value: string) {
 }
 
 function inferQuickSummaryFromSignals(value: string) {
+  if (/n1x|pc戰場|聯發科|台積電|rtx spark|consumer laptop chips|computex/i.test(value)) {
+    return "輝達在 Computex 期間延伸 PC 與 AI 晶片布局，台積電、聯發科與多家硬體夥伴成為市場關注焦點。";
+  }
+
+  if (/黃仁勳|背板股|概念股|漲停|台股|供應鏈|下單畫面/.test(value)) {
+    return "黃仁勳相關消息帶動台股與 AI 供應鏈討論，市場焦點集中在概念股、供應鏈名單與資金熱度。";
+  }
+
+  if (/韓版|韓國|夥伴之夜|韓方|投資韓國/.test(value)) {
+    return "黃仁勳韓國行程引發關注，報導聚焦 NVIDIA 與韓國科技供應鏈、投資合作和產業關係。";
+  }
+
   if (/mlcc|被動元件|高盛|下一個記憶體|ai競賽/i.test(value)) {
     return "高盛與市場報告把部分被動元件視為 AI 伺服器供應鏈的新焦點，投資人正在關注報價、訂單與相關廠商獲利變化。";
   }
