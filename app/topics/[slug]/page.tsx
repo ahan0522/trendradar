@@ -196,7 +196,7 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="text-sm font-semibold text-blue-700">
-                    AI 摘要
+                    主題摘要
                   </div>
                   <h2 className="mt-1 text-2xl font-bold text-slate-950">
                     這個主題現在發生什麼事

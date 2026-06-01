@@ -43,6 +43,69 @@ type DbArticleRow = {
   updated_at: string | null;
 };
 
+type ResponseArticle = {
+  id: string;
+  title: string;
+  description: string;
+  quickSummary: string;
+  category: string;
+  region: string;
+  sourceId: string;
+  sourceName: string;
+  link: string;
+  publishedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+function normalizeComparableText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\b[a-z0-9-]+\.(com|tw|org|net|io|ai)\b/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getArticleSimilarityKey(article: ResponseArticle) {
+  const summary = normalizeComparableText(article.quickSummary);
+
+  if (summary.length >= 20) {
+    return `summary:${summary.slice(0, 80)}`;
+  }
+
+  return `title:${normalizeComparableText(article.title).slice(0, 80)}`;
+}
+
+function mergeSourceNames(sourceNames: string[]) {
+  return [...new Set(sourceNames.filter(Boolean))].join("、") || "未知來源";
+}
+
+function dedupeSimilarArticles(articles: ResponseArticle[]) {
+  const articleGroups = new Map<string, ResponseArticle[]>();
+
+  articles.forEach((article) => {
+    const key = getArticleSimilarityKey(article);
+    articleGroups.set(key, [...(articleGroups.get(key) ?? []), article]);
+  });
+
+  return [...articleGroups.values()].map((group) => {
+    const sortedGroup = [...group].sort((a, b) => {
+      const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+
+      return bTime - aTime;
+    });
+    const primary = sortedGroup[0];
+
+    return {
+      ...primary,
+      sourceName: mergeSourceNames(sortedGroup.map((article) => article.sourceName)),
+    };
+  });
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -147,6 +210,32 @@ export async function GET(
         .filter((value): value is DbArticleRow => Boolean(value));
     }
 
+    const responseArticles = articles.map((article) => {
+      const description = article.description ? cleanRssText(article.description) : "";
+      const sourceName = article.source_name ?? "";
+
+      return {
+        id: article.id,
+        title: article.title,
+        description,
+        quickSummary: generateArticleQuickSummary({
+          title: article.title,
+          description,
+          sourceName,
+        }),
+        category: article.category ?? "",
+        region: article.region ?? "",
+        sourceId: article.source_id ?? "",
+        sourceName,
+        link: article.link ?? "#",
+        publishedAt: article.published_at,
+        createdAt: article.created_at,
+        updatedAt: article.updated_at,
+      };
+    });
+
+    const dedupedArticles = dedupeSimilarArticles(responseArticles);
+
     const responseTopic = {
       id: topic.id,
       slug: topic.slug,
@@ -156,7 +245,7 @@ export async function GET(
       heroImageUrl: topic.hero_image_url ?? "",
       heatScore: topic.heat_score ?? 0,
       sourceCount: topic.source_count ?? 0,
-      articleCount: topic.article_count ?? 0,
+      articleCount: dedupedArticles.length,
       updatedAt:
         topic.last_article_published_at ??
         topic.last_synced_at ??
@@ -168,29 +257,7 @@ export async function GET(
       ruleKey: topic.rule_key ?? "",
       keywords: Array.isArray(topic.keywords) ? topic.keywords : [],
       discoveryMode: topic.discovery_mode ?? "rule_based",
-      articles: articles.map((article) => {
-        const description = article.description ? cleanRssText(article.description) : "";
-        const sourceName = article.source_name ?? "";
-
-        return {
-          id: article.id,
-          title: article.title,
-          description,
-          quickSummary: generateArticleQuickSummary({
-            title: article.title,
-            description,
-            sourceName,
-          }),
-          category: article.category ?? "",
-          region: article.region ?? "",
-          sourceId: article.source_id ?? "",
-          sourceName,
-          link: article.link ?? "#",
-          publishedAt: article.published_at,
-          createdAt: article.created_at,
-          updatedAt: article.updated_at,
-        };
-      }),
+      articles: dedupedArticles,
     };
 
     return NextResponse.json({
