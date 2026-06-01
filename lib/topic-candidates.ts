@@ -162,6 +162,15 @@ function getTopKeywords(articles: NewsArticle[], limit: number) {
 }
 
 function makeCandidateTitle(articles: NewsArticle[], keywords: string[]) {
+  const text = `${articles
+    .map((article) => article.title)
+    .join(" ")} ${keywords.join(" ")}`;
+  const ruleBasedTitle = inferTopicTitleFromSignals(text);
+
+  if (ruleBasedTitle) {
+    return ruleBasedTitle;
+  }
+
   const representativeTitle = articles
     .map((article) => cleanTitle(article.title))
     .sort((a, b) => a.length - b.length)[0];
@@ -171,6 +180,48 @@ function makeCandidateTitle(articles: NewsArticle[], keywords: string[]) {
   }
 
   return keywords.slice(0, 2).join(" / ") || "候選主題";
+}
+
+function inferTopicTitleFromSignals(value: string) {
+  const text = value.toLowerCase();
+
+  if (/0050|成分股|換股|換血/.test(value)) {
+    return "0050 成分股調整";
+  }
+
+  if (/黃仁勳|輝達|nvidia|背板|mgx/.test(value)) {
+    if (/背板|mgx|供應鏈|台廠|概念股|漲停/.test(value)) {
+      return "AI 供應鏈與輝達概念股";
+    }
+
+    if (/台積電|聯發科|pc|晶片|n1x/.test(value)) {
+      return "輝達、台積電與 AI 晶片";
+    }
+
+    return "輝達與黃仁勳動態";
+  }
+
+  if (/高通|qualcomm|台積電|供應鏈/.test(value)) {
+    return "高通與台灣半導體供應鏈";
+  }
+
+  if (/中國海警|海警|台海|東海|日菲|領土主權|執法巡查/.test(value)) {
+    return "東海與台海周邊執法爭議";
+  }
+
+  if (/流星|火流星|nasa|tnt|麻州/.test(value)) {
+    return "美國火流星爆炸事件";
+  }
+
+  if (/spacex|openai|anthropic|ai資金|資金潮/.test(text)) {
+    return "AI 新創與太空科技資金潮";
+  }
+
+  if (/中職|悍將|台鋼|棒球|投手/.test(value)) {
+    return "台灣棒球賽事動態";
+  }
+
+  return "";
 }
 
 function makeCandidateSlug(title: string, keywords: string[], index: number) {
@@ -194,6 +245,10 @@ function makeCandidateSummary(articles: NewsArticle[], keywords: string[]) {
 
 function cleanTitle(value: string) {
   return value
+    .replace(/^[^：:]{2,12}[：:]/g, "")
+    .replace(/！+/g, " ")
+    .replace(/？+/g, " ")
+    .replace(/「|」|《|》/g, "")
     .replace(/\s+-\s+[^-]{2,40}$/g, "")
     .replace(/\s+\|\s+[^|]{2,40}$/g, "")
     .replace(/\b[a-z0-9-]+\.(com|tw|org|net|io|ai)\b/gi, "")
