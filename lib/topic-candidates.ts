@@ -151,11 +151,15 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/0050|etf|成分股|換股|換血/.test(value)) {
+    return "財經";
+  }
+
   if (/輝達|黃仁勳|nvidia|openai|anthropic|ai|晶片|半導體|伺服器|hbm|記憶體|散熱/.test(value.toLowerCase())) {
     return "AI";
   }
 
-  if (/0050|etf|成分股|換股|換血|概念股|股市|台股|美股|金融|傳產|漲停/.test(value)) {
+  if (/概念股|股市|台股|美股|金融|傳產|漲停/.test(value)) {
     return "財經";
   }
 
