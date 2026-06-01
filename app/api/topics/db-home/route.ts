@@ -22,6 +22,8 @@ export async function GET() {
         status
       `)
       .eq("status", "active")
+      .not("slug", "is", null)
+      .gt("article_count", 0)
       .order("heat_score", { ascending: false })
       .limit(12);
 
