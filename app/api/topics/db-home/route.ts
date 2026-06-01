@@ -56,7 +56,11 @@ export async function GET() {
           return a.discoveryMode === "candidate_cluster" ? -1 : 1;
         }
 
-        return b.heatScore - a.heatScore;
+        if (b.heatScore !== a.heatScore) {
+          return b.heatScore - a.heatScore;
+        }
+
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       })
       .slice(0, 6);
 
