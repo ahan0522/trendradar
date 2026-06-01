@@ -60,6 +60,8 @@ const STOP_WORDS = new Set([
   "setn",
   "ettoday",
   "ftnn",
+  "newtalk",
+  "cna",
   "msn",
   "line",
   "pnn",
@@ -268,8 +270,8 @@ function inferTopicTitleFromSignals(value: string) {
   return "";
 }
 
-function makeCandidateSlug(title: string, keywords: string[], index: number) {
-  const base = [title, ...keywords.slice(0, 3)]
+function makeCandidateSlug(title: string, index: number) {
+  const base = [title]
     .join("-")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
@@ -408,7 +410,7 @@ export function discoverCandidateTopics(
 
       return {
         id: `candidate-${index + 1}`,
-        slug: makeCandidateSlug(title, keywords, index),
+        slug: makeCandidateSlug(title, index),
         title,
         summary: makeCandidateSummary(cluster, title),
         category,
@@ -431,5 +433,12 @@ export function discoverCandidateTopics(
       } satisfies CandidateTopic;
     })
     .sort((a, b) => b.heatScore - a.heatScore)
+    .filter((topic, index, topics) => {
+      const normalizedTitle = normalizeText(topic.title);
+      return (
+        topics.findIndex((item) => normalizeText(item.title) === normalizedTitle) ===
+        index
+      );
+    })
     .slice(0, maxTopics);
 }
