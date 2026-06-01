@@ -40,19 +40,51 @@ const STOP_WORDS = new Set([
   "最新",
   "更多",
   "前往",
+  "瀏覽",
+  "頭條",
+  "觀點",
   "google",
   "news",
   "yahoo",
   "udn",
+  "com",
+  "www",
+  "https",
+  "http",
+  "cnyes",
+  "setn",
+  "ettoday",
+  "ftnn",
+  "msn",
+  "line",
+  "today",
   "自由",
+  "自由體育",
+  "自由財經",
   "中央社",
+  "中時",
+  "工商時報",
+  "三立",
+  "民視",
+  "公視",
+  "鏡新聞",
+  "新聞網",
+  "新聞雲",
   "台灣",
   "全球",
   "國際",
+  "體育",
+  "財經",
+  "科技",
+  "娛樂",
 ]);
 
 function normalizeText(value: string) {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ");
+  return value
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/\b[a-z0-9-]+\.(com|tw|org|net|io|ai)\b/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ");
 }
 
 function tokenize(value: string) {
@@ -62,12 +94,18 @@ function tokenize(value: string) {
 
   return [...latinTokens, ...cjkTokens]
     .map((token) => token.trim())
-    .filter((token) => token.length >= 2 && !STOP_WORDS.has(token));
+    .filter(
+      (token) =>
+        token.length >= 2 &&
+        !/^\d+$/.test(token) &&
+        !STOP_WORDS.has(token) &&
+        ![...STOP_WORDS].some((stopWord) => token.includes(stopWord))
+    );
 }
 
 function getArticleTokens(article: NewsArticle) {
   return new Set(
-    tokenize(`${article.title} ${article.description ?? ""} ${article.category ?? ""}`)
+    tokenize(`${article.title} ${article.description ?? ""}`)
   );
 }
 
@@ -119,15 +157,24 @@ function getTopKeywords(articles: NewsArticle[], limit: number) {
 }
 
 function makeCandidateTitle(articles: NewsArticle[], keywords: string[]) {
-  const shortestTitle = articles
-    .map((article) => article.title)
+  const representativeTitle = articles
+    .map((article) => cleanTitle(article.title))
     .sort((a, b) => a.length - b.length)[0];
 
-  if (keywords.length >= 2) {
-    return `${keywords[0]} / ${keywords[1]}`;
+  if (representativeTitle) {
+    return representativeTitle;
   }
 
-  return shortestTitle.replace(/\s+-\s+.+$/g, "");
+  return keywords.slice(0, 2).join(" / ") || "候選主題";
+}
+
+function cleanTitle(value: string) {
+  return value
+    .replace(/\s+-\s+[^-]{2,40}$/g, "")
+    .replace(/\s+\|\s+[^|]{2,40}$/g, "")
+    .replace(/\b[a-z0-9-]+\.(com|tw|org|net|io|ai)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function computeHeatScore(articles: NewsArticle[]) {
@@ -153,7 +200,7 @@ export function discoverCandidateTopics(
 ): CandidateTopic[] {
   const maxTopics = options?.maxTopics ?? 6;
   const minArticles = options?.minArticles ?? 2;
-  const similarityThreshold = options?.similarityThreshold ?? 0.16;
+  const similarityThreshold = options?.similarityThreshold ?? 0.18;
 
   const articleTokens = new Map<string, Set<string>>();
   articles.forEach((article) => {
@@ -175,10 +222,7 @@ export function discoverCandidateTopics(
 
       const candidateTokens = articleTokens.get(candidate.id) ?? new Set<string>();
       const similarity = jaccardSimilarity(seedTokens, candidateTokens);
-      const sameCategory =
-        seed.category && candidate.category && seed.category === candidate.category;
-
-      if (similarity >= similarityThreshold || (sameCategory && similarity >= 0.1)) {
+      if (similarity >= similarityThreshold) {
         cluster.push(candidate);
         unused.delete(candidate.id);
       }
