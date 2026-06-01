@@ -70,6 +70,7 @@ function getTopSources(articles: TopicArticle[]) {
 
 function formatDiscoveryMode(mode?: string) {
   if (mode === "rule_based") return "規則分群";
+  if (mode === "candidate_cluster") return "自動候選分群";
   if (mode === "ai_discovered") return "AI 自動發現";
   return mode || "規則分群";
 }

@@ -84,6 +84,35 @@ function inferQuickSummaryFromSignals(value: string) {
   return "";
 }
 
+function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]) {
+  const text = `${input.topicTitle} ${input.keywords.join(" ")} ${input.articles
+    .map((article) => `${article.title} ${article.description ?? ""}`)
+    .join(" ")}`;
+  const sourceText = sourceNames.length ? `，目前由 ${sourceNames.join("、")} 等來源追蹤` : "";
+
+  if (/0050|成分股|換股|換血/i.test(text)) {
+    return `0050 成分股調整進入市場關注期，焦點在可能納入或剔除的個股，以及 ETF 資金配置變動對 AI 概念股、傳產與金融股的影響${sourceText}。`;
+  }
+
+  if (/伊朗|美軍|革命衛隊|德黑蘭|中東/.test(text)) {
+    return `伊朗與美軍相關衝突升溫，多家媒體聚焦軍事行動、反擊說法與中東安全情勢後續變化${sourceText}。`;
+  }
+
+  if (/東海|台灣以東|中國海警|日菲|執法巡查|海域/.test(text)) {
+    return `東海與台海周邊海域議題升溫，報導焦點集中在海域主張、執法巡查與周邊國家互動，後續可能牽動區域安全討論${sourceText}。`;
+  }
+
+  if (/美防長|香格里拉|印太|對台|台海|美中/.test(text)) {
+    return `美中台海安全論述持續發酵，焦點在美方對台政策表述、印太安全架構，以及相關發言可能造成的外交與安全解讀${sourceText}。`;
+  }
+
+  if (/mlcc|被動元件|高盛|下一個記憶體|ai競賽|伺服器/i.test(text)) {
+    return `AI 伺服器供應鏈出現新的市場焦點，報導集中在被動元件、報價循環與相關廠商獲利想像，投資人正在觀察訂單與產業趨勢是否延續${sourceText}。`;
+  }
+
+  return "";
+}
+
 function trimToSentence(value: string, maxLength: number) {
   const text = compactText(value);
   if (text.length <= maxLength) return text;
@@ -133,7 +162,10 @@ export async function generateTopicAiSummary(
 
   const longTitle = `${input.topicTitle}成今日熱門焦點`;
 
-  const summary = `近期與「${input.topicTitle}」相關的熱門新聞共有 ${input.articles.length} 篇，主要來自 ${sourceNames.join("、")} 等媒體，焦點集中在最新發展、事件結果與延伸影響。`;
+  const inferredSummary = inferTopicSummaryFromSignals(input, sourceNames);
+  const summary =
+    inferredSummary ||
+    `近期與「${input.topicTitle}」相關的熱門新聞共有 ${input.articles.length} 篇，主要來自 ${sourceNames.join("、")} 等媒體，焦點集中在最新發展、事件結果與延伸影響。`;
 
   const articleSummaries = uniqueStrings(
     input.articles
