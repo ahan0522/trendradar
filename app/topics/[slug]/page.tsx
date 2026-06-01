@@ -276,7 +276,7 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                   </h2>
                 </div>
                 <div className="text-sm text-slate-500">
-                  共 {topic.articles.length} 篇
+                  已合併相似來源，共 {topic.articles.length} 則
                 </div>
               </div>
 
