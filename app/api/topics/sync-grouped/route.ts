@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getNewsItems } from "@/lib/rss";
 import { topicRules } from "@/data/topic-rules";
 import { groupArticlesToHomepageTopics } from "@/lib/topic-grouping";
+import { getHeroImageForCategory } from "@/lib/topic-home";
+import { discoverCandidateTopics } from "@/lib/topic-candidates";
 import { generateTopicAiSummary } from "@/lib/topic-ai";
 import { createServiceRoleClient } from "../../../../utils/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase-server";
@@ -27,6 +29,7 @@ type PersistedArticle = {
 type SyncedTopic = {
   slug: string;
   title: string;
+  discoveryMode: string;
   articleCount: number;
   sourceCount: number;
   heatScore: number;
@@ -115,7 +118,7 @@ async function handleSyncGrouped(request: Request) {
     const newsItems = await getNewsItems({
       category: "全部",
       q: "",
-      limit: 100,
+      limit: 160,
     });
 
     const articles: NewsArticle[] = newsItems
@@ -164,6 +167,10 @@ async function handleSyncGrouped(request: Request) {
 
     // 2. 再做主題分群
     const groupedTopics = groupArticlesToHomepageTopics(articles);
+    const candidateTopics = discoverCandidateTopics(articles, {
+      maxTopics: 6,
+      minArticles: 2,
+    }).filter((topic) => topic.publishable);
 
     const syncedTopics: SyncedTopic[] = [];
     let linkedArticleCount = 0;
@@ -296,9 +303,166 @@ async function handleSyncGrouped(request: Request) {
       syncedTopics.push({
         slug: grouped.slug,
         title: grouped.title,
+        discoveryMode: "rule_based",
         articleCount: grouped.articleCount,
         sourceCount: grouped.sourceCount,
         heatScore: grouped.heatScore,
+        linkedArticleCount: topicArticleRows.length,
+      });
+    }
+
+    const { error: archiveCandidateTopicsError } = await supabase
+      .from("topics")
+      .update({
+        status: "inactive",
+        last_synced_at: new Date().toISOString(),
+      })
+      .eq("discovery_mode", "candidate_cluster");
+
+    if (archiveCandidateTopicsError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `封存舊候選 topics 失敗: ${archiveCandidateTopicsError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const syncedRuleTitles = new Set(
+      syncedTopics.map((topic) => normalizeText(topic.title))
+    );
+
+    for (const candidate of candidateTopics) {
+      if (syncedRuleTitles.has(normalizeText(candidate.title))) {
+        continue;
+      }
+
+      const matchedArticles = candidate.articles
+        .map((candidateArticle) =>
+          articles.find((article) => article.link === candidateArticle.link)
+        )
+        .filter((article): article is NewsArticle => Boolean(article));
+
+      if (matchedArticles.length === 0) {
+        skippedTopicsWithoutArticles += 1;
+        continue;
+      }
+
+      const aiResult = await generateTopicAiSummary({
+        topicTitle: candidate.title,
+        category: candidate.category,
+        keywords: candidate.keywords,
+        articles: matchedArticles.map((article) => ({
+          title: article.title,
+          description: article.description ?? "",
+          sourceName: article.sourceName,
+        })),
+      });
+
+      const topicRow = {
+        slug: candidate.slug,
+        title: candidate.title,
+        long_title: aiResult.longTitle,
+        category: candidate.category,
+        summary: aiResult.summary || candidate.summary,
+        bullets: aiResult.bullets,
+        subtopics: aiResult.subtopics,
+        tags: aiResult.tags,
+        hero_image_url: getHeroImageForCategory(candidate.category),
+        heat_score: candidate.heatScore,
+        source_count: candidate.sourceCount,
+        article_count: candidate.articleCount,
+        last_article_published_at: candidate.latestPublishedAt,
+        last_synced_at: new Date().toISOString(),
+        rule_key: null,
+        keywords: candidate.keywords,
+        discovery_mode: "candidate_cluster",
+        status: "active",
+        region: "global",
+      };
+
+      const { data: upsertedTopics, error: topicError } = await supabase
+        .from("topics")
+        .upsert(topicRow, { onConflict: "slug" })
+        .select("id, slug");
+
+      if (topicError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `寫入候選 topics 失敗: ${topicError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      const topicId = upsertedTopics?.[0]?.id;
+      if (!topicId) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `找不到候選 topics.id，slug=${candidate.slug}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      const topicArticleRows = matchedArticles
+        .map((article) => {
+          const persistedArticleId = article.link
+            ? articleIdByLink.get(article.link)
+            : undefined;
+
+          if (!persistedArticleId) return null;
+
+          return {
+            topic_id: topicId,
+            article_id: persistedArticleId,
+          };
+        })
+        .filter(Boolean);
+
+      linkedArticleCount += topicArticleRows.length;
+
+      const { error: deleteTopicArticlesError } = await supabase
+        .from("topic_articles")
+        .delete()
+        .eq("topic_id", topicId);
+
+      if (deleteTopicArticlesError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `清理候選 topic_articles 失敗: ${deleteTopicArticlesError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      const { error: topicArticlesError } = await supabase
+        .from("topic_articles")
+        .upsert(topicArticleRows as { topic_id: string; article_id: string }[], {
+          onConflict: "topic_id,article_id",
+        });
+
+      if (topicArticlesError) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `寫入候選 topic_articles 失敗: ${topicArticlesError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+
+      syncedTopics.push({
+        slug: candidate.slug,
+        title: candidate.title,
+        discoveryMode: "candidate_cluster",
+        articleCount: candidate.articleCount,
+        sourceCount: candidate.sourceCount,
+        heatScore: candidate.heatScore,
         linkedArticleCount: topicArticleRows.length,
       });
     }
@@ -313,6 +477,7 @@ async function handleSyncGrouped(request: Request) {
       articleCount: articles.length,
       persistedArticleCount: persistedArticles?.length ?? 0,
       groupedTopicCount: groupedTopics.length,
+      candidateTopicCount: candidateTopics.length,
       topicCount: syncedTopics.length,
       linkedArticleCount,
       skippedTopicsWithoutRule,

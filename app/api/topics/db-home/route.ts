@@ -18,11 +18,12 @@ export async function GET() {
         article_count,
         last_article_published_at,
         last_synced_at,
+        discovery_mode,
         status
       `)
       .eq("status", "active")
       .order("heat_score", { ascending: false })
-      .limit(6);
+      .limit(12);
 
     if (error) {
       return NextResponse.json(
@@ -34,20 +35,30 @@ export async function GET() {
       );
     }
 
-    const topics = (data ?? []).map((topic) => ({
-      id: topic.id,
-      slug: topic.slug,
-      title: topic.title,
-      category: topic.category ?? "",
-      heroImageUrl: topic.hero_image_url ?? "",
-      heatScore: topic.heat_score ?? 0,
-      sourceCount: topic.source_count ?? 0,
-      articleCount: topic.article_count ?? 0,
-      updatedAt:
-        topic.last_article_published_at ??
-        topic.last_synced_at ??
-        new Date().toISOString(),
-    }));
+    const topics = (data ?? [])
+      .map((topic) => ({
+        id: topic.id,
+        slug: topic.slug,
+        title: topic.title,
+        category: topic.category ?? "",
+        heroImageUrl: topic.hero_image_url ?? "",
+        heatScore: topic.heat_score ?? 0,
+        sourceCount: topic.source_count ?? 0,
+        articleCount: topic.article_count ?? 0,
+        updatedAt:
+          topic.last_article_published_at ??
+          topic.last_synced_at ??
+          new Date().toISOString(),
+        discoveryMode: topic.discovery_mode ?? "rule_based",
+      }))
+      .sort((a, b) => {
+        if (a.discoveryMode !== b.discoveryMode) {
+          return a.discoveryMode === "candidate_cluster" ? -1 : 1;
+        }
+
+        return b.heatScore - a.heatScore;
+      })
+      .slice(0, 6);
 
     return NextResponse.json({
       ok: true,
