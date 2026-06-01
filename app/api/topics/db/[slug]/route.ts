@@ -90,20 +90,28 @@ function dedupeSimilarArticles(articles: ResponseArticle[]) {
     articleGroups.set(key, [...(articleGroups.get(key) ?? []), article]);
   });
 
-  return [...articleGroups.values()].map((group) => {
-    const sortedGroup = [...group].sort((a, b) => {
+  return [...articleGroups.values()]
+    .map((group) => {
+      const sortedGroup = [...group].sort((a, b) => {
+        const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+
+        return bTime - aTime;
+      });
+      const primary = sortedGroup[0];
+
+      return {
+        ...primary,
+        sourceName: mergeSourceNames(sortedGroup.map((article) => article.sourceName)),
+      };
+    })
+    .sort((a, b) => {
       const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
       const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
 
       return bTime - aTime;
-    });
-    const primary = sortedGroup[0];
-
-    return {
-      ...primary,
-      sourceName: mergeSourceNames(sortedGroup.map((article) => article.sourceName)),
-    };
-  });
+    })
+    .slice(0, 8);
 }
 
 export async function GET(

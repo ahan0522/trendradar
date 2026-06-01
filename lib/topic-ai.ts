@@ -130,6 +130,16 @@ function trimToSentence(value: string, maxLength: number) {
   return `${text.slice(0, maxLength).trim()}...`;
 }
 
+function summarizeEnglishSource(title: string) {
+  const lowerTitle = title.toLowerCase();
+
+  if (/computex|nvidia|rtx|spark|chip|laptop|pc/.test(lowerTitle)) {
+    return "英文來源補充了 Computex、NVIDIA 晶片與裝置新品相關動態，可作為本主題的國際科技背景。";
+  }
+
+  return "這篇英文來源補充了本主題的國際背景，系統目前先保留為延伸閱讀來源。";
+}
+
 export function generateArticleQuickSummary(article: TopicAiInputArticle) {
   const title = removeMediaNoise(neutralizeNewsText(removeSourceSuffix(article.title)));
   const description = removeMediaNoise(compactText(article.description ?? ""));
@@ -146,6 +156,10 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
     const cleanedDescription = neutralizeNewsText(removeSourceSuffix(withoutDuplicateTitle));
 
     if (cleanedDescription && cleanedDescription.length > 16) {
+      if (!hasCjkText(cleanedDescription)) {
+        return summarizeEnglishSource(title);
+      }
+
       return trimToSentence(cleanedDescription, 120);
     }
   }
@@ -154,10 +168,7 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
     return trimToSentence(`這篇報導指出：${title}`, 120);
   }
 
-  return trimToSentence(
-    `這篇報導補充了與本主題相關的最新情況，系統會在後續 AI 摘要中進一步整理重點。`,
-    120
-  );
+  return summarizeEnglishSource(title);
 }
 
 export async function generateTopicAiSummary(
