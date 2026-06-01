@@ -146,6 +146,30 @@ function getDominantCategory(articles: NewsArticle[]) {
   );
 }
 
+function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/0050|etf|成分股|換股|換血|概念股|股市|台股|美股|金融|傳產|漲停/.test(value)) {
+    return "財經";
+  }
+
+  if (/輝達|黃仁勳|nvidia|openai|anthropic|ai|晶片|半導體|伺服器|hbm|記憶體|散熱/.test(value.toLowerCase())) {
+    return "AI";
+  }
+
+  if (/中國海警|海警|台海|東海|日菲|美防長|伊朗|美軍|中東|以色列|印太|國防/.test(value)) {
+    return "國際";
+  }
+
+  if (/nba|mlb|中職|棒球|籃球|悍將|台鋼|投手/.test(value.toLowerCase())) {
+    return "體育";
+  }
+
+  if (/iphone|android|手機|3c|高通|qualcomm|pc/.test(value.toLowerCase())) {
+    return "3C";
+  }
+
+  return fallback;
+}
+
 function getTopKeywords(articles: NewsArticle[], limit: number) {
   const counts = new Map<string, number>();
 
@@ -237,7 +261,7 @@ function inferTopicTitleFromSignals(value: string) {
 }
 
 function makeCandidateSlug(title: string, keywords: string[], index: number) {
-  const base = [...keywords.slice(0, 3), title]
+  const base = [title, ...keywords.slice(0, 3)]
     .join("-")
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
@@ -247,12 +271,16 @@ function makeCandidateSlug(title: string, keywords: string[], index: number) {
   return base || `candidate-${index + 1}`;
 }
 
-function makeCandidateSummary(articles: NewsArticle[], keywords: string[]) {
+function makeCandidateSummary(
+  articles: NewsArticle[],
+  keywords: string[],
+  title: string,
+  category: string
+) {
   const sourceCount = new Set(articles.map((article) => article.sourceName)).size;
-  const category = getDominantCategory(articles);
   const keywordText = keywords.slice(0, 3).join("、");
 
-  return `這組新聞集中在「${keywordText || category}」相關事件，共有 ${articles.length} 篇文章、${sourceCount} 家來源，適合作為可能的新興大主題觀察。`;
+  return `這組新聞聚焦「${title}」，目前有 ${articles.length} 篇文章、${sourceCount} 家來源共同報導。可先從「${keywordText || category}」幾個線索快速掌握事件脈絡。`;
 }
 
 function cleanTitle(value: string) {
@@ -359,6 +387,13 @@ export function discoverCandidateTopics(
       const keywords = getTopKeywords(cluster, 6);
       const sourceCount = new Set(cluster.map((article) => article.sourceName)).size;
       const title = makeCandidateTitle(cluster, keywords);
+      const signalText = `${title} ${keywords.join(" ")} ${cluster
+        .map((article) => `${article.title} ${article.description ?? ""}`)
+        .join(" ")}`;
+      const category = inferCategoryFromSignals(
+        signalText,
+        getDominantCategory(cluster)
+      );
       const evaluation = evaluateCandidate({
         title,
         keywords,
@@ -370,8 +405,8 @@ export function discoverCandidateTopics(
         id: `candidate-${index + 1}`,
         slug: makeCandidateSlug(title, keywords, index),
         title,
-        summary: makeCandidateSummary(cluster, keywords),
-        category: getDominantCategory(cluster),
+        summary: makeCandidateSummary(cluster, keywords, title, category),
+        category,
         keywords,
         articleCount: cluster.length,
         sourceCount,

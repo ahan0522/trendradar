@@ -33,6 +33,13 @@ export async function GET() {
 
     const publishableCandidates = candidateTopics
       .filter((topic) => topic.publishable)
+      .sort((a, b) => {
+        if (b.qualityScore !== a.qualityScore) {
+          return b.qualityScore - a.qualityScore;
+        }
+
+        return b.heatScore - a.heatScore;
+      })
       .map((topic) => ({
         id: topic.id,
         slug: topic.slug,
@@ -60,9 +67,10 @@ export async function GET() {
         qualityScore: null,
       }));
 
-    const topics = [...publishableCandidates, ...ruleTopics]
-      .sort((a, b) => b.heatScore - a.heatScore)
-      .slice(0, 6);
+    const topics = [
+      ...publishableCandidates.slice(0, 6),
+      ...ruleTopics.slice(0, Math.max(0, 6 - publishableCandidates.length)),
+    ].slice(0, 6);
 
     return NextResponse.json({
       ok: true,
