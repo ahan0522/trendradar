@@ -59,7 +59,8 @@ function removeMediaNoise(value: string) {
   return compactText(
     value
       .replace(/\b(Yahoo|Google News|UDN|MSN|LINE TODAY|MoneyDJ)\b/gi, "")
-      .replace(/Yahoo新聞|Yahoo股市|工商時報|自由財經|自由時報|中時新聞網|三立新聞網|鉅亨網|聯合新聞網|鏡新聞|中央社/g, "")
+      .replace(/\b(cnyes|Newtalk|PNN|Up Media)\b/gi, "")
+      .replace(/Yahoo新聞|Yahoo股市|工商時報|自由財經|自由時報|中時新聞網|三立新聞網|鉅亨網|聯合新聞網|鏡新聞|中央社|公視新聞網|上報/g, "")
       .replace(/\s+/g, " ")
   );
 }
@@ -71,6 +72,10 @@ function inferQuickSummaryFromSignals(value: string) {
 
   if (/0050|成分股|換股|換血/i.test(value)) {
     return "市場正在關注 0050 成分股調整，相關概念股、傳產與金融股可能受到資金配置變化影響。";
+  }
+
+  if (/伊朗|美軍|革命衛隊|德黑蘭|美伊|科威特|軍事設施/.test(value)) {
+    return "伊朗與美軍相關衝突升溫，報導焦點放在軍事行動、反擊說法，以及中東安全局勢是否進一步擴大。";
   }
 
   if (/台海|東海|中國海警|日菲|海域|執法巡查/.test(value)) {
