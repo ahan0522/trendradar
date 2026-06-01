@@ -135,10 +135,11 @@ export async function generateTopicAiSummary(
 
   const summary = `近期與「${input.topicTitle}」相關的熱門新聞共有 ${input.articles.length} 篇，主要來自 ${sourceNames.join("、")} 等媒體，焦點集中在最新發展、事件結果與延伸影響。`;
 
-  const articleSummaries = input.articles
-    .map((article) => generateArticleQuickSummary(article))
-    .filter((summaryItem) => hasCjkText(summaryItem))
-    .slice(0, 4);
+  const articleSummaries = uniqueStrings(
+    input.articles
+      .map((article) => generateArticleQuickSummary(article))
+      .filter((summaryItem) => hasCjkText(summaryItem))
+  ).slice(0, 4);
 
   const bullets =
     articleSummaries.length > 0
