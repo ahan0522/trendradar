@@ -153,6 +153,10 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|中東/.test(value)) {
+    return "國際";
+  }
+
   if (/員工薪酬|平均薪資|薪資破|薪酬|日月光/.test(value)) {
     return "財經";
   }
