@@ -90,6 +90,40 @@ const STOP_WORDS = new Set([
   "娛樂",
 ]);
 
+const SIGNAL_KEYWORDS = [
+  "中國海警",
+  "台灣東部海域",
+  "專屬經濟區",
+  "執法巡查",
+  "海委會",
+  "東海",
+  "台海",
+  "日菲",
+  "伊朗",
+  "美軍基地",
+  "革命衛隊",
+  "德黑蘭",
+  "中東",
+  "以色列",
+  "黎巴嫩",
+  "真主黨",
+  "停火",
+  "美伊談判",
+  "美伊和談",
+  "輝達",
+  "黃仁勳",
+  "台積電",
+  "0050",
+  "成分股",
+  "AI 伺服器",
+  "MLCC",
+  "Meta",
+  "Instagram",
+  "Sony",
+  "NBA",
+  "iPhone",
+];
+
 function normalizeText(value: string) {
   return value
     .toLowerCase()
@@ -192,6 +226,14 @@ function getTopKeywords(articles: NewsArticle[], limit: number) {
   const counts = new Map<string, number>();
 
   articles.forEach((article) => {
+    const text = `${article.title} ${article.description ?? ""}`;
+
+    SIGNAL_KEYWORDS.forEach((keyword) => {
+      if (text.toLowerCase().includes(keyword.toLowerCase())) {
+        counts.set(keyword, (counts.get(keyword) ?? 0) + 3);
+      }
+    });
+
     getArticleTokens(article).forEach((token) => {
       counts.set(token, (counts.get(token) ?? 0) + 1);
     });
@@ -199,6 +241,7 @@ function getTopKeywords(articles: NewsArticle[], limit: number) {
 
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
+    .filter(([token]) => !SIGNAL_KEYWORDS.some((keyword) => keyword !== token && keyword.includes(token)))
     .slice(0, limit)
     .map(([token]) => token);
 }
