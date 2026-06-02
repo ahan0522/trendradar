@@ -4,6 +4,79 @@ import { createServiceRoleClient } from "../../../../utils/supabase/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type HomeTopic = {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  heroImageUrl: string;
+  heatScore: number;
+  sourceCount: number;
+  articleCount: number;
+  updatedAt: string;
+  discoveryMode: string;
+};
+
+function getTopicFamily(topic: HomeTopic) {
+  const text = `${topic.title} ${topic.slug} ${topic.category}`.toLowerCase();
+
+  if (/伊朗|美軍|美伊|中東|以色列|黎巴嫩|真主黨|停火|iran|israel/.test(text)) {
+    return "middle-east";
+  }
+
+  if (/台海|東海|中國海警|兩岸|國防|軍演|taiwan-security/.test(text)) {
+    return "taiwan-security";
+  }
+
+  if (/輝達|黃仁勳|nvidia|ai|晶片|半導體/.test(text)) {
+    return "ai-semiconductor";
+  }
+
+  if (/nba|籃球|季後賽|總冠軍/.test(text)) {
+    return "basketball";
+  }
+
+  return topic.category || "general";
+}
+
+function selectDiverseHomeTopics(topics: HomeTopic[]) {
+  const selected: HomeTopic[] = [];
+  const categoryCounts = new Map<string, number>();
+  const familyCounts = new Map<string, number>();
+
+  for (const topic of topics) {
+    const categoryCount = categoryCounts.get(topic.category) ?? 0;
+    const family = getTopicFamily(topic);
+    const familyCount = familyCounts.get(family) ?? 0;
+
+    if (categoryCount >= 2 || familyCount >= 1) {
+      continue;
+    }
+
+    selected.push(topic);
+    categoryCounts.set(topic.category, categoryCount + 1);
+    familyCounts.set(family, familyCount + 1);
+
+    if (selected.length >= 6) {
+      return selected;
+    }
+  }
+
+  for (const topic of topics) {
+    if (selected.some((item) => item.id === topic.id)) {
+      continue;
+    }
+
+    selected.push(topic);
+
+    if (selected.length >= Math.min(3, topics.length)) {
+      break;
+    }
+  }
+
+  return selected.slice(0, 6);
+}
+
 export async function GET() {
   try {
     const supabase = createServiceRoleClient();
@@ -41,7 +114,7 @@ export async function GET() {
       );
     }
 
-    const topics = (data ?? [])
+    const topics = selectDiverseHomeTopics((data ?? [])
       .map((topic) => ({
         id: topic.id,
         slug: topic.slug,
@@ -67,8 +140,7 @@ export async function GET() {
         }
 
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      })
-      .slice(0, 6);
+      }));
 
     return NextResponse.json(
       {
