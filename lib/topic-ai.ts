@@ -59,7 +59,9 @@ function removeMediaNoise(value: string) {
   return compactText(
     value
       .replace(/[（(]?\s*(中央社)?記者[^）)]{2,24}[）)]?/g, "")
+      .replace(/[（(][^）)]{1,16}綜合外電報導[）)]/g, "")
       .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)\d*日電[）)]?/g, "")
+      .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)\d*日綜合外電報導[）)]?/g, "")
       .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)[報導電]+/g, "")
       .replace(/\b(Yahoo|Google News|UDN|MSN|LINE TODAY|MoneyDJ)\b/gi, "")
       .replace(/\b(cnyes|Newtalk|PNN|Up Media)\b/gi, "")
@@ -147,6 +149,18 @@ function inferQuickSummaryFromSignals(value: string) {
 
   if (/伊朗|美軍|革命衛隊|德黑蘭|美伊|科威特|軍事設施/.test(value)) {
     return "伊朗與美軍相關衝突升溫，報導焦點放在軍事行動、反擊說法，以及中東安全局勢是否進一步擴大。";
+  }
+
+  if (/遼寧艦|艦載機|航空母艦|起降|日本防衛省|小泉進次郎/i.test(value)) {
+    return "中國航艦遼寧號在太平洋周邊活動引發日本關注，焦點在艦載機起降頻率與解放軍遠海作戰能力變化。";
+  }
+
+  if (/董軍|南非|中國國防部長|未出席重要場合|香格里拉/i.test(value)) {
+    return "中國國防部長董軍行程引發外界關注，報導焦點在其公開露面、外交訪問與區域安全訊號。";
+  }
+
+  if (/松田康博|中國與台灣|吉野作造獎|讀賣/i.test(value)) {
+    return "這則來源關注台海研究與相關著作獲獎，補充日本學界與媒體對中國、台灣議題的觀察。";
   }
 
   if (/台海|東海|中國海警|日菲|海域|執法巡查/.test(value)) {
