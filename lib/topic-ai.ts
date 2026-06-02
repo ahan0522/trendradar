@@ -82,7 +82,15 @@ function inferQuickSummaryFromSignals(value: string) {
     return "貿聯看好下半年 AI 伺服器平台升級需求，市場關注 Vera Rubin 等新平台是否帶動連接線與供應鏈營運回升。";
   }
 
-  if (/大賣空|看空|網路泡沫|泡沫|估值|點名輝達/i.test(value)) {
+  if (/邁威爾|marvell|兆元企業|股價.*創新高/i.test(value)) {
+    return "黃仁勳點名邁威爾的成長潛力後，市場關注 AI 基礎設施需求是否推動相關晶片與網通供應鏈升溫。";
+  }
+
+  if (/anthropic|openai最大對手|秘密遞交ipo|ipo申請/i.test(value)) {
+    return "Anthropic 傳出準備 IPO，市場焦點在 AI 新創估值、資本市場熱度，以及 OpenAI 競爭格局的變化。";
+  }
+
+  if (/大賣空|看空|網路泡沫|點名輝達.*泡沫|輝達.*泡沫/i.test(value)) {
     return "市場出現對輝達估值與 AI 題材過熱的疑慮，部分投資人把焦點放在是否重演科技泡沫風險。";
   }
 
