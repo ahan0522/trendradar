@@ -1,4 +1,7 @@
-import { computeWeightedHeatScore } from "@/lib/source-scoring";
+import {
+  computeWeightedHeatScore,
+  getEffectiveSourceCount,
+} from "@/lib/source-scoring";
 import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
 
 type NewsArticle = {
@@ -416,7 +419,7 @@ function makeCandidateSummary(
   articles: NewsArticle[],
   title: string
 ) {
-  const sourceCount = new Set(articles.map((article) => article.sourceName)).size;
+  const sourceCount = getEffectiveSourceCount(articles);
 
   return `這組新聞聚焦「${title}」，目前有 ${articles.length} 篇文章、${sourceCount} 家來源共同報導，代表多家媒體正在追蹤同一事件。`;
 }
@@ -582,7 +585,7 @@ export function discoverCandidateTopics(
   return mergeRelatedClusters(clusters)
     .map((cluster, index) => {
       const keywords = getTopKeywords(cluster, 6);
-      const sourceCount = new Set(cluster.map((article) => article.sourceName)).size;
+      const sourceCount = getEffectiveSourceCount(cluster);
       const title = makeCandidateTitle(cluster, keywords);
       const signalText = `${title} ${keywords.join(" ")} ${cluster
         .map((article) => `${article.title} ${article.description ?? ""}`)

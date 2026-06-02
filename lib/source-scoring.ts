@@ -61,7 +61,7 @@ export function getWeightedSourceScore(articles: SourceSignal[]) {
   const bestWeightBySource = new Map<string, number>();
 
   articles.forEach((article) => {
-    const sourceName = article.sourceName || "unknown";
+    const sourceName = getCanonicalSourceName(article);
     const currentWeight = bestWeightBySource.get(sourceName) ?? 0;
     const sourceWeight = getSourceWeight(article);
     const credibilityWeight = getCredibilityWeight(article);
@@ -73,6 +73,27 @@ export function getWeightedSourceScore(articles: SourceSignal[]) {
   });
 
   return [...bestWeightBySource.values()].reduce((sum, weight) => sum + weight, 0);
+}
+
+export function getCanonicalSourceName(source: {
+  sourceName?: string;
+  sourceKind?: SourceKind;
+}) {
+  const sourceName = source.sourceName?.trim() || "unknown";
+
+  if (source.sourceKind === "aggregator" && sourceName.startsWith("Google News")) {
+    return "Google News";
+  }
+
+  if (sourceName.startsWith("中央社")) {
+    return "中央社";
+  }
+
+  return sourceName;
+}
+
+export function getEffectiveSourceCount(articles: Pick<SourceSignal, "sourceName" | "sourceKind">[]) {
+  return new Set(articles.map(getCanonicalSourceName)).size;
 }
 
 export function getRecentWeightedScore(articles: SourceSignal[], windowHours = 6) {

@@ -1,5 +1,8 @@
 import { topicRules } from "@/data/topic-rules";
-import { computeWeightedHeatScore } from "@/lib/source-scoring";
+import {
+  computeWeightedHeatScore,
+  getEffectiveSourceCount,
+} from "@/lib/source-scoring";
 import type { HomepageTopicCard } from "@/types/topic";
 import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
 
@@ -92,9 +95,7 @@ export function groupArticlesToHomepageTopics(
   const topicCards: HomepageTopicCard[] = buckets
     .filter((bucket) => bucket.articles.length > 0)
     .map((bucket) => {
-      const sourceCount = new Set(
-        bucket.articles.map((article) => article.sourceName)
-      ).size;
+      const sourceCount = getEffectiveSourceCount(bucket.articles);
 
       const articleCount = bucket.articles.length;
       const heatScore = computeWeightedHeatScore(bucket.articles);
