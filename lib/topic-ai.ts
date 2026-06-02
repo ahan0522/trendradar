@@ -148,6 +148,14 @@ function inferQuickSummaryFromSignals(value: string) {
     return "市場正在關注 0050 成分股調整，相關概念股、傳產與金融股可能受到資金配置變化影響。";
   }
 
+  if (/t-34|教練機|飛官|墜毀|殉職|橋檢|相驗/i.test(value)) {
+    return "T-34 教練機墜毀造成飛官殉職，報導焦點在事故調查、遺體相驗與後續飛安檢討。";
+  }
+
+  if (/火星|暖水|隕石坑|宜居|古隕石坑|古環境/.test(value)) {
+    return "最新火星研究指出古代隕石坑可能曾有液態水環境，焦點在火星早期氣候、宜居條件與後續探測意義。";
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
     return "中東停火與美伊談判受到關注，焦點在以色列、黎巴嫩與伊朗相關表態是否影響後續區域局勢。";
   }
@@ -189,6 +197,14 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `0050 成分股調整進入市場關注期，焦點在可能納入或剔除的個股，以及 ETF 資金配置變動對 AI 概念股、傳產與金融股的影響${sourceText}。`;
   }
 
+  if (/t-34|教練機|飛官|墜毀|殉職|橋檢|相驗/i.test(text)) {
+    return `T-34 教練機墜毀事故受到多家媒體追蹤，焦點集中在飛官殉職、事故原因調查、相驗程序與後續飛安檢討${sourceText}。`;
+  }
+
+  if (/火星|暖水|隕石坑|宜居|古環境/.test(text)) {
+    return `火星古環境研究出現新線索，科學報導聚焦古代液態水、隕石坑地質與火星是否曾具備宜居條件${sourceText}。`;
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(text)) {
     return `中東停火與美伊談判相關消息升溫，報導焦點集中在以色列、黎巴嫩、伊朗與美方斡旋之間的互動，以及局勢是否會進一步擴大${sourceText}。`;
   }
@@ -210,6 +226,37 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
   }
 
   return "";
+}
+
+function inferSubtopicsFromSignals(input: TopicAiInput) {
+  const text = `${input.topicTitle} ${input.keywords.join(" ")} ${input.articles
+    .map((article) => `${article.title} ${article.description ?? ""}`)
+    .join(" ")}`;
+
+  if (input.topicTitle === "AI" || /人工智慧|生成式 ai|openai|輝達|nvidia|資料中心|機器人/i.test(text)) {
+    const branches = [
+      /openai|anthropic|模型|生成式|agent|代理ai/i.test(text) ? "模型與產品" : "",
+      /輝達|nvidia|gpu|晶片|半導體|伺服器|資料中心/i.test(text) ? "晶片與基礎建設" : "",
+      /機器人|自動化|實體ai|physical ai/i.test(text) ? "機器人與應用" : "",
+      /供應鏈|台積電|聯發科|記憶體|散熱|hbm/i.test(text) ? "供應鏈動態" : "",
+    ];
+
+    return uniqueStrings(branches).slice(0, 4);
+  }
+
+  if (/t-34|教練機|飛官|墜毀|殉職/i.test(text)) {
+    return ["事故經過", "人員傷亡", "調查進度", "飛安檢討"];
+  }
+
+  if (/0050|成分股|換股|換血/i.test(text)) {
+    return ["成分股變動", "ETF 資金配置", "受影響產業", "後續觀察"];
+  }
+
+  if (/台海|印太|美防長|對台|美中/i.test(text)) {
+    return ["美方表態", "台海安全", "印太局勢", "後續外交解讀"];
+  }
+
+  return [];
 }
 
 function trimToSentence(value: string, maxLength: number) {
@@ -302,7 +349,10 @@ export async function generateTopicAiSummary(
           "目前資訊仍在累積，後續同步會持續更新事件脈絡。",
         ];
 
-  const subtopics = input.keywords.slice(0, 4).map((item) => item);
+  const inferredSubtopics = inferSubtopicsFromSignals(input);
+  const subtopics = inferredSubtopics.length
+    ? inferredSubtopics
+    : input.keywords.slice(0, 4).map((item) => item);
   const tags = input.keywords.slice(0, 4).map((item) => item);
 
   return {

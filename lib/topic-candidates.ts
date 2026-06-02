@@ -392,6 +392,14 @@ function inferTopicTitleFromSignals(value: string) {
     return "0050 成分股調整";
   }
 
+  if (/t-34|教練機|飛官|墜毀|殉職|橋檢|相驗/i.test(value)) {
+    return "T-34 教練機墜毀事故";
+  }
+
+  if (/火星|暖水|隕石坑|宜居|古隕石坑|科學最新研究/.test(value)) {
+    return "火星古環境與宜居研究";
+  }
+
   if (/員工薪酬|平均薪資|薪資破|薪酬/.test(value) && /日月光|台積電|半導體/.test(value)) {
     return "半導體員工薪酬排行";
   }
@@ -491,6 +499,14 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "0050 成分股調整") {
     return /0050|成分股|換股|換血/.test(sourceText);
+  }
+
+  if (title === "T-34 教練機墜毀事故") {
+    return /t-34|教練機|飛官|墜毀|殉職|相驗/i.test(sourceText);
+  }
+
+  if (title === "火星古環境與宜居研究") {
+    return /火星|暖水|隕石坑|宜居|古環境/.test(sourceText);
   }
 
   if (title === "伊朗與美軍基地衝突") {
