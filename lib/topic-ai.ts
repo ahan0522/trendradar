@@ -58,11 +58,30 @@ function neutralizeNewsText(value: string) {
 function removeMediaNoise(value: string) {
   return compactText(
     value
+      .replace(/[（(]?\s*(中央社)?記者[^）)]{2,24}[）)]?/g, "")
+      .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)\d*日電[）)]?/g, "")
+      .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)[報導電]+/g, "")
       .replace(/\b(Yahoo|Google News|UDN|MSN|LINE TODAY|MoneyDJ)\b/gi, "")
       .replace(/\b(cnyes|Newtalk|PNN|Up Media)\b/gi, "")
       .replace(/Yahoo新聞|Yahoo股市|工商時報|自由財經|自由時報|中時新聞網|三立新聞網|鉅亨網|聯合新聞網|鏡新聞|中央社|公視新聞網|上報/g, "")
       .replace(/\s+/g, " ")
   );
+}
+
+function isMostlyDuplicateText(value: string, reference: string) {
+  const normalizedValue = compactText(removeSourceSuffix(value));
+  const normalizedReference = compactText(removeSourceSuffix(reference));
+
+  if (!normalizedValue || !normalizedReference) return false;
+  if (normalizedValue === normalizedReference) return true;
+  if (normalizedValue.startsWith(normalizedReference)) return true;
+
+  const valueTokens = new Set(normalizedValue.split(""));
+  const referenceTokens = new Set(normalizedReference.split(""));
+  const overlap = [...valueTokens].filter((token) => referenceTokens.has(token)).length;
+  const ratio = overlap / Math.max(1, Math.min(valueTokens.size, referenceTokens.size));
+
+  return ratio > 0.88 && normalizedValue.length < normalizedReference.length + 30;
 }
 
 function inferQuickSummaryFromSignals(value: string) {
@@ -205,7 +224,7 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
     return inferredSummary;
   }
 
-  if (description) {
+  if (description && !isMostlyDuplicateText(description, title)) {
     const withoutDuplicateTitle = description.startsWith(title)
       ? compactText(description.slice(title.length))
       : description;
@@ -221,7 +240,7 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
   }
 
   if (hasCjkText(title)) {
-    return trimToSentence(`這篇報導指出：${title}`, 120);
+    return trimToSentence(`這則來源補充了「${title}」的相關進展，適合用來回看事件細節與原始脈絡。`, 120);
   }
 
   return summarizeEnglishSource(title);
