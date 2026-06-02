@@ -94,6 +94,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "所羅門整合輝達架構推進實體 AI 與人形機器人應用，焦點在機器人自主化與邊緣 AI 落地。";
   }
 
+  if (/鴻海|亞灣|超算|代理ai|ai基建|ai基礎建設/i.test(value)) {
+    return "鴻海與輝達合作推進 AI 基礎建設與超算應用，焦點在台灣 AI 基建、代理 AI 與資料中心需求。";
+  }
+
   if (/大賣空|看空|網路泡沫|點名輝達.*泡沫|輝達.*泡沫/i.test(value)) {
     return "市場出現對輝達估值與 AI 題材過熱的疑慮，部分投資人把焦點放在是否重演科技泡沫風險。";
   }
