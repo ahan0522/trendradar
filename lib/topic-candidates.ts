@@ -242,6 +242,10 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/playstation|ps5|state of play|god of war|atlantis|trailer|gameplay|nintendo|xbox|steam|遊戲/i.test(value)) {
+    return "遊戲";
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|中東/.test(value)) {
     return "國際";
   }
@@ -396,6 +400,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "0050 成分股調整";
   }
 
+  if (/playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(value)) {
+    return "PlayStation 遊戲發表動態";
+  }
+
   if (/t-34|教練機|飛官|墜毀|殉職|橋檢|相驗/i.test(value)) {
     return "T-34 教練機墜毀事故";
   }
@@ -503,6 +511,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "0050 成分股調整") {
     return /0050|成分股|換股|換血/.test(sourceText);
+  }
+
+  if (title === "PlayStation 遊戲發表動態") {
+    return /playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(sourceText);
   }
 
   if (title === "T-34 教練機墜毀事故") {
