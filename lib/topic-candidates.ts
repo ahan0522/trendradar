@@ -203,6 +203,69 @@ function getTopKeywords(articles: NewsArticle[], limit: number) {
     .map(([token]) => token);
 }
 
+function getClusterText(articles: NewsArticle[]) {
+  return articles
+    .map((article) => `${article.title} ${article.description ?? ""}`)
+    .join(" ");
+}
+
+function hasMiddleEastConflictSignal(value: string) {
+  return /伊朗|美軍|美伊|中東|以色列|黎巴嫩|真主黨|停火|革命衛隊|德黑蘭/.test(
+    value
+  );
+}
+
+function shouldMergeClusters(a: NewsArticle[], b: NewsArticle[]) {
+  const aText = getClusterText(a);
+  const bText = getClusterText(b);
+
+  if (hasMiddleEastConflictSignal(aText) && hasMiddleEastConflictSignal(bText)) {
+    return true;
+  }
+
+  const aKeywords = new Set(getTopKeywords(a, 8));
+  const bKeywords = new Set(getTopKeywords(b, 8));
+  const overlapCount = [...aKeywords].filter((keyword) =>
+    bKeywords.has(keyword)
+  ).length;
+
+  if (overlapCount < 3) return false;
+
+  const combinedCategory = inferCategoryFromSignals(
+    `${aText} ${bText}`,
+    getDominantCategory([...a, ...b])
+  );
+  const sameCategory =
+    inferCategoryFromSignals(aText, getDominantCategory(a)) === combinedCategory &&
+    inferCategoryFromSignals(bText, getDominantCategory(b)) === combinedCategory;
+
+  return sameCategory;
+}
+
+function mergeRelatedClusters(clusters: NewsArticle[][]) {
+  const merged: NewsArticle[][] = [];
+
+  for (const cluster of clusters) {
+    const matchedCluster = merged.find((existingCluster) =>
+      shouldMergeClusters(existingCluster, cluster)
+    );
+
+    if (matchedCluster) {
+      const links = new Set(matchedCluster.map((article) => article.link));
+      cluster.forEach((article) => {
+        if (!links.has(article.link)) {
+          matchedCluster.push(article);
+        }
+      });
+      continue;
+    }
+
+    merged.push([...cluster]);
+  }
+
+  return merged;
+}
+
 function makeCandidateTitle(articles: NewsArticle[], keywords: string[]) {
   const text = `${articles
     .map((article) => article.title)
@@ -477,7 +540,7 @@ export function discoverCandidateTopics(
     }
   }
 
-  return clusters
+  return mergeRelatedClusters(clusters)
     .map((cluster, index) => {
       const keywords = getTopKeywords(cluster, 6);
       const sourceCount = new Set(cluster.map((article) => article.sourceName)).size;
