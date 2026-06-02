@@ -246,6 +246,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "國際";
   }
 
+  if (/股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停/.test(value.toLowerCase())) {
+    return "財經";
+  }
+
   if (/員工薪酬|平均薪資|薪資破|薪酬|日月光/.test(value)) {
     return "財經";
   }
@@ -552,7 +556,18 @@ function hasStrongEventSignal(title: string, keywords: string[]) {
 function isLowValueTopic(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`;
 
-  return /大樂透|威力彩|今彩|雙贏彩|開獎|頭獎|中獎號碼|彩券/.test(text);
+  if (/大樂透|威力彩|今彩|雙贏彩|開獎|頭獎|中獎號碼|彩券/.test(text)) {
+    return true;
+  }
+
+  if (
+    /股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|營收\d|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停/i.test(text) &&
+    !/0050|etf|成分股|換股|換血/i.test(text)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function evaluateCandidate(input: {
@@ -606,7 +621,7 @@ function evaluateCandidate(input: {
 
   if (lowValueTopic) {
     qualityScore -= 40;
-    rejectionReasons.push("低資訊量即時結果，不適合作為大主題");
+    rejectionReasons.push("低資訊量或單股市場訊息，不適合作為大主題");
   }
 
   qualityScore = Math.max(0, Math.min(100, qualityScore));
