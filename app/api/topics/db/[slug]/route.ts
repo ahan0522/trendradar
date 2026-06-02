@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanRssText } from "@/lib/rss";
+import { getCanonicalSourceName } from "@/lib/source-scoring";
 import { generateArticleQuickSummary } from "@/lib/topic-ai";
 import { createServiceRoleClient } from "../../../../../utils/supabase/server";
 
@@ -79,18 +80,65 @@ function getArticleSimilarityKey(article: ResponseArticle) {
 }
 
 function mergeSourceNames(sourceNames: string[]) {
-  return [...new Set(sourceNames.filter(Boolean))].join("、") || "未知來源";
+  return [...new Set(
+    sourceNames
+      .filter(Boolean)
+      .map((sourceName) => getCanonicalSourceName({ sourceName }))
+  )].join("、") || "未知來源";
+}
+
+function tokenizeComparableText(value: string) {
+  return normalizeComparableText(value)
+    .split(" ")
+    .filter((token) => token.length >= 2);
+}
+
+function getTextSimilarity(a: string, b: string) {
+  const aTokens = new Set(tokenizeComparableText(a));
+  const bTokens = new Set(tokenizeComparableText(b));
+
+  if (aTokens.size === 0 || bTokens.size === 0) return 0;
+
+  const overlap = [...aTokens].filter((token) => bTokens.has(token)).length;
+  return overlap / Math.max(1, Math.min(aTokens.size, bTokens.size));
+}
+
+function areLikelySameStory(a: ResponseArticle, b: ResponseArticle) {
+  const sameCanonicalSource =
+    getCanonicalSourceName({ sourceName: a.sourceName }) ===
+    getCanonicalSourceName({ sourceName: b.sourceName });
+  const summarySimilarity = getTextSimilarity(a.quickSummary, b.quickSummary);
+  const titleSimilarity = getTextSimilarity(a.title, b.title);
+
+  if (summarySimilarity >= 0.78 || titleSimilarity >= 0.78) {
+    return true;
+  }
+
+  return sameCanonicalSource && (summarySimilarity >= 0.58 || titleSimilarity >= 0.58);
 }
 
 function dedupeSimilarArticles(articles: ResponseArticle[]) {
-  const articleGroups = new Map<string, ResponseArticle[]>();
+  const articleGroups: ResponseArticle[][] = [];
 
   articles.forEach((article) => {
     const key = getArticleSimilarityKey(article);
-    articleGroups.set(key, [...(articleGroups.get(key) ?? []), article]);
+    const matchedGroup = articleGroups.find((group) =>
+      group.some(
+        (existingArticle) =>
+          getArticleSimilarityKey(existingArticle) === key ||
+          areLikelySameStory(existingArticle, article)
+      )
+    );
+
+    if (matchedGroup) {
+      matchedGroup.push(article);
+      return;
+    }
+
+    articleGroups.push([article]);
   });
 
-  return [...articleGroups.values()]
+  return articleGroups
     .map((group) => {
       const sortedGroup = [...group].sort((a, b) => {
         const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;

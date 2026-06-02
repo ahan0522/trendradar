@@ -404,6 +404,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "PlayStation 遊戲發表動態";
   }
 
+  if (/trump|executive order|ai models?|review|released|white house/i.test(value)) {
+    return "美國 AI 模型發布審查政策";
+  }
+
   if (/t-34|教練機|飛官|墜毀|殉職|橋檢|相驗/i.test(value)) {
     return "T-34 教練機墜毀事故";
   }
@@ -515,6 +519,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "PlayStation 遊戲發表動態") {
     return /playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(sourceText);
+  }
+
+  if (title === "美國 AI 模型發布審查政策") {
+    return /trump|executive order|ai models?|review|released|white house/i.test(sourceText);
   }
 
   if (title === "T-34 教練機墜毀事故") {

@@ -156,6 +156,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "最新火星研究指出古代隕石坑可能曾有液態水環境，焦點在火星早期氣候、宜居條件與後續探測意義。";
   }
 
+  if (/trump|executive order|ai models?|review|released|white house/i.test(value)) {
+    return "美國政府擬檢視 AI 模型發布前的審查流程，焦點在模型安全、監管權限與科技公司產品上市節奏。";
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
     return "中東停火與美伊談判受到關注，焦點在以色列、黎巴嫩與伊朗相關表態是否影響後續區域局勢。";
   }
@@ -205,6 +209,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `火星古環境研究出現新線索，科學報導聚焦古代液態水、隕石坑地質與火星是否曾具備宜居條件${sourceText}。`;
   }
 
+  if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {
+    return `美國 AI 模型審查政策成為科技與監管焦點，報導集中在白宮行政命令、模型發布前檢視、安全風險與企業合規壓力${sourceText}。`;
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(text)) {
     return `中東停火與美伊談判相關消息升溫，報導焦點集中在以色列、黎巴嫩、伊朗與美方斡旋之間的互動，以及局勢是否會進一步擴大${sourceText}。`;
   }
@@ -250,6 +258,10 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/0050|成分股|換股|換血/i.test(text)) {
     return ["成分股變動", "ETF 資金配置", "受影響產業", "後續觀察"];
+  }
+
+  if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {
+    return ["行政命令", "模型安全", "企業合規", "發布審查"];
   }
 
   if (/台海|印太|美防長|對台|美中/i.test(text)) {
