@@ -1,10 +1,15 @@
-type TopicAiInputArticle = {
+import {
+  generateTopicAiSummaryWithOpenAi,
+  isOpenAiSummaryEnabled,
+} from "@/lib/topic-ai-openai";
+
+export type TopicAiInputArticle = {
   title: string;
   description?: string;
   sourceName: string;
 };
 
-type TopicAiInput = {
+export type TopicAiInput = {
   topicTitle: string;
   category: string;
   keywords: readonly string[];
@@ -263,6 +268,17 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
 export async function generateTopicAiSummary(
   input: TopicAiInput
 ): Promise<TopicAiOutput> {
+  if (isOpenAiSummaryEnabled()) {
+    try {
+      return await generateTopicAiSummaryWithOpenAi(input);
+    } catch (error) {
+      console.warn("[topic-ai] OpenAI summary failed, falling back to rule-based", {
+        topicTitle: input.topicTitle,
+        error: error instanceof Error ? error.message : "unknown error",
+      });
+    }
+  }
+
   const sourceNames = uniqueStrings(input.articles.map((article) => article.sourceName));
 
   const longTitle = `${input.topicTitle}成今日熱門焦點`;
