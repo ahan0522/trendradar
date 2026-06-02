@@ -66,6 +66,26 @@ function removeMediaNoise(value: string) {
 }
 
 function inferQuickSummaryFromSignals(value: string) {
+  if (/黃敏珊|madison huang|黃仁勳女兒|女兒|廚藝學校|教育理念|追尋所愛/i.test(value)) {
+    return "這則來源聚焦黃仁勳家人的職涯選擇與教育觀，補充人物背景與外界對其家庭教育理念的討論。";
+  }
+
+  if (/英特爾|陳立武|台積電|張忠謀|魏哲家|合作關係|信賴的合作/i.test(value)) {
+    return "英特爾表示將維持與台積電的合作關係，報導焦點在雙方供應鏈互動與先進製程合作是否延續。";
+  }
+
+  if (/h200|晶片管制|管制漏洞|解放軍|武器開發|算力/i.test(value)) {
+    return "輝達 H200 晶片管制與算力取得問題受到關注，焦點在出口管制是否仍存在漏洞，以及相關技術可能帶來的安全風險。";
+  }
+
+  if (/貿聯|vera rubin|gb|ai平台升級|運算及運輸|逐季成長/i.test(value)) {
+    return "貿聯看好下半年 AI 伺服器平台升級需求，市場關注 Vera Rubin 等新平台是否帶動連接線與供應鏈營運回升。";
+  }
+
+  if (/大賣空|看空|網路泡沫|泡沫|估值|點名輝達/i.test(value)) {
+    return "市場出現對輝達估值與 AI 題材過熱的疑慮，部分投資人把焦點放在是否重演科技泡沫風險。";
+  }
+
   if (/n1x|pc戰場|聯發科|台積電|rtx spark|consumer laptop chips|computex/i.test(value)) {
     return "輝達在 Computex 期間延伸 PC 與 AI 晶片布局，台積電、聯發科與多家硬體夥伴成為市場關注焦點。";
   }
