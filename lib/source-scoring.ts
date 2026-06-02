@@ -96,6 +96,12 @@ export function getEffectiveSourceCount(articles: Pick<SourceSignal, "sourceName
   return new Set(articles.map(getCanonicalSourceName)).size;
 }
 
+export function getRawSourceCount(articles: Pick<SourceSignal, "sourceName">[]) {
+  return new Set(
+    articles.map((article) => article.sourceName.trim()).filter(Boolean)
+  ).size;
+}
+
 export function getRecentWeightedScore(articles: SourceSignal[], windowHours = 6) {
   const now = Date.now();
 

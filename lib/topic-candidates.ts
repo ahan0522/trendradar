@@ -1,6 +1,7 @@
 import {
   computeWeightedHeatScore,
   getEffectiveSourceCount,
+  getRawSourceCount,
 } from "@/lib/source-scoring";
 import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
 
@@ -29,6 +30,7 @@ export type CandidateTopic = {
   keywords: string[];
   articleCount: number;
   sourceCount: number;
+  rawSourceCount: number;
   heatScore: number;
   qualityScore: number;
   publishable: boolean;
@@ -163,6 +165,47 @@ function tokenize(value: string) {
 function getArticleTokens(article: NewsArticle) {
   return new Set(
     tokenize(`${article.title} ${article.description ?? ""}`)
+  );
+}
+
+function normalizeContentFingerprint(value: string) {
+  return normalizeText(value)
+    .replace(/google news|yahoo|中央社|自由時報|中時新聞網|聯合新聞網/gi, " ")
+    .replace(/記者|編譯|報導|快訊|獨家/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getArticleFingerprint(article: NewsArticle) {
+  const text = normalizeContentFingerprint(
+    `${cleanTitle(article.title)} ${article.description ?? ""}`
+  );
+  const tokens = tokenize(text)
+    .filter((token) => token.length >= 2)
+    .slice(0, 18);
+
+  return tokens.join("|") || text.slice(0, 80);
+}
+
+function dedupeClusterArticles(articles: NewsArticle[]) {
+  const groups = new Map<string, NewsArticle[]>();
+
+  articles.forEach((article) => {
+    const fingerprint = getArticleFingerprint(article);
+    groups.set(fingerprint, [...(groups.get(fingerprint) ?? []), article]);
+  });
+
+  return [...groups.values()].map((group) =>
+    [...group].sort((a, b) => {
+      const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+
+      if (bTime !== aTime) return bTime - aTime;
+
+      const aWeight = (a.sourceWeight ?? 1) * (a.credibilityWeight ?? 1);
+      const bWeight = (b.sourceWeight ?? 1) * (b.credibilityWeight ?? 1);
+      return bWeight - aWeight;
+    })[0]
   );
 }
 
@@ -490,21 +533,33 @@ function hasStrongEventSignal(title: string, keywords: string[]) {
   );
 }
 
+function isLowValueTopic(title: string, keywords: string[]) {
+  const text = `${title} ${keywords.join(" ")}`;
+
+  return /大樂透|威力彩|今彩|雙贏彩|開獎|頭獎|中獎號碼|彩券/.test(text);
+}
+
 function evaluateCandidate(input: {
   title: string;
   keywords: string[];
   articleCount: number;
   sourceCount: number;
+  rawSourceCount: number;
   articles: NewsArticle[];
 }) {
   let qualityScore = 0;
   const rejectionReasons: string[] = [];
+  const lowValueTopic = isLowValueTopic(input.title, input.keywords);
 
   if (input.articleCount >= 4) qualityScore += 35;
   else if (input.articleCount >= 2) qualityScore += 20;
   else rejectionReasons.push("文章數不足");
 
   if (input.sourceCount >= 2) qualityScore += 35;
+  else if (input.rawSourceCount >= 2 && input.articleCount >= 3) {
+    qualityScore += 18;
+    rejectionReasons.push("有效來源仍偏集中，先列為觀察候選");
+  }
   else rejectionReasons.push("來源數不足，可能只是單一來源連發");
 
   if (input.keywords.length >= 3) qualityScore += 15;
@@ -530,11 +585,19 @@ function evaluateCandidate(input: {
     }
   }
 
+  if (lowValueTopic) {
+    qualityScore -= 40;
+    rejectionReasons.push("低資訊量即時結果，不適合作為大主題");
+  }
+
   qualityScore = Math.max(0, Math.min(100, qualityScore));
 
   return {
     qualityScore,
-    publishable: qualityScore >= 80 && rejectionReasons.length === 0,
+    publishable:
+      qualityScore >= 78 &&
+      rejectionReasons.length === 0 &&
+      !lowValueTopic,
     rejectionReasons,
   };
 }
@@ -584,9 +647,11 @@ export function discoverCandidateTopics(
 
   return mergeRelatedClusters(clusters)
     .map((cluster, index) => {
+      const representativeCluster = dedupeClusterArticles(cluster);
       const keywords = getTopKeywords(cluster, 6);
-      const sourceCount = getEffectiveSourceCount(cluster);
-      const title = makeCandidateTitle(cluster, keywords);
+      const sourceCount = getEffectiveSourceCount(representativeCluster);
+      const rawSourceCount = getRawSourceCount(cluster);
+      const title = makeCandidateTitle(representativeCluster, keywords);
       const signalText = `${title} ${keywords.join(" ")} ${cluster
         .map((article) => `${article.title} ${article.description ?? ""}`)
         .join(" ")}`;
@@ -597,26 +662,28 @@ export function discoverCandidateTopics(
       const evaluation = evaluateCandidate({
         title,
         keywords,
-        articleCount: cluster.length,
+        articleCount: representativeCluster.length,
         sourceCount,
-        articles: cluster,
+        rawSourceCount,
+        articles: representativeCluster,
       });
 
       return {
         id: `candidate-${index + 1}`,
         slug: makeCandidateSlug(title, index),
         title,
-        summary: makeCandidateSummary(cluster, title),
+        summary: makeCandidateSummary(representativeCluster, title),
         category,
         keywords,
-        articleCount: cluster.length,
+        articleCount: representativeCluster.length,
         sourceCount,
+        rawSourceCount,
         heatScore: computeWeightedHeatScore(cluster),
         qualityScore: evaluation.qualityScore,
         publishable: evaluation.publishable,
         rejectionReasons: evaluation.rejectionReasons,
         latestPublishedAt: getLatestPublishedAt(cluster),
-        articles: cluster.slice(0, 8).map((article) => ({
+        articles: representativeCluster.slice(0, 8).map((article) => ({
           id: article.id,
           title: article.title,
           sourceName: article.sourceName,

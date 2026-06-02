@@ -97,7 +97,8 @@ function CandidateCard({ topic }: { topic: CandidateTopic }) {
         <MetricPill>{topic.category}</MetricPill>
         <MetricPill>熱度 {topic.heatScore}</MetricPill>
         <MetricPill>品質 {topic.qualityScore}</MetricPill>
-        <MetricPill>{topic.sourceCount} 家媒體</MetricPill>
+        <MetricPill>{topic.sourceCount} 家有效來源</MetricPill>
+        <MetricPill>{topic.rawSourceCount} 個原始來源</MetricPill>
         <MetricPill>{topic.articleCount} 篇文章</MetricPill>
         <MetricPill>{formatRelativeTime(topic.latestPublishedAt)}</MetricPill>
       </div>
@@ -174,7 +175,7 @@ export default async function AdminTopicCandidatesPage({
     );
   }
 
-  const limit = Number(params.limit ?? 120);
+  const limit = Number(params.limit ?? 240);
   const newsItems = await getNewsItems({
     category: "全部",
     q: "",

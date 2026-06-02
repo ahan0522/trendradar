@@ -125,7 +125,7 @@ async function handleSyncGrouped(request: Request) {
     const newsItems = await getNewsItems({
       category: "全部",
       q: "",
-      limit: 160,
+      limit: 240,
     });
 
     const articles: NewsArticle[] = newsItems
@@ -332,6 +332,29 @@ async function handleSyncGrouped(request: Request) {
       });
     }
 
+    const activeRuleKeys = topicRules.map((rule) => rule.key).join(",");
+    const archiveRetiredRulesQuery = supabase
+      .from("topics")
+      .update({
+        status: "inactive",
+        last_synced_at: new Date().toISOString(),
+      })
+      .eq("discovery_mode", "rule_based");
+
+    const { error: archiveRetiredRulesError } = activeRuleKeys
+      ? await archiveRetiredRulesQuery.not("rule_key", "in", `(${activeRuleKeys})`)
+      : await archiveRetiredRulesQuery;
+
+    if (archiveRetiredRulesError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `封存退役規則 topics 失敗: ${archiveRetiredRulesError.message}`,
+        },
+        { status: 500 }
+      );
+    }
+
     const { error: archiveCandidateTopicsError } = await supabase
       .from("topics")
       .update({
@@ -374,7 +397,11 @@ async function handleSyncGrouped(request: Request) {
         (article) => article.link && ruleCoveredArticleLinks.has(article.link)
       );
 
-      if (isAlreadyCoveredByRules) {
+      if (
+        isAlreadyCoveredByRules &&
+        normalizeText(candidate.category) === "ai" &&
+        candidate.qualityScore < 88
+      ) {
         skippedCandidateTopicsCoveredByRules += 1;
         continue;
       }

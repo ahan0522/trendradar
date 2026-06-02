@@ -12,7 +12,7 @@ export async function GET() {
     const newsItems = await getNewsItems({
       category: "全部",
       q: "",
-      limit: 160,
+      limit: 240,
       refresh: true,
     });
 

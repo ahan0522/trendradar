@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url);
-  const limit = Number(searchParams.get("limit") ?? 120);
+  const limit = Number(searchParams.get("limit") ?? 240);
   const maxTopics = Number(searchParams.get("maxTopics") ?? 6);
 
   try {

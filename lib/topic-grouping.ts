@@ -56,13 +56,8 @@ function getLatestPublishedAt(articles: NewsArticle[]) {
 
 function getHeroImageByRule(ruleKey: string) {
   const imageMap: Record<string, string> = {
-    "nvidia-jensen":
+    ai:
       "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80",
-    nba: "https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=80",
-    iphone:
-      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=80",
-    "taiwan-security":
-      "https://images.unsplash.com/photo-1521295121783-8a321d551ad2?auto=format&fit=crop&w=1200&q=80",
   };
 
   return (
