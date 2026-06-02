@@ -62,15 +62,19 @@ function selectDiverseHomeTopics(topics: HomeTopic[]) {
     }
   }
 
-  for (const topic of topics) {
-    if (selected.some((item) => item.id === topic.id)) {
-      continue;
-    }
+  const minimumTopicCount = Math.min(3, topics.length);
 
-    selected.push(topic);
+  if (selected.length < minimumTopicCount) {
+    for (const topic of topics) {
+      if (selected.some((item) => item.id === topic.id)) {
+        continue;
+      }
 
-    if (selected.length >= Math.min(3, topics.length)) {
-      break;
+      selected.push(topic);
+
+      if (selected.length >= minimumTopicCount) {
+        break;
+      }
     }
   }
 
