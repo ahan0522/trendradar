@@ -32,10 +32,22 @@ function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
 
-function articleMatchesRule(article: NewsArticle, keywords: readonly string[]) {
+function articleMatchesRule(
+  article: NewsArticle,
+  keywords: readonly string[],
+  excludeKeywords?: readonly string[]
+) {
   const haystack = normalizeText(
     `${article.title} ${article.description ?? ""} ${article.category ?? ""}`
   );
+
+  if (
+    excludeKeywords?.some((keyword) =>
+      haystack.includes(normalizeText(keyword))
+    )
+  ) {
+    return false;
+  }
 
   return keywords.some((keyword) => haystack.includes(normalizeText(keyword)));
 }
@@ -78,7 +90,7 @@ export function groupArticlesToHomepageTopics(
 
   for (const article of articles) {
     for (const rule of topicRules) {
-      if (articleMatchesRule(article, rule.keywords)) {
+      if (articleMatchesRule(article, rule.keywords, rule.excludeKeywords)) {
         const bucket = buckets.find((item) => item.ruleKey === rule.key);
         if (bucket) {
           bucket.articles.push(article);

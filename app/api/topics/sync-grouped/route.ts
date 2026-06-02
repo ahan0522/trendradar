@@ -47,10 +47,22 @@ function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
 
-function articleMatchesRule(article: NewsArticle, keywords: readonly string[]) {
+function articleMatchesRule(
+  article: NewsArticle,
+  keywords: readonly string[],
+  excludeKeywords?: readonly string[]
+) {
   const haystack = normalizeText(
     `${article.title} ${article.description ?? ""} ${article.category ?? ""}`
   );
+
+  if (
+    excludeKeywords?.some((keyword) =>
+      haystack.includes(normalizeText(keyword))
+    )
+  ) {
+    return false;
+  }
 
   return keywords.some((keyword) => haystack.includes(normalizeText(keyword)));
 }
@@ -200,7 +212,7 @@ async function handleSyncGrouped(request: Request) {
       }
 
       const matchedArticles = articles.filter((article) =>
-        articleMatchesRule(article, rule.keywords)
+        articleMatchesRule(article, rule.keywords, rule.excludeKeywords)
       );
 
       if (matchedArticles.length === 0) {
