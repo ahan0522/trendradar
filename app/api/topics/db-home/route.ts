@@ -58,12 +58,12 @@ export async function GET() {
         discoveryMode: topic.discovery_mode ?? "rule_based",
       }))
       .sort((a, b) => {
-        if (a.discoveryMode !== b.discoveryMode) {
-          return a.discoveryMode === "candidate_cluster" ? -1 : 1;
-        }
-
         if (b.heatScore !== a.heatScore) {
           return b.heatScore - a.heatScore;
+        }
+
+        if (a.discoveryMode !== b.discoveryMode) {
+          return a.discoveryMode === "candidate_cluster" ? -1 : 1;
         }
 
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
