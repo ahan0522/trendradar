@@ -181,7 +181,7 @@ async function handleSyncGrouped(request: Request) {
     // 2. 再做主題分群
     const groupedTopics = groupArticlesToHomepageTopics(articles);
     const candidateTopics = discoverCandidateTopics(articles, {
-      maxTopics: 6,
+      maxTopics: 12,
       minArticles: 2,
     }).filter((topic) => topic.publishable);
 
