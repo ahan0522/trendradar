@@ -90,6 +90,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "Anthropic 傳出準備 IPO，市場焦點在 AI 新創估值、資本市場熱度，以及 OpenAI 競爭格局的變化。";
   }
 
+  if (/所羅門|人形機器人|實體ai|physical ai|自主化/i.test(value)) {
+    return "所羅門整合輝達架構推進實體 AI 與人形機器人應用，焦點在機器人自主化與邊緣 AI 落地。";
+  }
+
   if (/大賣空|看空|網路泡沫|點名輝達.*泡沫|輝達.*泡沫/i.test(value)) {
     return "市場出現對輝達估值與 AI 題材過熱的疑慮，部分投資人把焦點放在是否重演科技泡沫風險。";
   }
