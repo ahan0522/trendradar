@@ -287,21 +287,18 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                     href={article.link}
                     target="_blank"
                     rel="noreferrer"
+                    aria-label={`查看原文：${article.title}`}
                     className="block rounded-xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50"
                   >
-                    {(article.quickSummary || article.description) && (
-                      <div className="rounded-xl bg-blue-50/60 p-4">
-                        <div className="text-xs font-semibold text-blue-700">
-                          重點快讀
-                        </div>
-                        <p className="mt-1 text-base leading-7 text-slate-800">
-                          {article.quickSummary || article.description}
-                        </p>
+                    <div className="rounded-xl bg-blue-50/60 p-4">
+                      <div className="text-xs font-semibold text-blue-700">
+                        重點快讀
                       </div>
-                    )}
-
-                    <div className="mt-3 text-sm leading-6 text-slate-500">
-                      原始標題：{article.title}
+                      <p className="mt-1 text-base leading-7 text-slate-800">
+                        {article.quickSummary ||
+                          article.description ||
+                          "目前只有原始來源，系統會在下一次同步時補上重點整理。"}
+                      </p>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
@@ -321,6 +318,9 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                       {article.publishedAt && (
                         <span>{formatRelativeTime(article.publishedAt)}</span>
                       )}
+                      <span className="font-medium text-slate-700">
+                        查看原文 →
+                      </span>
                     </div>
                   </a>
                 ))}

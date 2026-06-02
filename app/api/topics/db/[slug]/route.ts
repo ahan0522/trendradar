@@ -242,16 +242,17 @@ export async function GET(
     const responseArticles = articles.map((article) => {
       const description = article.description ? cleanRssText(article.description) : "";
       const sourceName = article.source_name ?? "";
+      const quickSummary = generateArticleQuickSummary({
+        title: article.title,
+        description,
+        sourceName,
+      });
 
       return {
         id: article.id,
         title: article.title,
         description,
-        quickSummary: generateArticleQuickSummary({
-          title: article.title,
-          description,
-          sourceName,
-        }),
+        quickSummary,
         category: article.category ?? "",
         region: article.region ?? "",
         sourceId: article.source_id ?? "",
