@@ -145,6 +145,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: true,
+        selectionMode: "diverse-category-family-v1",
         generatedAt: new Date().toISOString(),
         count: topics.length,
         topics,
