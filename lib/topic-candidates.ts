@@ -528,7 +528,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|罷免|選舉|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
     text
   );
 }
@@ -556,6 +556,9 @@ function evaluateCandidate(input: {
   else rejectionReasons.push("文章數不足");
 
   if (input.sourceCount >= 2) qualityScore += 35;
+  else if (input.rawSourceCount >= 2 && hasStrongEventSignal(input.title, input.keywords)) {
+    qualityScore += 35;
+  }
   else if (input.rawSourceCount >= 2 && input.articleCount >= 3) {
     qualityScore += 18;
     rejectionReasons.push("有效來源仍偏集中，先列為觀察候選");
@@ -649,9 +652,13 @@ export function discoverCandidateTopics(
     .map((cluster, index) => {
       const representativeCluster = dedupeClusterArticles(cluster);
       const keywords = getTopKeywords(cluster, 6);
-      const sourceCount = getEffectiveSourceCount(representativeCluster);
+      const effectiveSourceCount = getEffectiveSourceCount(representativeCluster);
       const rawSourceCount = getRawSourceCount(cluster);
       const title = makeCandidateTitle(representativeCluster, keywords);
+      const sourceCount =
+        rawSourceCount >= 2 && hasStrongEventSignal(title, keywords)
+          ? Math.max(effectiveSourceCount, Math.min(rawSourceCount, 2))
+          : effectiveSourceCount;
       const signalText = `${title} ${keywords.join(" ")} ${cluster
         .map((article) => `${article.title} ${article.description ?? ""}`)
         .join(" ")}`;
