@@ -176,6 +176,8 @@ async function handleSyncGrouped(request: Request) {
     let linkedArticleCount = 0;
     let skippedTopicsWithoutRule = 0;
     let skippedTopicsWithoutArticles = 0;
+    let skippedCandidateTopicsCoveredByRules = 0;
+    const ruleCoveredArticleLinks = new Set<string>();
 
     for (const grouped of groupedTopics) {
       const rule = topicRules.find((item) => item.key === grouped.slug);
@@ -192,6 +194,12 @@ async function handleSyncGrouped(request: Request) {
         skippedTopicsWithoutArticles += 1;
         continue;
       }
+
+      matchedArticles.forEach((article) => {
+        if (article.link) {
+          ruleCoveredArticleLinks.add(article.link);
+        }
+      });
 
       const aiResult = await generateTopicAiSummary({
         topicTitle: rule.title,
@@ -349,6 +357,15 @@ async function handleSyncGrouped(request: Request) {
         continue;
       }
 
+      const isAlreadyCoveredByRules = matchedArticles.every(
+        (article) => article.link && ruleCoveredArticleLinks.has(article.link)
+      );
+
+      if (isAlreadyCoveredByRules) {
+        skippedCandidateTopicsCoveredByRules += 1;
+        continue;
+      }
+
       const aiResult = await generateTopicAiSummary({
         topicTitle: candidate.title,
         category: candidate.category,
@@ -482,6 +499,7 @@ async function handleSyncGrouped(request: Request) {
       linkedArticleCount,
       skippedTopicsWithoutRule,
       skippedTopicsWithoutArticles,
+      skippedCandidateTopicsCoveredByRules,
       topics: syncedTopics,
     };
 
