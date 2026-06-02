@@ -246,7 +246,7 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "國際";
   }
 
-  if (/股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停/.test(value.toLowerCase())) {
+  if (/股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停|買這\d+檔|買進|個股|股票/.test(value.toLowerCase())) {
     return "財經";
   }
 
@@ -561,7 +561,7 @@ function isLowValueTopic(title: string, keywords: string[]) {
   }
 
   if (
-    /股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|營收\d|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停/i.test(text) &&
+    /股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|營收\d|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停|買這\d+檔|現在就買|買進|個股|股票/i.test(text) &&
     !/0050|etf|成分股|換股|換血/i.test(text)
   ) {
     return true;
