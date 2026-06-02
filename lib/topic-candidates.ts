@@ -587,12 +587,9 @@ function evaluateCandidate(input: {
   else rejectionReasons.push("文章數不足");
 
   if (input.sourceCount >= 2) qualityScore += 35;
-  else if (input.rawSourceCount >= 2 && hasStrongEventSignal(input.title, input.keywords)) {
-    qualityScore += 35;
-  }
   else if (input.rawSourceCount >= 2 && input.articleCount >= 3) {
     qualityScore += 18;
-    rejectionReasons.push("有效來源仍偏集中，先列為觀察候選");
+    rejectionReasons.push("有效來源仍偏集中，可能只是同一媒體不同分類轉載");
   }
   else rejectionReasons.push("來源數不足，可能只是單一來源連發");
 
@@ -686,10 +683,7 @@ export function discoverCandidateTopics(
       const effectiveSourceCount = getEffectiveSourceCount(representativeCluster);
       const rawSourceCount = getRawSourceCount(cluster);
       const title = makeCandidateTitle(representativeCluster, keywords);
-      const sourceCount =
-        rawSourceCount >= 2 && hasStrongEventSignal(title, keywords)
-          ? Math.max(effectiveSourceCount, Math.min(rawSourceCount, 2))
-          : effectiveSourceCount;
+      const sourceCount = effectiveSourceCount;
       const signalText = `${title} ${keywords.join(" ")} ${cluster
         .map((article) => `${article.title} ${article.description ?? ""}`)
         .join(" ")}`;
