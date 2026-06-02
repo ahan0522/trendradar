@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "../../../../utils/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const supabase = createServiceRoleClient();
@@ -67,12 +70,19 @@ export async function GET() {
       })
       .slice(0, 6);
 
-    return NextResponse.json({
-      ok: true,
-      generatedAt: new Date().toISOString(),
-      count: topics.length,
-      topics,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        count: topics.length,
+        topics,
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "未知錯誤";
 
