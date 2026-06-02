@@ -60,7 +60,7 @@ function parseRssItems(xml: string, source: NewsSource): NewsItem[] {
   const blocks = itemBlocks.length ? itemBlocks : atomBlocks;
 
   return blocks
-    .map((block) => {
+    .map((block): NewsItem | null => {
       const title = getTagValue(block, "title");
       const link = itemBlocks.length ? getTagValue(block, "link") : getAtomLink(block);
       const description =
@@ -82,6 +82,12 @@ function parseRssItems(xml: string, source: NewsSource): NewsItem[] {
         sourceName: source.name,
         category: source.category,
         region: source.region,
+        sourcePool: source.sourcePool,
+        sourceKind: source.sourceKind,
+        sourceTier: source.sourceTier,
+        sourceWeight: source.sourceWeight,
+        credibilityWeight: source.credibilityWeight,
+        sourceRole: source.role,
         publishedAt: parseDate(dateValue),
         description,
       } satisfies NewsItem;

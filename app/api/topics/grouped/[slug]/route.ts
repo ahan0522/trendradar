@@ -114,6 +114,12 @@ export async function GET(
     description: item.description ?? "",
     sourceName: item.sourceName,
     category: item.category ?? "",
+    sourcePool: item.sourcePool,
+    sourceKind: item.sourceKind,
+    sourceTier: item.sourceTier,
+    sourceWeight: item.sourceWeight,
+    credibilityWeight: item.credibilityWeight,
+    sourceRole: item.sourceRole,
     link: item.link,
     publishedAt: item.publishedAt,
   }));

@@ -7,6 +7,7 @@ import { discoverCandidateTopics } from "@/lib/topic-candidates";
 import { generateTopicAiSummary } from "@/lib/topic-ai";
 import { createServiceRoleClient } from "../../../../utils/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase-server";
+import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,12 @@ type NewsArticle = {
   description?: string;
   sourceName: string;
   category?: string;
+  sourcePool?: SourcePool;
+  sourceKind?: SourceKind;
+  sourceTier?: SourceTier;
+  sourceWeight?: number;
+  credibilityWeight?: number;
+  sourceRole?: SourceRole;
   link?: string;
   publishedAt: string | null;
 };
@@ -128,6 +135,12 @@ async function handleSyncGrouped(request: Request) {
         description: item.description ?? "",
         sourceName: item.sourceName,
         category: item.category ?? "",
+        sourcePool: item.sourcePool,
+        sourceKind: item.sourceKind,
+        sourceTier: item.sourceTier,
+        sourceWeight: item.sourceWeight,
+        credibilityWeight: item.credibilityWeight,
+        sourceRole: item.sourceRole,
         link: item.link ?? "",
         publishedAt: item.publishedAt,
       }))

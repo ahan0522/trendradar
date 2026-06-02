@@ -1,9 +1,18 @@
+import { computeWeightedHeatScore } from "@/lib/source-scoring";
+import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
+
 type NewsArticle = {
   id: string;
   title: string;
   description?: string;
   sourceName: string;
   category?: string;
+  sourcePool?: SourcePool;
+  sourceKind?: SourceKind;
+  sourceTier?: SourceTier;
+  sourceWeight?: number;
+  credibilityWeight?: number;
+  sourceRole?: SourceRole;
   link?: string;
   publishedAt: string | null;
 };
@@ -425,19 +434,6 @@ function cleanTitle(value: string) {
     .trim();
 }
 
-function computeHeatScore(articles: NewsArticle[]) {
-  const sourceCount = new Set(articles.map((article) => article.sourceName)).size;
-  const articleCount = articles.length;
-  const now = Date.now();
-  const recentCount = articles.filter((article) => {
-    if (!article.publishedAt) return false;
-    const time = new Date(article.publishedAt).getTime();
-    return !Number.isNaN(time) && now - time <= 1000 * 60 * 60 * 6;
-  }).length;
-
-  return sourceCount * 30 + articleCount * 10 + recentCount * 20;
-}
-
 function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
   const sourceText = articles
     .map((article) => `${article.title} ${article.description ?? ""}`)
@@ -612,7 +608,7 @@ export function discoverCandidateTopics(
         keywords,
         articleCount: cluster.length,
         sourceCount,
-        heatScore: computeHeatScore(cluster),
+        heatScore: computeWeightedHeatScore(cluster),
         qualityScore: evaluation.qualityScore,
         publishable: evaluation.publishable,
         rejectionReasons: evaluation.rejectionReasons,

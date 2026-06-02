@@ -1,5 +1,7 @@
 import { topicRules } from "@/data/topic-rules";
+import { computeWeightedHeatScore } from "@/lib/source-scoring";
 import type { HomepageTopicCard } from "@/types/topic";
+import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
 
 type NewsArticle = {
   id: string;
@@ -7,6 +9,12 @@ type NewsArticle = {
   description?: string;
   sourceName: string;
   category?: string;
+  sourcePool?: SourcePool;
+  sourceKind?: SourceKind;
+  sourceTier?: SourceTier;
+  sourceWeight?: number;
+  credibilityWeight?: number;
+  sourceRole?: SourceRole;
   publishedAt: string | null;
 };
 
@@ -41,18 +49,6 @@ function getLatestPublishedAt(articles: NewsArticle[]) {
   }
 
   return new Date(Math.max(...timestamps)).toISOString();
-}
-
-function computeHeatScore(input: {
-  sourceCount: number;
-  articleCount: number;
-  recentGrowthCount: number;
-}) {
-  return (
-    input.sourceCount * 30 +
-    input.articleCount * 10 +
-    input.recentGrowthCount * 20
-  );
 }
 
 function getHeroImageByRule(ruleKey: string) {
@@ -101,19 +97,7 @@ export function groupArticlesToHomepageTopics(
       ).size;
 
       const articleCount = bucket.articles.length;
-
-      const now = Date.now();
-      const recentGrowthCount = bucket.articles.filter((article) => {
-        if (!article.publishedAt) return false;
-        const diff = now - new Date(article.publishedAt).getTime();
-        return diff <= 1000 * 60 * 60 * 6;
-      }).length;
-
-      const heatScore = computeHeatScore({
-        sourceCount,
-        articleCount,
-        recentGrowthCount,
-      });
+      const heatScore = computeWeightedHeatScore(bucket.articles);
 
       return {
         id: `topic-${bucket.ruleKey}`,
