@@ -58,11 +58,19 @@ export default function HomePage() {
             </p>
           </div>
 
-          {!loading && (
-            <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
-              顯示 {topics.length} 個主題，最多 6 個
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/trend-map"
+              className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+            >
+              主題分子圖
+            </Link>
+            {!loading && (
+              <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
+                顯示 {topics.length} 個主題，最多 6 個
+              </div>
+            )}
+          </div>
         </div>
 
         {loading ? (

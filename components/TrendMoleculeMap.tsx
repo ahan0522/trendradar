@@ -1,0 +1,511 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+type HomepageTopic = {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  heatScore: number;
+  sourceCount: number;
+  articleCount: number;
+  updatedAt: string;
+};
+
+type TopicNode = HomepageTopic & {
+  x: number;
+  y: number;
+  radius: number;
+};
+
+type BridgeNode = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  topicIndexes: number[];
+};
+
+type SignalNode = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  topicIndex: number;
+};
+
+const TOPIC_POSITIONS = [
+  { x: 260, y: 220 },
+  { x: 600, y: 170 },
+  { x: 880, y: 315 },
+  { x: 620, y: 520 },
+  { x: 305, y: 500 },
+  { x: 930, y: 535 },
+];
+
+const SIGNAL_OFFSETS = [
+  [
+    { x: -126, y: -82 },
+    { x: -122, y: 82 },
+  ],
+  [
+    { x: 128, y: -78 },
+    { x: -118, y: -82 },
+  ],
+  [
+    { x: 130, y: -66 },
+    { x: 136, y: 72 },
+  ],
+  [
+    { x: 126, y: 82 },
+    { x: -122, y: 92 },
+  ],
+  [
+    { x: -126, y: 74 },
+    { x: 108, y: 96 },
+  ],
+  [
+    { x: 112, y: -84 },
+    { x: -98, y: 96 },
+  ],
+];
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function getTopicRadius(topic: HomepageTopic) {
+  return clamp(46 + Math.round(topic.heatScore / 9), 54, 78);
+}
+
+function getShortTitle(title: string) {
+  return title
+    .replace("發布審查政策", "審查政策")
+    .replace("發表動態", "動態")
+    .replace("平台發表", "平台")
+    .slice(0, 12);
+}
+
+function getSignalLabels(topic: HomepageTopic) {
+  const words = topic.title
+    .replace(/[｜:：,，!！?？、]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean);
+
+  const labels = [
+    topic.category,
+    ...words.filter((word) => word.length >= 2 && word !== topic.category),
+  ];
+
+  return Array.from(new Set(labels)).slice(0, 2);
+}
+
+function getBridgeNodes(topics: HomepageTopic[]): BridgeNode[] {
+  const categoryMap = new Map<string, number[]>();
+
+  topics.forEach((topic, index) => {
+    const indexes = categoryMap.get(topic.category) ?? [];
+    indexes.push(index);
+    categoryMap.set(topic.category, indexes);
+  });
+
+  const bridges: BridgeNode[] = [
+    {
+      id: "news-focus",
+      label: "今日焦點",
+      x: 560,
+      y: 340,
+      topicIndexes: topics.map((_, index) => index),
+    },
+  ];
+
+  Array.from(categoryMap.entries()).forEach(([category, topicIndexes]) => {
+    if (topicIndexes.length < 2) return;
+
+    const averageX =
+      topicIndexes.reduce(
+        (sum, index) => sum + TOPIC_POSITIONS[index % TOPIC_POSITIONS.length].x,
+        0
+      ) / topicIndexes.length;
+    const averageY =
+      topicIndexes.reduce(
+        (sum, index) => sum + TOPIC_POSITIONS[index % TOPIC_POSITIONS.length].y,
+        0
+      ) / topicIndexes.length;
+
+    bridges.push({
+      id: `category-${category}`,
+      label: `${category} 共同線`,
+      x: averageX,
+      y: averageY + 80,
+      topicIndexes,
+    });
+  });
+
+  return bridges.slice(0, 4);
+}
+
+function splitLabel(label: string, maxLength = 7) {
+  if (label.length <= maxLength) return [label];
+  return [label.slice(0, maxLength), label.slice(maxLength, maxLength * 2)];
+}
+
+export default function TrendMoleculeMap() {
+  const [topics, setTopics] = useState<HomepageTopic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/topics/db-home")
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const nextTopics = (data.topics ?? []).slice(0, 6);
+        setTopics(nextTopics);
+        setSelectedTopicId(nextTopics[0]?.id ?? null);
+      })
+      .catch((err) => console.error("Failed to load trend map:", err))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const topicNodes = useMemo<TopicNode[]>(
+    () =>
+      topics.map((topic, index) => ({
+        ...topic,
+        ...TOPIC_POSITIONS[index % TOPIC_POSITIONS.length],
+        radius: getTopicRadius(topic),
+      })),
+    [topics]
+  );
+
+  const bridgeNodes = useMemo(() => getBridgeNodes(topics), [topics]);
+
+  const signalNodes = useMemo<SignalNode[]>(
+    () =>
+      topicNodes.flatMap((topic, topicIndex) =>
+        getSignalLabels(topic).map((label, signalIndex) => {
+          const offset =
+            SIGNAL_OFFSETS[topicIndex % SIGNAL_OFFSETS.length][signalIndex] ??
+            SIGNAL_OFFSETS[0][0];
+
+          return {
+            id: `${topic.id}-${label}`,
+            label,
+            x: topic.x + offset.x,
+            y: topic.y + offset.y,
+            topicIndex,
+          };
+        })
+      ),
+    [topicNodes]
+  );
+
+  const selectedTopic =
+    topicNodes.find((topic) => topic.id === selectedTopicId) ?? topicNodes[0];
+
+  if (loading) {
+    return (
+      <div className="h-[620px] animate-pulse rounded-[32px] border border-slate-200 bg-white" />
+    );
+  }
+
+  if (topicNodes.length === 0) {
+    return (
+      <section className="rounded-[32px] border border-dashed border-slate-300 bg-white p-10 text-center">
+        <div className="text-xl font-bold text-slate-700">
+          目前沒有可視覺化的主題
+        </div>
+        <p className="mt-2 text-sm text-slate-500">
+          等下一次同步完成後，這裡會產生今日主題關聯圖。
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-blue-700">
+                關聯圖測試
+              </div>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">
+                今天大家在討論什麼
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs font-medium text-slate-500">
+              <span className="rounded-full bg-red-50 px-3 py-1 text-red-700">
+                紅：大主題
+              </span>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                白：共同點
+              </span>
+              <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">
+                藍：子訊號
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative bg-[radial-gradient(circle_at_center,_#ffffff_0,_#f8fbff_48%,_#edf4ff_100%)]">
+          <svg
+            viewBox="0 0 1120 680"
+            role="img"
+            aria-label="今日主題關聯圖"
+            className="h-[540px] w-full md:h-[650px]"
+          >
+            <defs>
+              <radialGradient id="topic-red" cx="34%" cy="25%" r="70%">
+                <stop offset="0%" stopColor="#fff1f2" />
+                <stop offset="38%" stopColor="#ef4444" />
+                <stop offset="100%" stopColor="#991b1b" />
+              </radialGradient>
+              <radialGradient id="signal-blue" cx="34%" cy="25%" r="70%">
+                <stop offset="0%" stopColor="#eff6ff" />
+                <stop offset="42%" stopColor="#3b82f6" />
+                <stop offset="100%" stopColor="#1e3a8a" />
+              </radialGradient>
+              <radialGradient id="bridge-white" cx="30%" cy="20%" r="75%">
+                <stop offset="0%" stopColor="#ffffff" />
+                <stop offset="58%" stopColor="#e2e8f0" />
+                <stop offset="100%" stopColor="#94a3b8" />
+              </radialGradient>
+              <filter id="node-shadow" x="-30%" y="-30%" width="160%" height="160%">
+                <feDropShadow
+                  dx="0"
+                  dy="12"
+                  stdDeviation="13"
+                  floodColor="#0f172a"
+                  floodOpacity="0.18"
+                />
+              </filter>
+            </defs>
+
+            <g opacity="0.52">
+              {Array.from({ length: 11 }).map((_, index) => (
+                <line
+                  key={`vertical-${index}`}
+                  x1={80 + index * 96}
+                  y1="40"
+                  x2={80 + index * 96}
+                  y2="640"
+                  stroke="#e2e8f0"
+                />
+              ))}
+              {Array.from({ length: 7 }).map((_, index) => (
+                <line
+                  key={`horizontal-${index}`}
+                  x1="40"
+                  y1={70 + index * 92}
+                  x2="1080"
+                  y2={70 + index * 92}
+                  stroke="#e2e8f0"
+                />
+              ))}
+            </g>
+
+            <g>
+              {bridgeNodes.flatMap((bridge) =>
+                bridge.topicIndexes.map((topicIndex) => {
+                  const topic = topicNodes[topicIndex];
+                  if (!topic) return null;
+                  return (
+                    <line
+                      key={`${bridge.id}-${topic.id}`}
+                      x1={bridge.x}
+                      y1={bridge.y}
+                      x2={topic.x}
+                      y2={topic.y}
+                      stroke="#64748b"
+                      strokeWidth={selectedTopic?.id === topic.id ? 12 : 7}
+                      strokeLinecap="round"
+                      opacity={selectedTopic?.id === topic.id ? 0.52 : 0.28}
+                    />
+                  );
+                })
+              )}
+
+              {signalNodes.map((signal) => {
+                const topic = topicNodes[signal.topicIndex];
+                if (!topic) return null;
+                const isSelected = selectedTopic?.id === topic.id;
+                return (
+                  <line
+                    key={`${signal.id}-line`}
+                    x1={topic.x}
+                    y1={topic.y}
+                    x2={signal.x}
+                    y2={signal.y}
+                    stroke="#64748b"
+                    strokeWidth={isSelected ? 7 : 4}
+                    strokeLinecap="round"
+                    opacity={isSelected ? 0.5 : 0.22}
+                  />
+                );
+              })}
+            </g>
+
+            <g filter="url(#node-shadow)">
+              {bridgeNodes.map((bridge) => (
+                <g key={bridge.id}>
+                  <circle cx={bridge.x} cy={bridge.y} r="38" fill="url(#bridge-white)" />
+                  {splitLabel(bridge.label, 5).map((line, index, lines) => (
+                    <text
+                      key={line}
+                      x={bridge.x}
+                      y={bridge.y + (index - (lines.length - 1) / 2) * 16 + 5}
+                      textAnchor="middle"
+                      className="fill-slate-700 text-[13px] font-bold"
+                    >
+                      {line}
+                    </text>
+                  ))}
+                </g>
+              ))}
+
+              {signalNodes.map((signal) => {
+                const topic = topicNodes[signal.topicIndex];
+                const isSelected = selectedTopic?.id === topic?.id;
+                return (
+                  <g key={signal.id} opacity={isSelected ? 1 : 0.7}>
+                    <circle
+                      cx={signal.x}
+                      cy={signal.y}
+                      r={isSelected ? 34 : 28}
+                      fill="url(#signal-blue)"
+                    />
+                    {splitLabel(signal.label, 4).map((line, index, lines) => (
+                      <text
+                        key={line}
+                        x={signal.x}
+                        y={
+                          signal.y + (index - (lines.length - 1) / 2) * 14 + 5
+                        }
+                        textAnchor="middle"
+                        className="fill-white text-[12px] font-bold"
+                      >
+                        {line}
+                      </text>
+                    ))}
+                  </g>
+                );
+              })}
+
+              {topicNodes.map((topic) => {
+                const isSelected = selectedTopic?.id === topic.id;
+                return (
+                  <g
+                    key={topic.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedTopicId(topic.id)}
+                  >
+                    <circle
+                      cx={topic.x}
+                      cy={topic.y}
+                      r={isSelected ? topic.radius + 7 : topic.radius}
+                      fill="url(#topic-red)"
+                      stroke={isSelected ? "#0f172a" : "#fee2e2"}
+                      strokeWidth={isSelected ? 5 : 2}
+                    />
+                    {splitLabel(getShortTitle(topic.title), 6).map(
+                      (line, index, lines) => (
+                        <text
+                          key={line}
+                          x={topic.x}
+                          y={
+                            topic.y +
+                            (index - (lines.length - 1) / 2) * 21 -
+                            2
+                          }
+                          textAnchor="middle"
+                          className="pointer-events-none fill-white text-[17px] font-black"
+                        >
+                          {line}
+                        </text>
+                      )
+                    )}
+                    <text
+                      x={topic.x}
+                      y={topic.y + topic.radius - 18}
+                      textAnchor="middle"
+                      className="pointer-events-none fill-red-50 text-[12px] font-bold"
+                    >
+                      熱度 {topic.heatScore}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
+        </div>
+      </section>
+
+      <aside className="space-y-4">
+        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="text-sm font-semibold text-blue-700">目前選取</div>
+          {selectedTopic ? (
+            <>
+              <h2 className="mt-2 text-2xl font-black leading-tight text-slate-950">
+                {selectedTopic.title}
+              </h2>
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="rounded-2xl bg-red-50 p-3 text-red-700">
+                  <div className="text-xs font-medium">熱度</div>
+                  <div className="mt-1 font-black">{selectedTopic.heatScore}</div>
+                </div>
+                <div className="rounded-2xl bg-slate-50 p-3 text-slate-700">
+                  <div className="text-xs font-medium">媒體</div>
+                  <div className="mt-1 font-black">
+                    {selectedTopic.sourceCount}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-blue-50 p-3 text-blue-700">
+                  <div className="text-xs font-medium">文章</div>
+                  <div className="mt-1 font-black">
+                    {selectedTopic.articleCount}
+                  </div>
+                </div>
+              </div>
+              <Link
+                href={`/topics/${selectedTopic.slug}`}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                查看主題詳情
+              </Link>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">請點選一個紅色大主題。</p>
+          )}
+        </section>
+
+        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="text-sm font-semibold text-blue-700">優化觀察</div>
+          <div className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+            <p>
+              這版適合桌機快速看「關聯感」，但手機會需要切成橫向滑動或簡化成清單。
+            </p>
+            <p>
+              白色共同點目前由類別與今日焦點產生，之後可改成自動抽關鍵字共現。
+            </p>
+            <p>
+              藍色子訊號目前從標題拆字，之後應改為文章摘要中的人物、地點、事件。
+            </p>
+          </div>
+        </section>
+      </aside>
+    </div>
+  );
+}
