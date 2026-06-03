@@ -75,6 +75,122 @@ function formatDiscoveryMode(mode?: string) {
   return mode || "規則分群";
 }
 
+type MindMapBranch = {
+  title: string;
+  description: string;
+  pattern: RegExp;
+};
+
+const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
+  {
+    title: "模型與產品",
+    description: "追蹤模型發布、產品功能、Agent 與平台服務。",
+    pattern: /openai|anthropic|模型|生成式|agent|代理ai|產品|發布|siri|apple intelligence/i,
+  },
+  {
+    title: "晶片與基礎建設",
+    description: "整理 GPU、資料中心、AI 伺服器與算力供應鏈。",
+    pattern: /輝達|nvidia|gpu|晶片|半導體|伺服器|資料中心|算力|hbm|散熱/i,
+  },
+  {
+    title: "機器人與應用",
+    description: "觀察具身 AI、人型機器人與產業落地場景。",
+    pattern: /機器人|具身|實體ai|physical ai|自動化|邊緣 ai|應用/i,
+  },
+  {
+    title: "政策與監管",
+    description: "關注政府規範、模型安全、審查與企業合規。",
+    pattern: /政策|監管|審查|行政命令|模型安全|合規|white house|trump|executive order/i,
+  },
+];
+
+function isAiFixedTopic(topic: TopicDetail) {
+  return topic.slug === "ai" || topic.ruleKey === "ai" || topic.title === "AI";
+}
+
+function getBranchArticles(branch: MindMapBranch, articles: TopicArticle[]) {
+  return articles
+    .filter((article) =>
+      branch.pattern.test(
+        `${article.title} ${article.description} ${article.quickSummary ?? ""}`
+      )
+    )
+    .slice(0, 2);
+}
+
+function getFallbackBranchArticles(index: number, articles: TopicArticle[]) {
+  return articles.slice(index * 2, index * 2 + 2);
+}
+
+function AiMindMap({ topic }: { topic: TopicDetail }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="text-sm font-semibold text-blue-700">AI 主題地圖</div>
+      <h2 className="mt-1 text-2xl font-bold text-slate-950">
+        從中心主題展開的幾條分支
+      </h2>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-center shadow-sm">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+            Center
+          </div>
+          <div className="mt-2 text-3xl font-black text-slate-950">AI</div>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            今日 AI 新聞先按應用脈絡拆開，看完分支就能快速掌握主線。
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          {AI_MIND_MAP_BRANCHES.map((branch, index) => {
+            const matchedArticles = getBranchArticles(branch, topic.articles);
+            const branchArticles = matchedArticles.length
+              ? matchedArticles
+              : getFallbackBranchArticles(index, topic.articles);
+
+            return (
+              <div
+                key={branch.title}
+                className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4"
+              >
+                <div className="absolute -left-3 top-6 hidden h-px w-3 bg-slate-300 lg:block" />
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-3 w-3 rounded-full bg-blue-600" />
+                  <div>
+                    <h3 className="font-bold text-slate-950">{branch.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      {branch.description}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {branchArticles.length > 0 ? (
+                    branchArticles.map((article) => (
+                      <div
+                        key={`${branch.title}-${article.id}`}
+                        className="rounded-xl bg-white px-3 py-2 text-sm leading-6 text-slate-700"
+                      >
+                        {article.quickSummary ||
+                          article.description ||
+                          article.title}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-xl bg-white px-3 py-2 text-sm text-slate-500">
+                      目前這條分支還在等待更多來源。
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 async function getTopic(slug: string): Promise<TopicDetail | null> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("host");
@@ -127,6 +243,7 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
 
   const topSources = getTopSources(topic.articles);
   const keywords = topic.keywords?.length ? topic.keywords : topic.tags;
+  const showAiMindMap = isAiFixedTopic(topic);
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -246,26 +363,30 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
               )}
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="text-sm font-semibold text-blue-700">主題脈絡</div>
-              <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                目前可拆出的子主題
-              </h2>
+            {showAiMindMap ? (
+              <AiMindMap topic={topic} />
+            ) : (
+              <section className="rounded-2xl border border-slate-200 bg-white p-6">
+                <div className="text-sm font-semibold text-blue-700">主題脈絡</div>
+                <h2 className="mt-1 text-2xl font-bold text-slate-950">
+                  目前可拆出的子主題
+                </h2>
 
-              <div className="mt-5 flex flex-wrap gap-2">
-                {(topic.subtopics.length
-                  ? topic.subtopics
-                  : ["尚未拆分子主題"]
-                ).map((item) => (
-                  <span
-                    key={item}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700"
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </section>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {(topic.subtopics.length
+                    ? topic.subtopics
+                    : ["尚未拆分子主題"]
+                  ).map((item) => (
+                    <span
+                      key={item}
+                      className="rounded-full bg-slate-100 px-4 py-2 text-sm text-slate-700"
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
               <div className="flex flex-wrap items-end justify-between gap-3">
