@@ -14,6 +14,20 @@ type HomepageTopic = {
   updatedAt: string;
 };
 
+type TopicDetail = {
+  summary?: string;
+  tags?: string[];
+  subtopics?: string[];
+  keywords?: string[];
+  articles?: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    quickSummary?: string;
+    sourceName?: string;
+  }>;
+};
+
 type TopicNode = HomepageTopic & {
   x: number;
   y: number;
@@ -72,6 +86,22 @@ const SIGNAL_OFFSETS = [
   ],
 ];
 
+const LOW_SIGNAL_WORDS = new Set([
+  "新聞",
+  "即時",
+  "最新",
+  "熱門",
+  "焦點",
+  "今日",
+  "媒體",
+  "報導",
+  "來源",
+  "相關",
+  "Google",
+  "News",
+  "Yahoo",
+]);
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -88,28 +118,72 @@ function getShortTitle(title: string) {
     .slice(0, 12);
 }
 
-function getSignalLabels(topic: HomepageTopic) {
-  const words = topic.title
-    .replace(/[｜:：,，!！?？、]/g, " ")
-    .split(/\s+/)
-    .map((word) => word.trim())
-    .filter(Boolean);
-
-  const labels = [
-    topic.category,
-    ...words.filter((word) => word.length >= 2 && word !== topic.category),
-  ];
-
-  return Array.from(new Set(labels)).slice(0, 2);
+function normalizeSignal(signal: string) {
+  return signal
+    .replace(/Google News/g, "")
+    .replace(/Yahoo新聞/g, "")
+    .replace(/[「」『』()（）《》]/g, "")
+    .trim();
 }
 
-function getBridgeNodes(topics: HomepageTopic[]): BridgeNode[] {
+function splitTopicWords(text: string) {
+  return text
+    .replace(/[｜:：,，!！?？、\n]/g, " ")
+    .split(/\s+/)
+    .map(normalizeSignal)
+    .filter((word) => word.length >= 2 && !LOW_SIGNAL_WORDS.has(word));
+}
+
+function pushSignals(target: string[], signals: Array<string | undefined>) {
+  signals.forEach((signal) => {
+    if (!signal) return;
+    const normalized = normalizeSignal(signal);
+    if (!normalized || normalized.length < 2) return;
+    if (LOW_SIGNAL_WORDS.has(normalized)) return;
+    if (!target.includes(normalized)) target.push(normalized);
+  });
+}
+
+function getTopicSignals(topic: HomepageTopic, detail?: TopicDetail) {
+  const signals: string[] = [];
+
+  pushSignals(signals, detail?.subtopics ?? []);
+  pushSignals(signals, detail?.keywords ?? []);
+  pushSignals(signals, detail?.tags ?? []);
+
+  if (detail?.summary) {
+    pushSignals(signals, splitTopicWords(detail.summary).slice(0, 4));
+  }
+
+  detail?.articles?.slice(0, 4).forEach((article) => {
+    pushSignals(signals, splitTopicWords(article.quickSummary ?? ""));
+    pushSignals(signals, splitTopicWords(article.title).slice(0, 2));
+  });
+
+  pushSignals(signals, [topic.category, ...splitTopicWords(topic.title)]);
+
+  return signals
+    .filter((signal) => signal !== topic.category || signals.length <= 2)
+    .slice(0, 3);
+}
+
+function getBridgeNodes(
+  topics: HomepageTopic[],
+  detailsBySlug: Record<string, TopicDetail>
+): BridgeNode[] {
   const categoryMap = new Map<string, number[]>();
+  const signalMap = new Map<string, number[]>();
 
   topics.forEach((topic, index) => {
     const indexes = categoryMap.get(topic.category) ?? [];
     indexes.push(index);
     categoryMap.set(topic.category, indexes);
+
+    getTopicSignals(topic, detailsBySlug[topic.slug]).forEach((signal) => {
+      const signalIndexes = signalMap.get(signal) ?? [];
+      if (!signalIndexes.includes(index)) signalIndexes.push(index);
+      signalMap.set(signal, signalIndexes);
+    });
   });
 
   const bridges: BridgeNode[] = [
@@ -145,7 +219,41 @@ function getBridgeNodes(topics: HomepageTopic[]): BridgeNode[] {
     });
   });
 
-  return bridges.slice(0, 4);
+  Array.from(signalMap.entries())
+    .filter(([, topicIndexes]) => topicIndexes.length >= 2)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 2)
+    .forEach(([signal, topicIndexes]) => {
+      const averageX =
+        topicIndexes.reduce(
+          (sum, index) =>
+            sum + TOPIC_POSITIONS[index % TOPIC_POSITIONS.length].x,
+          0
+        ) / topicIndexes.length;
+      const averageY =
+        topicIndexes.reduce(
+          (sum, index) =>
+            sum + TOPIC_POSITIONS[index % TOPIC_POSITIONS.length].y,
+          0
+        ) / topicIndexes.length;
+
+      bridges.push({
+        id: `signal-${signal}`,
+        label: signal,
+        x: averageX * 0.72 + 560 * 0.28,
+        y: averageY * 0.72 + 340 * 0.28,
+        topicIndexes,
+      });
+    });
+
+  const used = new Set<string>();
+  return bridges
+    .filter((bridge) => {
+      if (used.has(bridge.label)) return false;
+      used.add(bridge.label);
+      return true;
+    })
+    .slice(0, 5);
 }
 
 function splitLabel(label: string, maxLength = 7) {
@@ -155,6 +263,9 @@ function splitLabel(label: string, maxLength = 7) {
 
 export default function TrendMoleculeMap() {
   const [topics, setTopics] = useState<HomepageTopic[]>([]);
+  const [detailsBySlug, setDetailsBySlug] = useState<Record<string, TopicDetail>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
@@ -168,6 +279,19 @@ export default function TrendMoleculeMap() {
         const nextTopics = (data.topics ?? []).slice(0, 6);
         setTopics(nextTopics);
         setSelectedTopicId(nextTopics[0]?.id ?? null);
+
+        return Promise.all(
+          nextTopics.map((topic: HomepageTopic) =>
+            fetch(`/api/topics/db/${encodeURIComponent(topic.slug)}`)
+              .then((res) => (res.ok ? res.json() : null))
+              .then((detailData) => [topic.slug, detailData?.topic ?? {}])
+              .catch(() => [topic.slug, {}])
+          )
+        );
+      })
+      .then((detailEntries) => {
+        if (cancelled || !detailEntries) return;
+        setDetailsBySlug(Object.fromEntries(detailEntries));
       })
       .catch((err) => console.error("Failed to load trend map:", err))
       .finally(() => {
@@ -189,12 +313,17 @@ export default function TrendMoleculeMap() {
     [topics]
   );
 
-  const bridgeNodes = useMemo(() => getBridgeNodes(topics), [topics]);
+  const bridgeNodes = useMemo(
+    () => getBridgeNodes(topics, detailsBySlug),
+    [topics, detailsBySlug]
+  );
 
   const signalNodes = useMemo<SignalNode[]>(
     () =>
       topicNodes.flatMap((topic, topicIndex) =>
-        getSignalLabels(topic).map((label, signalIndex) => {
+        getTopicSignals(topic, detailsBySlug[topic.slug])
+          .slice(0, 2)
+          .map((label, signalIndex) => {
           const offset =
             SIGNAL_OFFSETS[topicIndex % SIGNAL_OFFSETS.length][signalIndex] ??
             SIGNAL_OFFSETS[0][0];
@@ -208,11 +337,20 @@ export default function TrendMoleculeMap() {
           };
         })
       ),
-    [topicNodes]
+    [topicNodes, detailsBySlug]
   );
 
   const selectedTopic =
     topicNodes.find((topic) => topic.id === selectedTopicId) ?? topicNodes[0];
+  const selectedDetail = selectedTopic
+    ? detailsBySlug[selectedTopic.slug]
+    : undefined;
+  const selectedSignals = selectedTopic
+    ? getTopicSignals(selectedTopic, selectedDetail).slice(0, 6)
+    : [];
+  const selectedBridges = bridgeNodes.filter((bridge) =>
+    bridge.topicIndexes.some((index) => topicNodes[index]?.id === selectedTopic?.id)
+  );
 
   if (loading) {
     return (
@@ -260,12 +398,12 @@ export default function TrendMoleculeMap() {
           </div>
         </div>
 
-        <div className="relative bg-[radial-gradient(circle_at_center,_#ffffff_0,_#f8fbff_48%,_#edf4ff_100%)]">
+        <div className="relative overflow-x-auto bg-[radial-gradient(circle_at_center,_#ffffff_0,_#f8fbff_48%,_#edf4ff_100%)]">
           <svg
             viewBox="0 0 1120 680"
             role="img"
             aria-label="今日主題關聯圖"
-            className="h-[540px] w-full md:h-[650px]"
+            className="h-[540px] w-[980px] max-w-none md:h-[650px] md:w-full"
           >
             <defs>
               <radialGradient id="topic-red" cx="34%" cy="25%" r="70%">
@@ -461,6 +599,13 @@ export default function TrendMoleculeMap() {
               <h2 className="mt-2 text-2xl font-black leading-tight text-slate-950">
                 {selectedTopic.title}
               </h2>
+
+              {selectedDetail?.summary && (
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {selectedDetail.summary}
+                </p>
+              )}
+
               <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
                 <div className="rounded-2xl bg-red-50 p-3 text-red-700">
                   <div className="text-xs font-medium">熱度</div>
@@ -479,6 +624,63 @@ export default function TrendMoleculeMap() {
                   </div>
                 </div>
               </div>
+
+              {selectedSignals.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs font-semibold text-slate-500">
+                    子訊號
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedSignals.map((signal) => (
+                      <span
+                        key={signal}
+                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                      >
+                        {signal}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedBridges.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs font-semibold text-slate-500">
+                    共同點
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedBridges.map((bridge) => (
+                      <span
+                        key={bridge.id}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                      >
+                        {bridge.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedDetail?.articles?.length ? (
+                <div className="mt-4">
+                  <div className="text-xs font-semibold text-slate-500">
+                    快讀來源
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {selectedDetail.articles.slice(0, 2).map((article) => (
+                      <div
+                        key={article.id}
+                        className="rounded-2xl bg-slate-50 p-3 text-sm leading-6 text-slate-700"
+                      >
+                        {article.quickSummary ||
+                          article.description ||
+                          article.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <Link
                 href={`/topics/${selectedTopic.slug}`}
                 className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
@@ -495,13 +697,13 @@ export default function TrendMoleculeMap() {
           <div className="text-sm font-semibold text-blue-700">優化觀察</div>
           <div className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
             <p>
-              這版適合桌機快速看「關聯感」，但手機會需要切成橫向滑動或簡化成清單。
+              手機版已先改成橫向滑動，避免圖被壓扁；之後可再做手機專用的分層列表。
             </p>
             <p>
-              白色共同點目前由類別與今日焦點產生，之後可改成自動抽關鍵字共現。
+              白色共同點已開始使用類別與跨主題共通訊號，但還可以加入更精準的關鍵字共現分數。
             </p>
             <p>
-              藍色子訊號目前從標題拆字，之後應改為文章摘要中的人物、地點、事件。
+              藍色子訊號已優先抓主題詳情與文章快讀，下一步可把人物、地點、事件分開標示。
             </p>
           </div>
         </section>
