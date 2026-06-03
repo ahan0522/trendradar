@@ -28,8 +28,16 @@ function getTopicFamily(topic: HomeTopic) {
     return "taiwan-security";
   }
 
-  if (/輝達|黃仁勳|nvidia|ai|晶片|半導體/.test(text)) {
-    return "ai-semiconductor";
+  if (/機器人|具身|robot|robotics|自動化/.test(text)) {
+    return "ai-robotics";
+  }
+
+  if (/輝達|黃仁勳|nvidia|晶片|半導體|伺服器|資料中心|gpu/.test(text)) {
+    return "ai-infrastructure";
+  }
+
+  if (/ai|人工智慧|模型|審查|監管|行政命令|policy|regulation/.test(text)) {
+    return "ai-policy";
   }
 
   if (/nba|籃球|季後賽|總冠軍/.test(text)) {
