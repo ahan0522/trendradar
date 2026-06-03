@@ -23,10 +23,10 @@ type MindMapBranch = {
   title: string;
   description: string;
   pattern: RegExp;
-  positionClass: string;
+  moleculeClass: string;
   accentClass: string;
   softClass: string;
-  connectorClass: string;
+  bondClass: string;
 };
 
 const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
@@ -35,40 +35,44 @@ const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
     title: "模型與產品",
     description: "模型發布、產品功能、Agent 與平台服務。",
     pattern: /openai|anthropic|模型|生成式|agent|代理ai|產品|發布|siri|apple intelligence/i,
-    positionClass: "lg:col-start-1 lg:row-start-1 lg:self-end",
+    moleculeClass: "lg:left-[10%] lg:top-[13%]",
     accentClass: "bg-blue-600",
     softClass: "bg-blue-50 text-blue-700",
-    connectorClass: "lg:left-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
+    bondClass:
+      "lg:left-[27%] lg:top-[31%] lg:h-1 lg:w-[28%] lg:rotate-[28deg]",
   },
   {
     id: "infrastructure",
     title: "晶片與基礎建設",
     description: "GPU、資料中心、AI 伺服器與算力供應鏈。",
     pattern: /輝達|nvidia|gpu|晶片|半導體|伺服器|資料中心|算力|hbm|散熱/i,
-    positionClass: "lg:col-start-3 lg:row-start-1 lg:self-end",
+    moleculeClass: "lg:right-[9%] lg:top-[16%]",
     accentClass: "bg-cyan-600",
     softClass: "bg-cyan-50 text-cyan-700",
-    connectorClass: "lg:right-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
+    bondClass:
+      "lg:right-[27%] lg:top-[33%] lg:h-1 lg:w-[27%] lg:-rotate-[26deg]",
   },
   {
     id: "robotics",
     title: "機器人與應用",
     description: "具身 AI、人型機器人與產業落地場景。",
     pattern: /機器人|具身|實體ai|physical ai|自動化|邊緣 ai|應用/i,
-    positionClass: "lg:col-start-1 lg:row-start-3 lg:self-start",
+    moleculeClass: "lg:left-[13%] lg:bottom-[12%]",
     accentClass: "bg-emerald-600",
     softClass: "bg-emerald-50 text-emerald-700",
-    connectorClass: "lg:left-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
+    bondClass:
+      "lg:left-[29%] lg:bottom-[31%] lg:h-1 lg:w-[25%] lg:-rotate-[31deg]",
   },
   {
     id: "policy",
     title: "政策與監管",
     description: "政府規範、模型安全、審查與企業合規。",
     pattern: /政策|監管|審查|行政命令|模型安全|合規|white house|trump|executive order/i,
-    positionClass: "lg:col-start-3 lg:row-start-3 lg:self-start",
+    moleculeClass: "lg:right-[13%] lg:bottom-[10%]",
     accentClass: "bg-violet-600",
     softClass: "bg-violet-50 text-violet-700",
-    connectorClass: "lg:right-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
+    bondClass:
+      "lg:right-[29%] lg:bottom-[31%] lg:h-1 lg:w-[25%] lg:rotate-[31deg]",
   },
 ];
 
@@ -132,20 +136,26 @@ export default function AiMindMap({ topic }: { topic: TopicDetail }) {
         </div>
       </div>
 
-      <div className="relative mt-6 lg:min-h-[600px]">
-        <div className="absolute left-1/2 top-1/2 hidden h-[70%] w-px -translate-x-1/2 -translate-y-1/2 bg-slate-200 lg:block" />
-        <div className="absolute left-1/2 top-1/2 hidden h-px w-[72%] -translate-x-1/2 -translate-y-1/2 bg-slate-200 lg:block" />
+      <div className="relative mt-6 overflow-hidden rounded-[32px] border border-slate-100 bg-[radial-gradient(circle_at_center,_#f8fbff_0,_#f8fafc_42%,_#eef4ff_100%)] p-4 lg:min-h-[560px]">
+        <div className="pointer-events-none absolute inset-0 opacity-70 [background-image:radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:28px_28px]" />
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_220px_minmax(0,1fr)] lg:gap-x-24 lg:gap-y-8">
-          <div className="relative order-first rounded-[32px] border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-6 text-center shadow-sm lg:order-none lg:col-start-2 lg:row-start-2 lg:flex lg:flex-col lg:items-center lg:justify-center">
+        <div className="relative grid gap-3 lg:block lg:min-h-[528px]">
+          {branches.map((branch) => (
+            <div
+              key={`${branch.id}-bond`}
+              className={`pointer-events-none absolute hidden origin-center rounded-full bg-slate-300 shadow-[0_0_0_5px_rgba(255,255,255,0.75)] lg:block ${branch.bondClass}`}
+            />
+          ))}
+
+          <div className="relative rounded-[32px] border border-blue-100 bg-white/90 p-5 text-center shadow-sm backdrop-blur lg:absolute lg:left-1/2 lg:top-1/2 lg:z-10 lg:flex lg:h-48 lg:w-48 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:flex-col lg:items-center lg:justify-center lg:rounded-full lg:p-6">
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-slate-950 text-3xl font-black text-white shadow-lg shadow-slate-300/70">
               AI
             </div>
             <div className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-              Center Node
+              Core
             </div>
             <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-slate-600">
-              今日 AI 新聞先拆成四條線，點分支後再看該線的重點摘要。
+              今日 AI 新聞先拆成外圍訊號，點節點後再看該線的重點摘要。
             </p>
           </div>
 
@@ -158,42 +168,39 @@ export default function AiMindMap({ topic }: { topic: TopicDetail }) {
                 type="button"
                 onClick={() => setSelectedBranchId(branch.id)}
                 aria-pressed={isSelected}
-                className={`relative rounded-[24px] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${branch.positionClass} ${
+                className={`relative z-10 rounded-[28px] border p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 lg:absolute lg:flex lg:h-36 lg:w-36 lg:flex-col lg:items-center lg:justify-center lg:rounded-full lg:p-4 lg:text-center ${branch.moleculeClass} ${
                   isSelected
-                    ? "border-slate-950 bg-white shadow-md"
-                    : "border-slate-200 bg-slate-50"
+                    ? "scale-[1.03] border-slate-950 bg-white shadow-xl shadow-slate-300/60"
+                    : "border-slate-200 bg-white/85"
                 }`}
               >
-                <div
-                  className={`absolute hidden bg-slate-300 ${branch.connectorClass}`}
-                />
                 <div className="absolute -left-px top-6 h-10 w-1 rounded-r-full bg-slate-300 lg:hidden" />
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 lg:flex-col lg:items-center">
                   <div
-                    className={`mt-1 h-4 w-4 shrink-0 rounded-full ${branch.accentClass}`}
+                    className={`mt-1 h-4 w-4 shrink-0 rounded-full lg:h-7 lg:w-7 ${branch.accentClass}`}
                   />
                   <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-bold text-slate-950">
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-center">
+                      <h3 className="text-lg font-bold leading-snug text-slate-950 lg:text-base">
                         {branch.title}
                       </h3>
                       {isSelected && (
-                        <span className="rounded-full bg-slate-950 px-2 py-0.5 text-xs font-medium text-white">
+                        <span className="rounded-full bg-slate-950 px-2 py-0.5 text-xs font-medium text-white lg:hidden">
                           正在查看
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                    <p className="mt-1 text-sm leading-6 text-slate-600 lg:hidden">
                       {branch.description}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2 lg:justify-center">
                   <span className={`rounded-full px-3 py-1 text-xs ${branch.softClass}`}>
                     {branch.articles.length} 則相關
                   </span>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-500">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs text-slate-500 lg:hidden">
                     點擊展開
                   </span>
                 </div>
