@@ -160,6 +160,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "美國政府擬檢視 AI 模型發布前的審查流程，焦點在模型安全、監管權限與科技公司產品上市節奏。";
   }
 
+  if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(value)) {
+    return "新漢與高通展示具身 AI 機器人平台，焦點在機器人量產、邊緣運算與實體 AI 應用落地。";
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
     return "中東停火與美伊談判受到關注，焦點在以色列、黎巴嫩與伊朗相關表態是否影響後續區域局勢。";
   }
@@ -213,6 +217,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `美國 AI 模型審查政策成為科技與監管焦點，報導集中在白宮行政命令、模型發布前檢視、安全風險與企業合規壓力${sourceText}。`;
   }
 
+  if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
+    return `具身 AI 機器人平台成為 Computex 期間的產業焦點，報導聚焦人型機器人量產瓶頸、邊緣 AI 運算、硬體整合與實際應用落地${sourceText}。`;
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(text)) {
     return `中東停火與美伊談判相關消息升溫，報導焦點集中在以色列、黎巴嫩、伊朗與美方斡旋之間的互動，以及局勢是否會進一步擴大${sourceText}。`;
   }
@@ -262,6 +270,10 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {
     return ["行政命令", "模型安全", "企業合規", "發布審查"];
+  }
+
+  if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
+    return ["人型機器人", "邊緣 AI", "硬體平台", "量產瓶頸"];
   }
 
   if (/台海|印太|美防長|對台|美中/i.test(text)) {
