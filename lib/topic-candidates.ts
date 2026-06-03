@@ -599,6 +599,30 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
     return /0050|成分股|換股|換血/.test(sourceText);
   }
 
+  if (title === "美國對台關稅與貿易談判") {
+    return /關稅|301調查|美擬對台徵|貿易談判|重建關稅壁壘/.test(sourceText);
+  }
+
+  if (title === "台灣強降雨與防災提醒") {
+    return /強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(sourceText);
+  }
+
+  if (title === "南韓地方選舉與政局變化") {
+    return /南韓地方選舉|韓國地方選舉|尹錫悅|李在明|執政黨/.test(sourceText);
+  }
+
+  if (title === "法網台將女雙賽事") {
+    return /法網|梁恩碩|女雙|大滿貫|謝淑薇/.test(sourceText);
+  }
+
+  if (title === "軍機墜落事故") {
+    return /直升機|墜機|墜落|海軍.*喪生|軍機.*事故/.test(sourceText);
+  }
+
+  if (title === "台中火鍋店捲款案") {
+    return /捲款|潛逃|詐欺|檢警介入|受害者/.test(sourceText);
+  }
+
   if (title === "PlayStation 遊戲發表動態") {
     return /playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(sourceText);
   }
