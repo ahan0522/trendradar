@@ -124,6 +124,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "鴻海與輝達合作推進 AI 基礎建設與超算應用，焦點在台灣 AI 基建、代理 AI 與資料中心需求。";
   }
 
+  if (/無人機|anduril|自主系統|國防科技|非紅供應鏈|關鍵技術研發/i.test(value)) {
+    return "台美無人機與自主系統合作升溫，焦點在 AI 自主技術、國防科技合作與非紅供應鏈建構。";
+  }
+
   if (/大賣空|看空|網路泡沫|點名輝達.*泡沫|輝達.*泡沫/i.test(value)) {
     return "市場出現對輝達估值與 AI 題材過熱的疑慮，部分投資人把焦點放在是否重演科技泡沫風險。";
   }
@@ -132,7 +136,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "輝達在 Computex 期間延伸 PC 與 AI 晶片布局，台積電、聯發科與多家硬體夥伴成為市場關注焦點。";
   }
 
-  if (/黃仁勳|背板股|概念股|漲停|台股|供應鏈|下單畫面/.test(value)) {
+  if (
+    /(黃仁勳|輝達|nvidia)/i.test(value) &&
+    /背板股|概念股|漲停|台股|供應鏈|下單畫面/.test(value)
+  ) {
     return "黃仁勳相關消息帶動台股與 AI 供應鏈討論，市場焦點集中在概念股、供應鏈名單與資金熱度。";
   }
 
