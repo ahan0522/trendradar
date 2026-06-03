@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type PointerEvent } from "react";
 
 type HomepageTopic = {
   id: string;
@@ -207,6 +207,11 @@ export default function TrendGlobeMap() {
   const [loading, setLoading] = useState(true);
   const [rotation, setRotation] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [dragState, setDragState] = useState<{
+    startX: number;
+    startRotation: number;
+    moved: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -243,7 +248,7 @@ export default function TrendGlobeMap() {
   }, []);
 
   useEffect(() => {
-    if (paused) return;
+    if (paused || dragState) return;
     let frame = 0;
 
     function tick() {
@@ -253,7 +258,31 @@ export default function TrendGlobeMap() {
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [paused]);
+  }, [paused, dragState]);
+
+  function handlePointerDown(event: PointerEvent<SVGSVGElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragState({
+      startX: event.clientX,
+      startRotation: rotation,
+      moved: false,
+    });
+  }
+
+  function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
+    if (!dragState) return;
+    const deltaX = event.clientX - dragState.startX;
+
+    setRotation((dragState.startRotation + deltaX * 0.45 + 360) % 360);
+    if (Math.abs(deltaX) > 4 && !dragState.moved) {
+      setDragState({ ...dragState, moved: true });
+    }
+  }
+
+  function handlePointerUp(event: PointerEvent<SVGSVGElement>) {
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    window.setTimeout(() => setDragState(null), 0);
+  }
 
   const points = useMemo<GlobePoint[]>(() => {
     const topicPoints = topics.map((topic, index) => ({
@@ -394,7 +423,13 @@ export default function TrendGlobeMap() {
             viewBox="0 0 800 680"
             role="img"
             aria-label="旋轉地球村主題圖"
-            className="h-[620px] w-full"
+            className={`h-[620px] w-full touch-none select-none ${
+              dragState ? "cursor-grabbing" : "cursor-grab"
+            }`}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           >
             <defs>
               <radialGradient id="globe-fill" cx="38%" cy="28%" r="72%">
@@ -493,6 +528,7 @@ export default function TrendGlobeMap() {
                     opacity={opacity}
                     className={point.kind === "topic" ? "cursor-pointer" : ""}
                     onClick={() => {
+                      if (dragState?.moved) return;
                       if (point.kind === "topic") setSelectedTopicId(point.id);
                     }}
                   >
