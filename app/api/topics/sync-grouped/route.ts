@@ -49,6 +49,22 @@ function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function textMatchesKeyword(text: string, keyword: string) {
+  const normalizedKeyword = normalizeText(keyword);
+
+  if (/^[a-z0-9]{1,3}$/i.test(normalizedKeyword)) {
+    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedKeyword)}([^a-z0-9]|$)`).test(
+      text
+    );
+  }
+
+  return text.includes(normalizedKeyword);
+}
+
 function articleMatchesRule(
   article: NewsArticle,
   keywords: readonly string[],
@@ -60,13 +76,13 @@ function articleMatchesRule(
 
   if (
     excludeKeywords?.some((keyword) =>
-      haystack.includes(normalizeText(keyword))
+      textMatchesKeyword(haystack, keyword)
     )
   ) {
     return false;
   }
 
-  return keywords.some((keyword) => haystack.includes(normalizeText(keyword)));
+  return keywords.some((keyword) => textMatchesKeyword(haystack, keyword));
 }
 
 function getLatestPublishedAt(articles: NewsArticle[]) {
