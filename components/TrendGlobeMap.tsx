@@ -39,6 +39,14 @@ type GlobePoint = {
   color: string;
 };
 
+type GlobeRoute = {
+  id: string;
+  fromId: string;
+  toId: string;
+  topicId?: string;
+  strength: number;
+};
+
 const TOPIC_COORDS = [
   { lat: 18, lon: -138 },
   { lat: 45, lon: -55 },
@@ -162,6 +170,24 @@ function projectPoint(point: GlobePoint, rotation: number) {
   };
 }
 
+function getRoutePath(
+  from: ReturnType<typeof projectPoint>,
+  to: ReturnType<typeof projectPoint>
+) {
+  const midX = (from.x + to.x) / 2;
+  const midY = (from.y + to.y) / 2;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const curve = clamp(distance * 0.18, 24, 72);
+  const controlX = midX - (dy / Math.max(distance, 1)) * curve;
+  const controlY = midY + (dx / Math.max(distance, 1)) * curve - 18;
+
+  return `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} Q ${controlX.toFixed(
+    1
+  )} ${controlY.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
+}
+
 function splitLabel(label: string, maxLength = 6) {
   if (label.length <= maxLength) return [label];
   return [label.slice(0, maxLength), label.slice(maxLength, maxLength * 2)];
@@ -277,6 +303,44 @@ export default function TrendGlobeMap() {
     [points, rotation]
   );
 
+  const pointById = useMemo(
+    () => new Map(projectedPoints.map((point) => [point.id, point])),
+    [projectedPoints]
+  );
+
+  const routes = useMemo<GlobeRoute[]>(() => {
+    const nextRoutes: GlobeRoute[] = [];
+
+    topics.forEach((topic) => {
+      nextRoutes.push({
+        id: `${topic.id}-global`,
+        fromId: topic.id,
+        toId: "shared-global",
+        topicId: topic.id,
+        strength: topic.heatScore,
+      });
+      nextRoutes.push({
+        id: `${topic.id}-discussion`,
+        fromId: topic.id,
+        toId: "shared-discussion",
+        topicId: topic.id,
+        strength: topic.heatScore * 0.75,
+      });
+
+      getTopicSignals(topic, detailsBySlug[topic.slug]).forEach((label) => {
+        nextRoutes.push({
+          id: `${topic.id}-${label}-route`,
+          fromId: topic.id,
+          toId: `${topic.id}-${label}`,
+          topicId: topic.id,
+          strength: topic.heatScore * 0.55,
+        });
+      });
+    });
+
+    return nextRoutes;
+  }, [topics, detailsBySlug]);
+
   const selectedTopic =
     topics.find((topic) => topic.id === selectedTopicId) ?? topics[0];
   const selectedDetail = selectedTopic
@@ -298,6 +362,9 @@ export default function TrendGlobeMap() {
               Globe Prototype
             </div>
             <h2 className="mt-1 text-2xl font-black">全球議題正在轉動</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              航線代表主題、共同脈絡與子訊號之間的連結；點紅色主題會高亮它的路線。
+            </p>
           </div>
           <button
             type="button"
@@ -366,6 +433,30 @@ export default function TrendGlobeMap() {
                 strokeOpacity="0.12"
               />
             ))}
+
+            <g>
+              {routes.map((route) => {
+                const from = pointById.get(route.fromId);
+                const to = pointById.get(route.toId);
+                if (!from || !to || !from.visible || !to.visible) return null;
+
+                const isSelected = route.topicId === selectedTopicId;
+                const depthOpacity = clamp((from.z + to.z + 2) / 3.2, 0.14, 0.8);
+
+                return (
+                  <path
+                    key={route.id}
+                    d={getRoutePath(from, to)}
+                    fill="none"
+                    stroke={isSelected ? "#fef3c7" : "#93c5fd"}
+                    strokeWidth={isSelected ? 3.5 : 1.8}
+                    strokeLinecap="round"
+                    strokeDasharray={isSelected ? "1 0" : "7 9"}
+                    opacity={isSelected ? depthOpacity : depthOpacity * 0.55}
+                  />
+                );
+              })}
+            </g>
 
             {projectedPoints
               .filter((point) => point.visible)
@@ -471,13 +562,13 @@ export default function TrendGlobeMap() {
           <div className="text-sm font-semibold text-sky-300">目前判斷</div>
           <div className="mt-3 space-y-3 text-sm leading-6 text-slate-300">
             <p>
-              這版是 3D-like SVG 投影，已經有旋轉、遠近大小和節點點選，成本低且不需要新增套件。
+              這版是 3D-like SVG 投影，已經有旋轉、遠近大小、節點點選與航線連結，成本低且不需要新增套件。
+            </p>
+            <p>
+              航線可以用來表達主題與共同脈絡的關係；下一步可讓線條粗細代表關聯強度。
             </p>
             <p>
               如果要做真正可拖曳、縮放、慣性旋轉的地球，下一版可以升級成 Three.js。
-            </p>
-            <p>
-              手機版目前可看，但文字節點容易擠；後續要加入「點球後只顯示當前半球資訊」。
             </p>
           </div>
         </section>
