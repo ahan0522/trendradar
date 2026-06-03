@@ -27,6 +27,9 @@ type MindMapBranch = {
   accentClass: string;
   softClass: string;
   bondClass: string;
+  childSignals: string[];
+  childNodeClasses: string[];
+  childBondClasses: string[];
 };
 
 const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
@@ -40,6 +43,17 @@ const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
     softClass: "bg-blue-50 text-blue-700",
     bondClass:
       "lg:left-[27%] lg:top-[31%] lg:h-1 lg:w-[28%] lg:rotate-[28deg]",
+    childSignals: ["OpenAI", "Agent", "產品發布"],
+    childNodeClasses: [
+      "lg:left-[3%] lg:top-[3%]",
+      "lg:left-[24%] lg:top-[2%]",
+      "lg:left-[2%] lg:top-[35%]",
+    ],
+    childBondClasses: [
+      "lg:left-[13%] lg:top-[13%] lg:h-0.5 lg:w-[11%] lg:-rotate-[22deg]",
+      "lg:left-[24%] lg:top-[19%] lg:h-0.5 lg:w-[11%] lg:rotate-[28deg]",
+      "lg:left-[13%] lg:top-[34%] lg:h-0.5 lg:w-[10%] lg:rotate-[18deg]",
+    ],
   },
   {
     id: "infrastructure",
@@ -51,6 +65,17 @@ const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
     softClass: "bg-cyan-50 text-cyan-700",
     bondClass:
       "lg:right-[27%] lg:top-[33%] lg:h-1 lg:w-[27%] lg:-rotate-[26deg]",
+    childSignals: ["GPU", "資料中心", "供應鏈"],
+    childNodeClasses: [
+      "lg:right-[3%] lg:top-[4%]",
+      "lg:right-[24%] lg:top-[2%]",
+      "lg:right-[2%] lg:top-[37%]",
+    ],
+    childBondClasses: [
+      "lg:right-[13%] lg:top-[14%] lg:h-0.5 lg:w-[11%] lg:rotate-[22deg]",
+      "lg:right-[24%] lg:top-[19%] lg:h-0.5 lg:w-[11%] lg:-rotate-[28deg]",
+      "lg:right-[13%] lg:top-[36%] lg:h-0.5 lg:w-[10%] lg:-rotate-[18deg]",
+    ],
   },
   {
     id: "robotics",
@@ -62,6 +87,17 @@ const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
     softClass: "bg-emerald-50 text-emerald-700",
     bondClass:
       "lg:left-[29%] lg:bottom-[31%] lg:h-1 lg:w-[25%] lg:-rotate-[31deg]",
+    childSignals: ["具身 AI", "人型機器人", "產業落地"],
+    childNodeClasses: [
+      "lg:left-[3%] lg:bottom-[3%]",
+      "lg:left-[25%] lg:bottom-[2%]",
+      "lg:left-[2%] lg:bottom-[36%]",
+    ],
+    childBondClasses: [
+      "lg:left-[13%] lg:bottom-[13%] lg:h-0.5 lg:w-[11%] lg:rotate-[22deg]",
+      "lg:left-[24%] lg:bottom-[19%] lg:h-0.5 lg:w-[11%] lg:-rotate-[28deg]",
+      "lg:left-[13%] lg:bottom-[35%] lg:h-0.5 lg:w-[10%] lg:-rotate-[18deg]",
+    ],
   },
   {
     id: "policy",
@@ -73,6 +109,17 @@ const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
     softClass: "bg-violet-50 text-violet-700",
     bondClass:
       "lg:right-[29%] lg:bottom-[31%] lg:h-1 lg:w-[25%] lg:rotate-[31deg]",
+    childSignals: ["行政命令", "模型安全", "合規審查"],
+    childNodeClasses: [
+      "lg:right-[3%] lg:bottom-[3%]",
+      "lg:right-[25%] lg:bottom-[2%]",
+      "lg:right-[2%] lg:bottom-[36%]",
+    ],
+    childBondClasses: [
+      "lg:right-[13%] lg:bottom-[13%] lg:h-0.5 lg:w-[11%] lg:-rotate-[22deg]",
+      "lg:right-[24%] lg:bottom-[19%] lg:h-0.5 lg:w-[11%] lg:rotate-[28deg]",
+      "lg:right-[13%] lg:bottom-[35%] lg:h-0.5 lg:w-[10%] lg:rotate-[18deg]",
+    ],
   },
 ];
 
@@ -147,6 +194,13 @@ export default function AiMindMap({ topic }: { topic: TopicDetail }) {
             />
           ))}
 
+          {selectedBranch.childBondClasses.map((bondClass, index) => (
+            <div
+              key={`${selectedBranch.id}-child-bond-${index}`}
+              className={`pointer-events-none absolute hidden origin-center rounded-full bg-slate-300/80 lg:block ${bondClass}`}
+            />
+          ))}
+
           <div className="relative rounded-[32px] border border-blue-100 bg-white/90 p-5 text-center shadow-sm backdrop-blur lg:absolute lg:left-1/2 lg:top-1/2 lg:z-10 lg:flex lg:h-48 lg:w-48 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:flex-col lg:items-center lg:justify-center lg:rounded-full lg:p-6">
             <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-slate-950 text-3xl font-black text-white shadow-lg shadow-slate-300/70">
               AI
@@ -207,6 +261,18 @@ export default function AiMindMap({ topic }: { topic: TopicDetail }) {
               </button>
             );
           })}
+
+          {selectedBranch.childSignals.map((signal, index) => (
+            <button
+              key={`${selectedBranch.id}-${signal}`}
+              type="button"
+              onClick={() => setSelectedBranchId(selectedBranch.id)}
+              className={`relative z-20 hidden h-20 w-20 rounded-full border border-white bg-white/95 px-2 text-center text-xs font-semibold leading-snug text-slate-700 shadow-lg shadow-slate-300/50 transition hover:-translate-y-0.5 hover:text-slate-950 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:absolute lg:flex lg:items-center lg:justify-center ${selectedBranch.childNodeClasses[index]}`}
+            >
+              <span className={`absolute -top-1 h-3 w-3 rounded-full ${selectedBranch.accentClass}`} />
+              {signal}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -233,6 +299,17 @@ export default function AiMindMap({ topic }: { topic: TopicDetail }) {
         <p className="mt-3 leading-7 text-slate-600">
           {selectedBranch.description}
         </p>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {selectedBranch.childSignals.map((signal) => (
+            <span
+              key={signal}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium ${selectedBranch.softClass}`}
+            >
+              {signal}
+            </span>
+          ))}
+        </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2">
           {selectedBranch.articles.length > 0 ? (
