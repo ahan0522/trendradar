@@ -71,7 +71,7 @@ function articleMatchesRule(
   excludeKeywords?: readonly string[]
 ) {
   const haystack = normalizeText(
-    `${article.title} ${article.description ?? ""} ${article.category ?? ""}`
+    `${article.title} ${article.description ?? ""}`
   );
 
   if (
