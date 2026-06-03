@@ -5,6 +5,8 @@ import { groupArticlesToHomepageTopics } from "@/lib/topic-grouping";
 import { getHeroImageForCategory } from "@/lib/topic-home";
 import { discoverCandidateTopics } from "@/lib/topic-candidates";
 import { generateTopicAiSummary } from "@/lib/topic-ai";
+import { dedupeArticlesByEvent } from "@/lib/article-dedupe";
+import { getEffectiveSourceCount } from "@/lib/source-scoring";
 import { createServiceRoleClient } from "../../../../utils/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase-server";
 import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
@@ -226,11 +228,14 @@ async function handleSyncGrouped(request: Request) {
         }
       });
 
+      const representativeArticles = dedupeArticlesByEvent(matchedArticles);
+      const effectiveSourceCount = getEffectiveSourceCount(matchedArticles);
+
       const aiResult = await generateTopicAiSummary({
         topicTitle: rule.title,
         category: rule.category,
         keywords: rule.keywords,
-        articles: matchedArticles.map((article) => ({
+        articles: representativeArticles.map((article) => ({
           title: article.title,
           description: article.description ?? "",
           sourceName: article.sourceName,
@@ -248,8 +253,8 @@ async function handleSyncGrouped(request: Request) {
         tags: aiResult.tags,
         hero_image_url: grouped.heroImageUrl,
         heat_score: grouped.heatScore,
-        source_count: grouped.sourceCount,
-        article_count: grouped.articleCount,
+        source_count: effectiveSourceCount,
+        article_count: representativeArticles.length,
         last_article_published_at: getLatestPublishedAt(matchedArticles),
         last_synced_at: new Date().toISOString(),
         rule_key: rule.key,
@@ -285,7 +290,7 @@ async function handleSyncGrouped(request: Request) {
         );
       }
 
-      const topicArticleRows = matchedArticles
+      const topicArticleRows = representativeArticles
         .map((article) => {
           const persistedArticleId = article.link
             ? articleIdByLink.get(article.link)
@@ -337,8 +342,8 @@ async function handleSyncGrouped(request: Request) {
         slug: grouped.slug,
         title: grouped.title,
         discoveryMode: "rule_based",
-        articleCount: grouped.articleCount,
-        sourceCount: grouped.sourceCount,
+        articleCount: representativeArticles.length,
+        sourceCount: effectiveSourceCount,
         heatScore: grouped.heatScore,
         linkedArticleCount: topicArticleRows.length,
       });
@@ -418,11 +423,14 @@ async function handleSyncGrouped(request: Request) {
         continue;
       }
 
+      const representativeArticles = dedupeArticlesByEvent(matchedArticles);
+      const effectiveSourceCount = getEffectiveSourceCount(matchedArticles);
+
       const aiResult = await generateTopicAiSummary({
         topicTitle: candidate.title,
         category: candidate.category,
         keywords: candidate.keywords,
-        articles: matchedArticles.map((article) => ({
+        articles: representativeArticles.map((article) => ({
           title: article.title,
           description: article.description ?? "",
           sourceName: article.sourceName,
@@ -440,8 +448,8 @@ async function handleSyncGrouped(request: Request) {
         tags: aiResult.tags,
         hero_image_url: getHeroImageForCategory(candidate.category),
         heat_score: candidate.heatScore,
-        source_count: candidate.sourceCount,
-        article_count: candidate.articleCount,
+        source_count: effectiveSourceCount,
+        article_count: representativeArticles.length,
         last_article_published_at: candidate.latestPublishedAt,
         last_synced_at: new Date().toISOString(),
         rule_key: null,
@@ -477,7 +485,7 @@ async function handleSyncGrouped(request: Request) {
         );
       }
 
-      const topicArticleRows = matchedArticles
+      const topicArticleRows = representativeArticles
         .map((article) => {
           const persistedArticleId = article.link
             ? articleIdByLink.get(article.link)
@@ -529,8 +537,8 @@ async function handleSyncGrouped(request: Request) {
         slug: candidate.slug,
         title: candidate.title,
         discoveryMode: "candidate_cluster",
-        articleCount: candidate.articleCount,
-        sourceCount: candidate.sourceCount,
+        articleCount: representativeArticles.length,
+        sourceCount: effectiveSourceCount,
         heatScore: candidate.heatScore,
         linkedArticleCount: topicArticleRows.length,
       });
