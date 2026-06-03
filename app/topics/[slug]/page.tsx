@@ -79,6 +79,9 @@ type MindMapBranch = {
   title: string;
   description: string;
   pattern: RegExp;
+  positionClass: string;
+  accentClass: string;
+  connectorClass: string;
 };
 
 const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
@@ -86,21 +89,33 @@ const AI_MIND_MAP_BRANCHES: MindMapBranch[] = [
     title: "模型與產品",
     description: "追蹤模型發布、產品功能、Agent 與平台服務。",
     pattern: /openai|anthropic|模型|生成式|agent|代理ai|產品|發布|siri|apple intelligence/i,
+    positionClass: "lg:col-start-1 lg:row-start-1 lg:self-end",
+    accentClass: "bg-blue-600",
+    connectorClass: "lg:left-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
   },
   {
     title: "晶片與基礎建設",
     description: "整理 GPU、資料中心、AI 伺服器與算力供應鏈。",
     pattern: /輝達|nvidia|gpu|晶片|半導體|伺服器|資料中心|算力|hbm|散熱/i,
+    positionClass: "lg:col-start-3 lg:row-start-1 lg:self-end",
+    accentClass: "bg-cyan-600",
+    connectorClass: "lg:right-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
   },
   {
     title: "機器人與應用",
     description: "觀察具身 AI、人型機器人與產業落地場景。",
     pattern: /機器人|具身|實體ai|physical ai|自動化|邊緣 ai|應用/i,
+    positionClass: "lg:col-start-1 lg:row-start-3 lg:self-start",
+    accentClass: "bg-emerald-600",
+    connectorClass: "lg:left-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
   },
   {
     title: "政策與監管",
     description: "關注政府規範、模型安全、審查與企業合規。",
     pattern: /政策|監管|審查|行政命令|模型安全|合規|white house|trump|executive order/i,
+    positionClass: "lg:col-start-3 lg:row-start-3 lg:self-start",
+    accentClass: "bg-violet-600",
+    connectorClass: "lg:right-[calc(100%+1rem)] lg:top-1/2 lg:h-px lg:w-16",
   },
 ];
 
@@ -124,24 +139,36 @@ function getFallbackBranchArticles(index: number, articles: TopicArticle[]) {
 
 function AiMindMap({ topic }: { topic: TopicDetail }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6">
-      <div className="text-sm font-semibold text-blue-700">AI 主題地圖</div>
-      <h2 className="mt-1 text-2xl font-bold text-slate-950">
-        從中心主題展開的幾條分支
-      </h2>
-
-      <div className="mt-6 grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-center shadow-sm">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-            Center
-          </div>
-          <div className="mt-2 text-3xl font-black text-slate-950">AI</div>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            今日 AI 新聞先按應用脈絡拆開，看完分支就能快速掌握主線。
-          </p>
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-blue-700">AI 主題地圖</div>
+          <h2 className="mt-1 text-2xl font-bold text-slate-950">
+            從中心主題展開的幾條分支
+          </h2>
         </div>
+        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+          測試版心智圖
+        </div>
+      </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+      <div className="relative mt-6 lg:min-h-[620px]">
+        <div className="absolute left-1/2 top-1/2 hidden h-[70%] w-px -translate-x-1/2 -translate-y-1/2 bg-slate-200 lg:block" />
+        <div className="absolute left-1/2 top-1/2 hidden h-px w-[72%] -translate-x-1/2 -translate-y-1/2 bg-slate-200 lg:block" />
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)_220px_minmax(0,1fr)] lg:gap-x-24 lg:gap-y-8">
+          <div className="relative order-first rounded-[32px] border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-6 text-center shadow-sm lg:order-none lg:col-start-2 lg:row-start-2 lg:flex lg:flex-col lg:items-center lg:justify-center">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-slate-950 text-3xl font-black text-white shadow-lg shadow-slate-300/70">
+              AI
+            </div>
+            <div className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+              Center Node
+            </div>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-slate-600">
+              今日 AI 新聞按應用脈絡拆開，看完四條分支就能快速掌握主線。
+            </p>
+          </div>
+
           {AI_MIND_MAP_BRANCHES.map((branch, index) => {
             const matchedArticles = getBranchArticles(branch, topic.articles);
             const branchArticles = matchedArticles.length
@@ -151,13 +178,20 @@ function AiMindMap({ topic }: { topic: TopicDetail }) {
             return (
               <div
                 key={branch.title}
-                className="relative rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                className={`relative rounded-[24px] border border-slate-200 bg-slate-50 p-4 shadow-sm ${branch.positionClass}`}
               >
-                <div className="absolute -left-3 top-6 hidden h-px w-3 bg-slate-300 lg:block" />
+                <div
+                  className={`absolute hidden bg-slate-300 ${branch.connectorClass}`}
+                />
+                <div className="absolute -left-px top-6 h-10 w-1 rounded-r-full bg-slate-300 lg:hidden" />
                 <div className="flex items-start gap-3">
-                  <div className="mt-1 h-3 w-3 rounded-full bg-blue-600" />
+                  <div
+                    className={`mt-1 h-4 w-4 shrink-0 rounded-full ${branch.accentClass}`}
+                  />
                   <div>
-                    <h3 className="font-bold text-slate-950">{branch.title}</h3>
+                    <h3 className="text-lg font-bold text-slate-950">
+                      {branch.title}
+                    </h3>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
                       {branch.description}
                     </p>
@@ -169,7 +203,7 @@ function AiMindMap({ topic }: { topic: TopicDetail }) {
                     branchArticles.map((article) => (
                       <div
                         key={`${branch.title}-${article.id}`}
-                        className="rounded-xl bg-white px-3 py-2 text-sm leading-6 text-slate-700"
+                        className="rounded-2xl bg-white px-3 py-2 text-sm leading-6 text-slate-700 shadow-sm"
                       >
                         {article.quickSummary ||
                           article.description ||
@@ -177,7 +211,7 @@ function AiMindMap({ topic }: { topic: TopicDetail }) {
                       </div>
                     ))
                   ) : (
-                    <div className="rounded-xl bg-white px-3 py-2 text-sm text-slate-500">
+                    <div className="rounded-2xl bg-white px-3 py-2 text-sm text-slate-500 shadow-sm">
                       目前這條分支還在等待更多來源。
                     </div>
                   )}
