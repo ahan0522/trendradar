@@ -160,6 +160,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "美國政府擬檢視 AI 模型發布前的審查流程，焦點在模型安全、監管權限與科技公司產品上市節奏。";
   }
 
+  if (/playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(value)) {
+    return "PlayStation 發表活動帶出多款遊戲消息，焦點在新作預告、上市時程與玩家社群反應。";
+  }
+
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(value)) {
     return "新漢與高通展示具身 AI 機器人平台，焦點在機器人量產、邊緣運算與實體 AI 應用落地。";
   }
@@ -217,6 +221,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `美國 AI 模型審查政策成為科技與監管焦點，報導集中在白宮行政命令、模型發布前檢視、安全風險與企業合規壓力${sourceText}。`;
   }
 
+  if (/playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(text)) {
+    return `PlayStation 遊戲發表活動帶出多款新作與預告消息，報導聚焦 State of Play 發表內容、重點遊戲、上市時程與玩家期待${sourceText}。`;
+  }
+
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
     return `具身 AI 機器人平台成為 Computex 期間的產業焦點，報導聚焦人型機器人量產瓶頸、邊緣 AI 運算、硬體整合與實際應用落地${sourceText}。`;
   }
@@ -270,6 +278,10 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {
     return ["行政命令", "模型安全", "企業合規", "發布審查"];
+  }
+
+  if (/playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(text)) {
+    return ["發表活動", "新作預告", "上市時程", "玩家反應"];
   }
 
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {

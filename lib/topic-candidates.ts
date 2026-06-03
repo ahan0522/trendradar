@@ -246,6 +246,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "遊戲";
   }
 
+  if (/俄羅斯|烏克蘭|基輔|空襲|襲擊|russia|ukraine|kyiv/i.test(value)) {
+    return "國際";
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|中東/.test(value)) {
     return "國際";
   }
@@ -412,6 +416,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "具身 AI 機器人平台發表";
   }
 
+  if (/俄羅斯|烏克蘭|基輔|空襲|大規模襲擊|多人遇難|russia|ukraine|kyiv/i.test(value)) {
+    return "俄烏戰爭新一輪空襲";
+  }
+
   if (/t-34|教練機|飛官|墜毀|殉職|橋檢|相驗/i.test(value)) {
     return "T-34 教練機墜毀事故";
   }
@@ -531,6 +539,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "具身 AI 機器人平台發表") {
     return /人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(sourceText);
+  }
+
+  if (title === "俄烏戰爭新一輪空襲") {
+    return /俄羅斯|烏克蘭|基輔|空襲|大規模襲擊|多人遇難|russia|ukraine|kyiv/i.test(sourceText);
   }
 
   if (title === "T-34 教練機墜毀事故") {

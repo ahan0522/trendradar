@@ -81,7 +81,7 @@ export function getCanonicalSourceName(source: {
 }) {
   const sourceName = source.sourceName?.trim() || "unknown";
 
-  if (source.sourceKind === "aggregator" && sourceName.startsWith("Google News")) {
+  if (sourceName.startsWith("Google News")) {
     return "Google News";
   }
 
