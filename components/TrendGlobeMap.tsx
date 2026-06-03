@@ -48,38 +48,38 @@ type GlobeRoute = {
 };
 
 const TOPIC_COORDS = [
-  { lat: 18, lon: -138 },
-  { lat: 45, lon: -55 },
-  { lat: 23, lon: 118 },
-  { lat: -24, lon: 32 },
-  { lat: -4, lon: -18 },
-  { lat: 48, lon: 138 },
+  { lat: 18, lon: -72 },
+  { lat: 42, lon: -24 },
+  { lat: 24, lon: 36 },
+  { lat: -16, lon: 76 },
+  { lat: -24, lon: -18 },
+  { lat: 44, lon: 96 },
 ];
 
 const SIGNAL_COORDS = [
   [
-    { lat: 32, lon: -165 },
-    { lat: 4, lon: -116 },
+    { lat: 31, lon: -88 },
+    { lat: 5, lon: -58 },
   ],
   [
-    { lat: 63, lon: -28 },
-    { lat: 28, lon: -15 },
+    { lat: 58, lon: -38 },
+    { lat: 28, lon: -4 },
   ],
   [
-    { lat: 38, lon: 145 },
-    { lat: 5, lon: 103 },
+    { lat: 38, lon: 22 },
+    { lat: 8, lon: 54 },
   ],
   [
-    { lat: -8, lon: 60 },
-    { lat: -48, lon: 20 },
+    { lat: -2, lon: 94 },
+    { lat: -38, lon: 58 },
   ],
   [
-    { lat: 16, lon: 4 },
-    { lat: -28, lon: -42 },
+    { lat: -6, lon: -38 },
+    { lat: -42, lon: -2 },
   ],
   [
-    { lat: 66, lon: 158 },
-    { lat: 28, lon: 170 },
+    { lat: 62, lon: 82 },
+    { lat: 30, lon: 118 },
   ],
 ];
 
@@ -193,6 +193,11 @@ function splitLabel(label: string, maxLength = 6) {
   return [label.slice(0, maxLength), label.slice(maxLength, maxLength * 2)];
 }
 
+function truncateText(text: string, maxLength: number) {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+}
+
 export default function TrendGlobeMap() {
   const [topics, setTopics] = useState<HomepageTopic[]>([]);
   const [detailsBySlug, setDetailsBySlug] = useState<Record<string, TopicDetail>>(
@@ -278,16 +283,16 @@ export default function TrendGlobeMap() {
         id: "shared-global",
         label: "地球村",
         kind: "shared",
-        lat: 0,
-        lon: 0,
+        lat: 8,
+        lon: 24,
         color: "#f8fafc",
       },
       {
         id: "shared-discussion",
         label: "今日焦點",
         kind: "shared",
-        lat: 10,
-        lon: 78,
+        lat: 0,
+        lon: 62,
         color: "#e2e8f0",
       },
     ];
@@ -313,19 +318,22 @@ export default function TrendGlobeMap() {
 
     topics.forEach((topic) => {
       nextRoutes.push({
-        id: `${topic.id}-global`,
-        fromId: topic.id,
-        toId: "shared-global",
-        topicId: topic.id,
-        strength: topic.heatScore,
-      });
-      nextRoutes.push({
         id: `${topic.id}-discussion`,
         fromId: topic.id,
         toId: "shared-discussion",
         topicId: topic.id,
         strength: topic.heatScore * 0.75,
       });
+
+      if (topic.id === selectedTopicId) {
+        nextRoutes.push({
+          id: `${topic.id}-global`,
+          fromId: topic.id,
+          toId: "shared-global",
+          topicId: topic.id,
+          strength: topic.heatScore,
+        });
+      }
 
       getTopicSignals(topic, detailsBySlug[topic.slug]).forEach((label) => {
         nextRoutes.push({
@@ -339,13 +347,19 @@ export default function TrendGlobeMap() {
     });
 
     return nextRoutes;
-  }, [topics, detailsBySlug]);
+  }, [topics, detailsBySlug, selectedTopicId]);
 
   const selectedTopic =
     topics.find((topic) => topic.id === selectedTopicId) ?? topics[0];
   const selectedDetail = selectedTopic
     ? detailsBySlug[selectedTopic.slug]
     : undefined;
+  const selectedPoint = selectedTopic ? pointById.get(selectedTopic.id) : null;
+  const selectedSummary =
+    selectedDetail?.summary ||
+    selectedDetail?.articles?.[0]?.quickSummary ||
+    selectedDetail?.articles?.[0]?.description ||
+    "正在整理這個主題的快讀摘要。";
 
   if (loading) {
     return (
@@ -449,7 +463,11 @@ export default function TrendGlobeMap() {
                     d={getRoutePath(from, to)}
                     fill="none"
                     stroke={isSelected ? "#fef3c7" : "#93c5fd"}
-                    strokeWidth={isSelected ? 3.5 : 1.8}
+                    strokeWidth={
+                      isSelected
+                        ? clamp(2.6 + route.strength / 90, 3, 5.2)
+                        : clamp(1.2 + route.strength / 140, 1.5, 2.5)
+                    }
                     strokeLinecap="round"
                     strokeDasharray={isSelected ? "1 0" : "7 9"}
                     opacity={isSelected ? depthOpacity : depthOpacity * 0.55}
@@ -511,6 +529,36 @@ export default function TrendGlobeMap() {
                   </g>
                 );
               })}
+
+            {selectedTopic && selectedPoint?.visible && (
+              <foreignObject
+                x={clamp(selectedPoint.x + 34, 90, 520)}
+                y={clamp(selectedPoint.y - 92, 56, 478)}
+                width="250"
+                height="158"
+                className="pointer-events-none"
+              >
+                <div className="rounded-2xl border border-white/15 bg-slate-950/82 p-3 text-white shadow-2xl shadow-black/35 backdrop-blur">
+                  <div className="text-xs font-semibold text-sky-300">
+                    球上快讀
+                  </div>
+                  <div className="mt-1 text-sm font-black leading-snug">
+                    {selectedTopic.title}
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-slate-300">
+                    {truncateText(selectedSummary, 78)}
+                  </p>
+                  <div className="mt-2 flex gap-2 text-[11px] text-slate-300">
+                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-red-100">
+                      熱度 {selectedTopic.heatScore}
+                    </span>
+                    <span className="rounded-full bg-white/10 px-2 py-0.5">
+                      {selectedTopic.articleCount} 篇
+                    </span>
+                  </div>
+                </div>
+              </foreignObject>
+            )}
           </svg>
         </div>
       </section>
