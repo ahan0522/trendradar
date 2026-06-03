@@ -166,21 +166,71 @@ function uniqueStrings(values: string[]) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function getCanonicalSourceNames(articles: ResponseArticle[]) {
+  return uniqueStrings(
+    articles.map((article) =>
+      getCanonicalSourceName({ sourceName: article.sourceName })
+    )
+  );
+}
+
+function isGenericTopicSummary(summary: string) {
+  return (
+    !summary ||
+    /熱門新聞共有|焦點集中在最新發展|事件結果與延伸影響|目前尚未產生摘要/.test(
+      summary
+    )
+  );
+}
+
+function shouldSkipSimilarSummary(summary: string, acceptedSummaries: string[]) {
+  return acceptedSummaries.some(
+    (acceptedSummary) => getTextSimilarity(summary, acceptedSummary) >= 0.72
+  );
+}
+
 function buildReadableBullets(
   topicBullets: string[] | null,
   articles: ResponseArticle[]
 ) {
-  const articleSummaries = uniqueStrings(
-    articles
-      .map((article) => article.quickSummary)
-      .filter((summary) => summary.length >= 12)
-  ).slice(0, 4);
+  const articleSummaries: string[] = [];
+
+  articles.forEach((article) => {
+    const summary = article.quickSummary;
+    if (summary.length < 12) return;
+    if (shouldSkipSimilarSummary(summary, articleSummaries)) return;
+    articleSummaries.push(summary);
+  });
 
   if (articleSummaries.length > 0) {
-    return articleSummaries;
+    return articleSummaries.slice(0, 4);
   }
 
   return Array.isArray(topicBullets) ? topicBullets : [];
+}
+
+function buildEventLevelSummary(
+  storedSummary: string | null,
+  articles: ResponseArticle[]
+) {
+  const existingSummary = storedSummary ?? "";
+
+  if (!isGenericTopicSummary(existingSummary)) {
+    return existingSummary;
+  }
+
+  const sourceNames = getCanonicalSourceNames(articles).slice(0, 4);
+  const articleSummaries = buildReadableBullets(null, articles).slice(0, 2);
+
+  if (articleSummaries.length === 0) {
+    return existingSummary;
+  }
+
+  const sourceText = sourceNames.length
+    ? `主要來源包括 ${sourceNames.join("、")}`
+    : "目前已有多個來源追蹤";
+
+  return `這個主題目前可整理為 ${articles.length} 個去重後事件，${sourceText}。重點是：${articleSummaries.join("；")}`;
 }
 
 export async function GET(
@@ -313,8 +363,13 @@ export async function GET(
     });
 
     const dedupedArticles = dedupeSimilarArticles(responseArticles);
+    const effectiveSourceCount = getCanonicalSourceNames(responseArticles).length;
 
     const responseBullets = buildReadableBullets(topic.bullets, dedupedArticles);
+    const responseSummary = buildEventLevelSummary(
+      topic.summary,
+      dedupedArticles
+    );
 
     const responseTopic = {
       id: topic.id,
@@ -324,13 +379,13 @@ export async function GET(
       category: topic.category ?? "",
       heroImageUrl: topic.hero_image_url ?? "",
       heatScore: topic.heat_score ?? 0,
-      sourceCount: topic.source_count ?? 0,
+      sourceCount: effectiveSourceCount || topic.source_count || 0,
       articleCount: dedupedArticles.length,
       updatedAt:
         topic.last_article_published_at ??
         topic.last_synced_at ??
         new Date().toISOString(),
-      summary: topic.summary ?? "",
+      summary: responseSummary,
       bullets: responseBullets,
       subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
       tags: Array.isArray(topic.tags) ? topic.tags : [],
