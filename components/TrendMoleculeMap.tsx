@@ -40,15 +40,26 @@ type BridgeNode = {
   x: number;
   y: number;
   topicIndexes: number[];
+  score: number;
 };
 
 type SignalNode = {
   id: string;
   label: string;
+  kind: SignalKind;
   x: number;
   y: number;
   topicIndex: number;
+  score: number;
 };
+
+type TopicSignal = {
+  label: string;
+  kind: SignalKind;
+  score: number;
+};
+
+type SignalKind = "person" | "place" | "event" | "org" | "concept";
 
 const TOPIC_POSITIONS = [
   { x: 260, y: 220 },
@@ -100,7 +111,63 @@ const LOW_SIGNAL_WORDS = new Set([
   "Google",
   "News",
   "Yahoo",
+  "國際",
+  "科技",
 ]);
+
+const PERSON_HINTS = [
+  "川普",
+  "拜登",
+  "黃仁勳",
+  "庫克",
+  "馬斯克",
+  "習近平",
+  "賴清德",
+  "普丁",
+  "澤倫斯基",
+];
+
+const PLACE_HINTS = [
+  "台灣",
+  "台海",
+  "美國",
+  "中國",
+  "日本",
+  "烏克蘭",
+  "俄羅斯",
+  "東海",
+  "南海",
+  "華府",
+];
+
+const ORG_HINTS = [
+  "OpenAI",
+  "Google",
+  "Apple",
+  "Meta",
+  "Microsoft",
+  "NVIDIA",
+  "輝達",
+  "Sony",
+  "PlayStation",
+  "白宮",
+  "美軍",
+  "國防部",
+];
+
+const EVENT_HINTS = [
+  "發布",
+  "發表",
+  "審查",
+  "行政命令",
+  "演習",
+  "衝突",
+  "墜毀",
+  "攻擊",
+  "制裁",
+  "調查",
+  "安全",
+];
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -134,36 +201,55 @@ function splitTopicWords(text: string) {
     .filter((word) => word.length >= 2 && !LOW_SIGNAL_WORDS.has(word));
 }
 
-function pushSignals(target: string[], signals: Array<string | undefined>) {
+function getSignalKind(signal: string): SignalKind {
+  if (PERSON_HINTS.some((hint) => signal.includes(hint))) return "person";
+  if (PLACE_HINTS.some((hint) => signal.includes(hint))) return "place";
+  if (ORG_HINTS.some((hint) => signal.includes(hint))) return "org";
+  if (EVENT_HINTS.some((hint) => signal.includes(hint))) return "event";
+  return "concept";
+}
+
+function addSignals(
+  target: Map<string, TopicSignal>,
+  signals: Array<string | undefined>,
+  score: number
+) {
   signals.forEach((signal) => {
     if (!signal) return;
     const normalized = normalizeSignal(signal);
     if (!normalized || normalized.length < 2) return;
     if (LOW_SIGNAL_WORDS.has(normalized)) return;
-    if (!target.includes(normalized)) target.push(normalized);
+    const current = target.get(normalized);
+
+    target.set(normalized, {
+      label: normalized,
+      kind: current?.kind ?? getSignalKind(normalized),
+      score: (current?.score ?? 0) + score,
+    });
   });
 }
 
 function getTopicSignals(topic: HomepageTopic, detail?: TopicDetail) {
-  const signals: string[] = [];
+  const signals = new Map<string, TopicSignal>();
 
-  pushSignals(signals, detail?.subtopics ?? []);
-  pushSignals(signals, detail?.keywords ?? []);
-  pushSignals(signals, detail?.tags ?? []);
+  addSignals(signals, detail?.subtopics ?? [], 5);
+  addSignals(signals, detail?.keywords ?? [], 4);
+  addSignals(signals, detail?.tags ?? [], 3);
 
   if (detail?.summary) {
-    pushSignals(signals, splitTopicWords(detail.summary).slice(0, 4));
+    addSignals(signals, splitTopicWords(detail.summary).slice(0, 4), 2);
   }
 
   detail?.articles?.slice(0, 4).forEach((article) => {
-    pushSignals(signals, splitTopicWords(article.quickSummary ?? ""));
-    pushSignals(signals, splitTopicWords(article.title).slice(0, 2));
+    addSignals(signals, splitTopicWords(article.quickSummary ?? ""), 2);
+    addSignals(signals, splitTopicWords(article.title).slice(0, 2), 1);
   });
 
-  pushSignals(signals, [topic.category, ...splitTopicWords(topic.title)]);
+  addSignals(signals, [topic.category, ...splitTopicWords(topic.title)], 1);
 
-  return signals
-    .filter((signal) => signal !== topic.category || signals.length <= 2)
+  return Array.from(signals.values())
+    .filter((signal) => signal.label !== topic.category || signals.size <= 2)
+    .sort((a, b) => b.score - a.score || a.label.length - b.label.length)
     .slice(0, 3);
 }
 
@@ -172,7 +258,10 @@ function getBridgeNodes(
   detailsBySlug: Record<string, TopicDetail>
 ): BridgeNode[] {
   const categoryMap = new Map<string, number[]>();
-  const signalMap = new Map<string, number[]>();
+  const signalMap = new Map<
+    string,
+    { topicIndexes: number[]; score: number }
+  >();
 
   topics.forEach((topic, index) => {
     const indexes = categoryMap.get(topic.category) ?? [];
@@ -180,9 +269,13 @@ function getBridgeNodes(
     categoryMap.set(topic.category, indexes);
 
     getTopicSignals(topic, detailsBySlug[topic.slug]).forEach((signal) => {
-      const signalIndexes = signalMap.get(signal) ?? [];
-      if (!signalIndexes.includes(index)) signalIndexes.push(index);
-      signalMap.set(signal, signalIndexes);
+      const entry = signalMap.get(signal.label) ?? {
+        topicIndexes: [],
+        score: 0,
+      };
+      if (!entry.topicIndexes.includes(index)) entry.topicIndexes.push(index);
+      entry.score += signal.score + topic.heatScore / 100;
+      signalMap.set(signal.label, entry);
     });
   });
 
@@ -193,6 +286,7 @@ function getBridgeNodes(
       x: 560,
       y: 340,
       topicIndexes: topics.map((_, index) => index),
+      score: topics.reduce((sum, topic) => sum + topic.heatScore, 0),
     },
   ];
 
@@ -216,14 +310,22 @@ function getBridgeNodes(
       x: averageX,
       y: averageY + 80,
       topicIndexes,
+      score:
+        topicIndexes.length * 10 +
+        topicIndexes.reduce((sum, index) => sum + topics[index].heatScore / 20, 0),
     });
   });
 
   Array.from(signalMap.entries())
-    .filter(([, topicIndexes]) => topicIndexes.length >= 2)
-    .sort((a, b) => b[1].length - a[1].length)
+    .filter(([, entry]) => entry.topicIndexes.length >= 2)
+    .sort(
+      (a, b) =>
+        b[1].topicIndexes.length - a[1].topicIndexes.length ||
+        b[1].score - a[1].score
+    )
     .slice(0, 2)
-    .forEach(([signal, topicIndexes]) => {
+    .forEach(([signal, entry]) => {
+      const { topicIndexes } = entry;
       const averageX =
         topicIndexes.reduce(
           (sum, index) =>
@@ -243,6 +345,7 @@ function getBridgeNodes(
         x: averageX * 0.72 + 560 * 0.28,
         y: averageY * 0.72 + 340 * 0.28,
         topicIndexes,
+        score: entry.score + topicIndexes.length * 10,
       });
     });
 
@@ -253,12 +356,45 @@ function getBridgeNodes(
       used.add(bridge.label);
       return true;
     })
+    .sort((a, b) => b.score - a.score)
     .slice(0, 5);
 }
 
 function splitLabel(label: string, maxLength = 7) {
   if (label.length <= maxLength) return [label];
   return [label.slice(0, maxLength), label.slice(maxLength, maxLength * 2)];
+}
+
+function getSignalKindLabel(kind: SignalKind) {
+  if (kind === "person") return "人物";
+  if (kind === "place") return "地點";
+  if (kind === "event") return "事件";
+  if (kind === "org") return "組織";
+  return "概念";
+}
+
+function getSignalKindClass(kind: SignalKind) {
+  if (kind === "person") return "bg-amber-50 text-amber-700";
+  if (kind === "place") return "bg-emerald-50 text-emerald-700";
+  if (kind === "event") return "bg-rose-50 text-rose-700";
+  if (kind === "org") return "bg-violet-50 text-violet-700";
+  return "bg-blue-50 text-blue-700";
+}
+
+function getSignalColor(kind: SignalKind) {
+  if (kind === "person") return "#f59e0b";
+  if (kind === "place") return "#10b981";
+  if (kind === "event") return "#f43f5e";
+  if (kind === "org") return "#8b5cf6";
+  return "#3b82f6";
+}
+
+function getSignalDarkColor(kind: SignalKind) {
+  if (kind === "person") return "#92400e";
+  if (kind === "place") return "#065f46";
+  if (kind === "event") return "#9f1239";
+  if (kind === "org") return "#4c1d95";
+  return "#1e3a8a";
 }
 
 export default function TrendMoleculeMap() {
@@ -323,17 +459,19 @@ export default function TrendMoleculeMap() {
       topicNodes.flatMap((topic, topicIndex) =>
         getTopicSignals(topic, detailsBySlug[topic.slug])
           .slice(0, 2)
-          .map((label, signalIndex) => {
+          .map((signal, signalIndex) => {
           const offset =
             SIGNAL_OFFSETS[topicIndex % SIGNAL_OFFSETS.length][signalIndex] ??
             SIGNAL_OFFSETS[0][0];
 
           return {
-            id: `${topic.id}-${label}`,
-            label,
+            id: `${topic.id}-${signal.label}`,
+            label: signal.label,
+            kind: signal.kind,
             x: topic.x + offset.x,
             y: topic.y + offset.y,
             topicIndex,
+            score: signal.score,
           };
         })
       ),
@@ -393,6 +531,9 @@ export default function TrendMoleculeMap() {
               </span>
               <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700">
                 藍：子訊號
+              </span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
+                色彩：訊號類型
               </span>
             </div>
           </div>
@@ -499,7 +640,12 @@ export default function TrendMoleculeMap() {
             <g filter="url(#node-shadow)">
               {bridgeNodes.map((bridge) => (
                 <g key={bridge.id}>
-                  <circle cx={bridge.x} cy={bridge.y} r="38" fill="url(#bridge-white)" />
+                  <circle
+                    cx={bridge.x}
+                    cy={bridge.y}
+                    r={clamp(30 + bridge.score / 24, 34, 48)}
+                    fill="url(#bridge-white)"
+                  />
                   {splitLabel(bridge.label, 5).map((line, index, lines) => (
                     <text
                       key={line}
@@ -522,8 +668,10 @@ export default function TrendMoleculeMap() {
                     <circle
                       cx={signal.x}
                       cy={signal.y}
-                      r={isSelected ? 34 : 28}
-                      fill="url(#signal-blue)"
+                      r={clamp(24 + signal.score, isSelected ? 32 : 26, 40)}
+                      fill={getSignalColor(signal.kind)}
+                      stroke={getSignalDarkColor(signal.kind)}
+                      strokeWidth={isSelected ? 3 : 1.5}
                     />
                     {splitLabel(signal.label, 4).map((line, index, lines) => (
                       <text
@@ -633,10 +781,10 @@ export default function TrendMoleculeMap() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     {selectedSignals.map((signal) => (
                       <span
-                        key={signal}
-                        className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+                        key={signal.label}
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${getSignalKindClass(signal.kind)}`}
                       >
-                        {signal}
+                        {signal.label} · {getSignalKindLabel(signal.kind)}
                       </span>
                     ))}
                   </div>
@@ -654,7 +802,7 @@ export default function TrendMoleculeMap() {
                         key={bridge.id}
                         className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
                       >
-                        {bridge.label}
+                        {bridge.label} · {Math.round(bridge.score)}
                       </span>
                     ))}
                   </div>
