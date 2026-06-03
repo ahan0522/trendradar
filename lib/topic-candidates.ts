@@ -136,6 +136,36 @@ const SIGNAL_KEYWORDS = [
   "Sony",
   "NBA",
   "iPhone",
+  "關稅",
+  "強降雨",
+  "豪雨",
+  "南韓地方選舉",
+  "法網",
+  "梁恩碩",
+];
+
+const EMBEDDED_MEDIA_NAMES = [
+  "中央社",
+  "自由時報",
+  "自由財經",
+  "自由體育",
+  "Yahoo",
+  "UDN",
+  "聯合新聞網",
+  "工商時報",
+  "公視",
+  "ETtoday",
+  "三立",
+  "民視",
+  "東森",
+  "NOWnews",
+  "中時",
+  "鉅亨",
+  "MoneyDJ",
+  "rti",
+  "LINE TODAY",
+  "Harper",
+  "PChome",
 ];
 
 function normalizeText(value: string) {
@@ -207,6 +237,22 @@ function dedupeClusterArticles(articles: NewsArticle[]) {
       return bWeight - aWeight;
     })[0]
   );
+}
+
+function getEmbeddedSourceCount(article: NewsArticle) {
+  const text = `${article.title} ${article.description ?? ""}`;
+
+  if (article.sourceKind !== "aggregator" && !article.sourceName.includes("Google News")) {
+    return 0;
+  }
+
+  return EMBEDDED_MEDIA_NAMES.filter((sourceName) =>
+    text.toLowerCase().includes(sourceName.toLowerCase())
+  ).length;
+}
+
+function getEmbeddedSourceScore(articles: NewsArticle[]) {
+  return Math.max(0, ...articles.map(getEmbeddedSourceCount));
 }
 
 function jaccardSimilarity(a: Set<string>, b: Set<string>) {
@@ -404,6 +450,30 @@ function inferTopicTitleFromSignals(value: string) {
     return "0050 成分股調整";
   }
 
+  if (/關稅|301調查|美擬對台徵|貿易談判|重建關稅壁壘/.test(value)) {
+    return "美國對台關稅與貿易談判";
+  }
+
+  if (/強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(value)) {
+    return "台灣強降雨與防災提醒";
+  }
+
+  if (/南韓地方選舉|韓國地方選舉|尹錫悅|李在明|執政黨/.test(value)) {
+    return "南韓地方選舉與政局變化";
+  }
+
+  if (/法網|梁恩碩|女雙|大滿貫|謝淑薇/.test(value)) {
+    return "法網台將女雙賽事";
+  }
+
+  if (/直升機|墜機|墜落|海軍.*喪生|軍機.*事故/.test(value)) {
+    return "軍機墜落事故";
+  }
+
+  if (/捲款|潛逃|詐欺|檢警介入|受害者/.test(value)) {
+    return "台中火鍋店捲款案";
+  }
+
   if (/playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(value)) {
     return "PlayStation 遊戲發表動態";
   }
@@ -588,7 +658,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|罷免|選舉|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|關稅|貿易談判|罷免|選舉|法網|梁恩碩|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
     text
   );
 }
@@ -599,10 +669,18 @@ function hasOnlySourceConcentrationWarning(rejectionReasons: string[]) {
   );
 }
 
+function hasOnlyAggregationWarning(rejectionReasons: string[]) {
+  return rejectionReasons.every(
+    (reason) =>
+      reason.includes("平台聚合單篇") ||
+      reason.includes("有效來源仍偏集中")
+  );
+}
+
 function isLowValueTopic(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`;
 
-  if (/大樂透|威力彩|今彩|雙贏彩|開獎|頭獎|中獎號碼|彩券/.test(text)) {
+  if (/大樂透|威力彩|今彩|雙贏彩|開獎|頭獎|中獎號碼|彩券|命理|生肖|星座|財運|上上籤/.test(text)) {
     return true;
   }
 
@@ -616,12 +694,23 @@ function isLowValueTopic(title: string, keywords: string[]) {
   return false;
 }
 
+function hasStandaloneDigestSignal(article: NewsArticle) {
+  if (getEmbeddedSourceCount(article) < 3) return false;
+
+  const text = `${article.title} ${article.description ?? ""}`;
+  const title = inferTopicTitleFromSignals(text) || cleanTitle(article.title);
+  const keywords = getTopKeywords([article], 6);
+
+  return hasStrongEventSignal(title, keywords) && !isLowValueTopic(title, keywords);
+}
+
 function evaluateCandidate(input: {
   title: string;
   keywords: string[];
   articleCount: number;
   sourceCount: number;
   rawSourceCount: number;
+  embeddedSourceCount: number;
   articles: NewsArticle[];
 }) {
   let qualityScore = 0;
@@ -631,6 +720,10 @@ function evaluateCandidate(input: {
 
   if (input.articleCount >= 4) qualityScore += 35;
   else if (input.articleCount >= 2) qualityScore += 20;
+  else if (input.embeddedSourceCount >= 3 && strongEventSignal) {
+    qualityScore += 18;
+    rejectionReasons.push("平台聚合單篇，需後續來源補強");
+  }
   else rejectionReasons.push("文章數不足");
 
   if (input.sourceCount >= 2) qualityScore += 35;
@@ -679,12 +772,20 @@ function evaluateCandidate(input: {
     input.articleCount >= 2 &&
     qualityScore >= 78 &&
     hasOnlySourceConcentrationWarning(rejectionReasons);
+  const aggregatedDigestPublishable =
+    strongEventSignal &&
+    input.articleCount === 1 &&
+    input.embeddedSourceCount >= 3 &&
+    input.sourceCount >= 3 &&
+    qualityScore >= 78 &&
+    hasOnlyAggregationWarning(rejectionReasons);
 
   return {
     qualityScore,
     publishable:
       (qualityScore >= 78 && rejectionReasons.length === 0 ||
-        sourceConcentratedButPublishable) &&
+        sourceConcentratedButPublishable ||
+        aggregatedDigestPublishable) &&
       !lowValueTopic,
     rejectionReasons,
   };
@@ -733,12 +834,33 @@ export function discoverCandidateTopics(
     }
   }
 
+  if (clusters.length < maxTopics) {
+    const standaloneDigests = articles
+      .filter((article) => unused.has(article.id))
+      .filter(hasStandaloneDigestSignal)
+      .sort((a, b) => {
+        const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+        const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+
+        return bTime - aTime;
+      })
+      .slice(0, maxTopics - clusters.length);
+
+    standaloneDigests.forEach((article) => {
+      clusters.push([article]);
+    });
+  }
+
   return mergeRelatedClusters(clusters)
     .map((cluster, index) => {
       const representativeCluster = dedupeClusterArticles(cluster);
       const keywords = getTopKeywords(cluster, 6);
-      const effectiveSourceCount = getEffectiveSourceCount(representativeCluster);
-      const rawSourceCount = getRawSourceCount(cluster);
+      const embeddedSourceCount = getEmbeddedSourceScore(cluster);
+      const effectiveSourceCount = Math.max(
+        getEffectiveSourceCount(representativeCluster),
+        embeddedSourceCount
+      );
+      const rawSourceCount = Math.max(getRawSourceCount(cluster), embeddedSourceCount);
       const title = makeCandidateTitle(representativeCluster, keywords);
       const sourceCount = effectiveSourceCount;
       const signalText = `${title} ${keywords.join(" ")} ${cluster
@@ -754,6 +876,7 @@ export function discoverCandidateTopics(
         articleCount: representativeCluster.length,
         sourceCount,
         rawSourceCount,
+        embeddedSourceCount,
         articles: representativeCluster,
       });
 
