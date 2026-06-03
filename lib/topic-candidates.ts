@@ -684,6 +684,10 @@ function isLowValueTopic(title: string, keywords: string[]) {
     return true;
   }
 
+  if (/chill|台啤|辦桌|紅豆餅|刈包|吃不停|年薪|職缺|徵才|網嗨翻|內行人/.test(text.toLowerCase())) {
+    return true;
+  }
+
   if (
     /股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|營收\d|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停|買這\d+檔|現在就買|買進|個股|股票|概念股|報價|調漲價格|華新科|mlcc/i.test(text) &&
     !/0050|etf|成分股|換股|換血/i.test(text)
@@ -810,6 +814,7 @@ export function discoverCandidateTopics(
 
   const unused = new Set(articles.map((article) => article.id));
   const clusters: NewsArticle[][] = [];
+  const smallClusterArticles: NewsArticle[] = [];
 
   for (const seed of articles) {
     if (!unused.has(seed.id)) continue;
@@ -831,12 +836,21 @@ export function discoverCandidateTopics(
 
     if (cluster.length >= minArticles) {
       clusters.push(cluster);
+    } else {
+      smallClusterArticles.push(...cluster);
     }
   }
 
   if (clusters.length < maxTopics) {
+    const seenStandaloneLinks = new Set<string>();
     const standaloneDigests = articles
-      .filter((article) => unused.has(article.id))
+      .filter((article) => smallClusterArticles.some((item) => item.id === article.id))
+      .filter((article) => {
+        const link = article.link || article.id;
+        if (seenStandaloneLinks.has(link)) return false;
+        seenStandaloneLinks.add(link);
+        return true;
+      })
       .filter(hasStandaloneDigestSignal)
       .sort((a, b) => {
         const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
