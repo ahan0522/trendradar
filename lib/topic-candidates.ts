@@ -593,6 +593,12 @@ function hasStrongEventSignal(title: string, keywords: string[]) {
   );
 }
 
+function hasOnlySourceConcentrationWarning(rejectionReasons: string[]) {
+  return rejectionReasons.every((reason) =>
+    reason.includes("有效來源仍偏集中")
+  );
+}
+
 function isLowValueTopic(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`;
 
@@ -621,6 +627,7 @@ function evaluateCandidate(input: {
   let qualityScore = 0;
   const rejectionReasons: string[] = [];
   const lowValueTopic = isLowValueTopic(input.title, input.keywords);
+  const strongEventSignal = hasStrongEventSignal(input.title, input.keywords);
 
   if (input.articleCount >= 4) qualityScore += 35;
   else if (input.articleCount >= 2) qualityScore += 20;
@@ -629,6 +636,9 @@ function evaluateCandidate(input: {
   if (input.sourceCount >= 2) qualityScore += 35;
   else if (input.rawSourceCount >= 2 && input.articleCount >= 3) {
     qualityScore += 18;
+    rejectionReasons.push("有效來源仍偏集中，可能只是同一媒體不同分類轉載");
+  } else if (input.rawSourceCount >= 2 && strongEventSignal) {
+    qualityScore += 15;
     rejectionReasons.push("有效來源仍偏集中，可能只是同一媒體不同分類轉載");
   }
   else rejectionReasons.push("來源數不足，可能只是單一來源連發");
@@ -648,7 +658,7 @@ function evaluateCandidate(input: {
   }
 
   if (input.articleCount === 2 && input.sourceCount === 2) {
-    if (hasStrongEventSignal(input.title, input.keywords)) {
+    if (strongEventSignal) {
       qualityScore += 5;
     } else {
       qualityScore -= 20;
@@ -663,11 +673,18 @@ function evaluateCandidate(input: {
 
   qualityScore = Math.max(0, Math.min(100, qualityScore));
 
+  const sourceConcentratedButPublishable =
+    strongEventSignal &&
+    input.rawSourceCount >= 2 &&
+    input.articleCount >= 2 &&
+    qualityScore >= 78 &&
+    hasOnlySourceConcentrationWarning(rejectionReasons);
+
   return {
     qualityScore,
     publishable:
-      qualityScore >= 78 &&
-      rejectionReasons.length === 0 &&
+      (qualityScore >= 78 && rejectionReasons.length === 0 ||
+        sourceConcentratedButPublishable) &&
       !lowValueTopic,
     rejectionReasons,
   };
