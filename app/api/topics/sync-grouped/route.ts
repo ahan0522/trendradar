@@ -440,7 +440,10 @@ async function handleSyncGrouped(request: Request) {
       }
 
       const representativeArticles = dedupeArticlesByEvent(matchedArticles);
-      const effectiveSourceCount = getEffectiveSourceCount(matchedArticles);
+      const effectiveSourceCount = Math.max(
+        getEffectiveSourceCount(matchedArticles),
+        candidate.sourceCount
+      );
 
       const aiResult = await generateTopicAiSummary({
         topicTitle: candidate.title,

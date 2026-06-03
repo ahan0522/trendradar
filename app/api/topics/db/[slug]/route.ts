@@ -363,7 +363,10 @@ export async function GET(
     });
 
     const dedupedArticles = dedupeSimilarArticles(responseArticles);
-    const effectiveSourceCount = getCanonicalSourceNames(responseArticles).length;
+    const effectiveSourceCount = Math.max(
+      getCanonicalSourceNames(responseArticles).length,
+      topic.source_count ?? 0
+    );
 
     const responseBullets = buildReadableBullets(topic.bullets, dedupedArticles);
     const responseSummary = buildEventLevelSummary(
