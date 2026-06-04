@@ -533,7 +533,7 @@ export async function GET() {
       })
       .sort((a, b) => b.heatScore - a.heatScore);
 
-    const usedFamilies = new Set(candidateGlobeTopics.map(getFamilyKey));
+    const usedFamilies = new Set<string>();
     const instantTopics: GlobeTopic[] = [];
     const seenArticleTitles = new Set<string>();
 
