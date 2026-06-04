@@ -63,6 +63,7 @@ function stripHtml(value: string) {
 function cleanTitle(value: string) {
   return stripHtml(value)
     .replace(/\s*-\s*(Yahoo新聞|Yahoo運動|UDN|自由健康網|中天新聞網|三立新聞網SETN\.com)$/i, "")
+    .replace(/國價油價/g, "國際油價")
     .replace(/^[^：:]{1,5}[：:]\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -109,7 +110,7 @@ function isLowValueTrendText(value: string) {
     return true;
   }
 
-  if (/台股|股價|買超|賣超|eps|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值/.test(text)) {
+  if (/台股|股價|股市|美國股市|歐洲股市|開盤|買超|賣超|eps|營收展望|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值/.test(text)) {
     return true;
   }
 
