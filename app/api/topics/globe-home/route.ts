@@ -99,6 +99,20 @@ function removeTopicEcho(value: string, topicTitle: string) {
   return cleaned;
 }
 
+function truncateSummaryText(value: string, maxLength = 116) {
+  const collapsed = value.replace(/\s+/g, " ").trim();
+  if (collapsed.length <= maxLength) {
+    return collapsed.replace(/[。．.]+$/, "").trim();
+  }
+
+  const sliced = collapsed.slice(0, maxLength);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const readableSlice =
+    lastSpace >= Math.floor(maxLength * 0.72) ? sliced.slice(0, lastSpace) : sliced;
+
+  return readableSlice.replace(/[，,；;：:\s]+$/, "").replace(/[。．.]+$/, "").trim();
+}
+
 function makeQuickSummary(input: {
   title: string;
   description?: string;
@@ -126,13 +140,9 @@ function makeQuickSummary(input: {
     return "";
   }
 
-  return selected
-    .replace(/^[\s:：,，、-]+/, "")
-    .replace(/\s+/g, " ")
-    .slice(0, 116)
-    .replace(/\s+\S{0,16}$/, "")
-    .replace(/[。．.]+$/, "")
-    .trim();
+  return truncateSummaryText(
+    selected.replace(/^[\s:：,，、-]+/, "").replace(/\s+/g, " ").trim()
+  );
 }
 
 function makeGlobeSummary(input: {
