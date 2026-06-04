@@ -206,7 +206,7 @@ function inferGlobeCategory(input: {
     ].join(" ")
   );
 
-  if (/台海|反艦|飛彈|共軍|國防|軍售|軍演|海巡|eez|主權|制裁|中國侵略|anduril/.test(text)) {
+  if (/台海|反艦|飛彈|共軍|國防|軍售|軍演|海巡|eez|主權|制裁|中國侵略|anduril|中國戰車|禁言|64/.test(text)) {
     return "國際";
   }
 
@@ -222,12 +222,12 @@ function inferGlobeCategory(input: {
     return "健康";
   }
 
-  if (/ai|人工智慧|機器人|robot|晶片|半導體|伺服器|科技|平台|自動化|maven|火星探測|無人機|uas/.test(text)) {
-    return "AI";
-  }
-
   if (/關稅|課稅|貿易戰|川普課稅|強制險|金管會|保險|經濟|租賃|貿易|產業|金融/.test(text)) {
     return "財經";
+  }
+
+  if (/ai|人工智慧|機器人|robot|晶片|半導體|伺服器|科技|平台|自動化|maven|火星探測|無人機|uas/.test(text)) {
+    return "AI";
   }
 
   if (/nba|tpbl|mlb|棒球|籃球|網球|大谷|馬刺|尼克|國王|總冠軍/.test(text)) {
