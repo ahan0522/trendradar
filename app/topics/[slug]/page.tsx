@@ -130,6 +130,70 @@ function getWhyItMatters(topic: TopicDetail, article: TopicArticle) {
   return "這是目前多篇報導共同指向的事件重點，可先用它掌握大致脈絡，再視需要點原文。";
 }
 
+function getTopicTopLine(topic: TopicDetail) {
+  if (topic.summary) return topic.summary;
+  if (topic.bullets[0]) return topic.bullets[0];
+  if (topic.articles[0]?.quickSummary) return topic.articles[0].quickSummary;
+
+  return "這個主題正在整理中，系統會在下一次同步時補上完整快讀。";
+}
+
+function getTopicWhyItMatters(topic: TopicDetail) {
+  const text = `${topic.title} ${topic.summary} ${topic.bullets.join(" ")}`;
+
+  if (/關稅|貿易談判|301/.test(text)) {
+    return "它可能影響台灣出口條件、產業成本與政府談判策略，後續變化會牽動企業布局與政策回應。";
+  }
+
+  if (/停火|美伊|伊朗|中東|以色列|台海|印太|國防/.test(text)) {
+    return "它會影響區域安全判斷、國際外交表態與市場風險情緒，是需要持續追蹤的高影響事件。";
+  }
+
+  if (/選舉|政局|執政黨|尹錫悅|南韓/.test(text)) {
+    return "選舉結果會改變政治力量分布，也可能影響政策推進、外交路線與後續國會互動。";
+  }
+
+  if (/法網|女雙|梁恩碩|大滿貫|網球/.test(text)) {
+    return "這代表台灣選手在國際賽事中的重要進展，後續賽程與對手變化會決定討論熱度是否延續。";
+  }
+
+  if (/AI|人工智慧|晶片|資料中心|機器人|模型/i.test(text)) {
+    return "AI 題材牽動產品、基礎建設與資本配置，相關事件常會延伸到科技供應鏈與監管討論。";
+  }
+
+  return "這個主題被整理出來，是因為多個訊號指向同一件事；先看這裡可以快速掌握今天的共同焦點。";
+}
+
+function getWhatToWatch(topic: TopicDetail) {
+  const text = `${topic.title} ${topic.summary} ${topic.bullets.join(" ")}`;
+
+  if (/關稅|貿易談判|301/.test(text)) {
+    return ["美方最後稅率是否定案", "台灣政府與產業如何回應", "是否出現更多受影響產業名單"];
+  }
+
+  if (/停火|美伊|伊朗|中東|以色列/.test(text)) {
+    return ["各方是否重新談判或升高衝突", "油價與市場風險情緒變化", "美方與區域盟友的下一步表態"];
+  }
+
+  if (/台海|印太|國防|美中/.test(text)) {
+    return ["美中後續公開表態", "台灣政府回應與區域軍事動態", "周邊國家是否跟進表態"];
+  }
+
+  if (/選舉|政局|執政黨|尹錫悅|南韓/.test(text)) {
+    return ["敗選或勝選陣營的後續聲明", "政策與人事是否調整", "民調與政黨支持度是否變化"];
+  }
+
+  if (/法網|女雙|梁恩碩|大滿貫|網球/.test(text)) {
+    return ["下一場對手與賽程", "台將是否刷新紀錄", "國際媒體與球迷討論是否升溫"];
+  }
+
+  if (/AI|人工智慧|晶片|資料中心|機器人|模型/i.test(text)) {
+    return ["是否有產品或合作正式落地", "供應鏈與資料中心需求是否延續", "監管、資安或商業模式的新訊號"];
+  }
+
+  return ["是否有更多原始來源補強", "相關人物或官方是否回應", "事件熱度是否延續到下一輪同步"];
+}
+
 async function getTopic(slug: string): Promise<TopicDetail | null> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("host");
@@ -184,6 +248,9 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
   const keywords = topic.keywords?.length ? topic.keywords : topic.tags;
   const showAiMindMap = isAiFixedTopic(topic);
   const platformDigest = isPlatformDigestTopic(topic);
+  const topLine = getTopicTopLine(topic);
+  const whyItMatters = getTopicWhyItMatters(topic);
+  const whatToWatch = getWhatToWatch(topic);
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -250,19 +317,48 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-blue-700">
-                    主題摘要
+              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+                Briefing
+              </div>
+              <h2 className="mt-1 text-2xl font-bold text-slate-950">
+                先看這三件事
+              </h2>
+
+              <div className="mt-5 grid gap-4">
+                <div className="rounded-2xl bg-slate-950 p-5 text-white">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
+                    Top line
                   </div>
-                  <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                    這個主題現在發生什麼事
-                  </h2>
+                  <p className="mt-2 text-lg font-semibold leading-8">
+                    {topLine}
+                  </p>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_300px]">
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+                      Why it matters
+                    </div>
+                    <p className="mt-2 leading-7 text-slate-700">
+                      {whyItMatters}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-blue-50/60 p-5">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+                      What to watch
+                    </div>
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
+                      {whatToWatch.map((item) => (
+                        <li key={item} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
-              <p className="mt-4 text-lg leading-8 text-slate-700">
-                {topic.summary || "目前尚未產生摘要，系統會在下一次同步時補上。"}
-              </p>
 
               {platformDigest && (
                 <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
