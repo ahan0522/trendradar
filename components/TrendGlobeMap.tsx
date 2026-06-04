@@ -950,7 +950,7 @@ export default function TrendGlobeMap() {
                 );
               })}
 
-            {selectedTopic && selectedPoint?.visible && (
+            {focusMode && selectedTopic && selectedPoint?.visible && (
               <foreignObject
                 x={focusMode ? 252 : clamp(selectedPoint.x + 34, 90, 520)}
                 y={focusMode ? 206 : clamp(selectedPoint.y - 92, 56, 478)}
