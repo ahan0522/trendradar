@@ -76,6 +76,7 @@ function cleanTitle(value: string) {
 function cleanSummaryText(value: string) {
   return stripHtml(value)
     .replace(/\b(Google News|Yahoo新聞|Yahoo奇摩新聞)\b/g, " ")
+    .replace(/^（中央社[^）]{0,48}）/, "")
     .replace(/&nbsp;/g, " ")
     .replace(/\s*-\s*(Yahoo新聞|UDN|聯合新聞網|中央社|自由時報|中時新聞網|三立新聞網SETN\.com)$/i, "")
     .replace(/\s+/g, " ")
@@ -103,6 +104,7 @@ function makeQuickSummary(input: {
   description?: string;
   topicTitle?: string;
 }) {
+  const normalizedTopic = normalizeText(input.topicTitle ?? "");
   const candidates = [
     input.description ? cleanSummaryText(input.description) : "",
     removeTopicEcho(input.title, input.topicTitle ?? ""),
@@ -114,10 +116,15 @@ function makeQuickSummary(input: {
       const normalized = normalizeText(candidate);
       return (
         candidate.length >= 18 &&
-        normalized !== normalizeText(input.topicTitle ?? "") &&
+        normalized !== normalizedTopic &&
+        !(normalizedTopic.length >= 8 && normalized.includes(normalizedTopic)) &&
         !/^https?:\/\//i.test(candidate)
       );
     }) ?? candidates[0] ?? "";
+
+  if (normalizedTopic.length >= 8 && normalizeText(selected) === normalizedTopic) {
+    return "";
+  }
 
   return selected
     .replace(/^[\s:：,，、-]+/, "")
@@ -142,6 +149,7 @@ function makeGlobeSummary(input: {
       })
     )
     .filter(Boolean)
+    .filter((point) => normalizeText(point) !== normalizeText(input.title))
     .filter(
       (point, index, list) =>
         list.findIndex((item) => normalizeText(item) === normalizeText(point)) ===
@@ -150,10 +158,10 @@ function makeGlobeSummary(input: {
     .slice(0, 2);
 
   if (points.length > 0) {
-    return `${input.title} 是目前「${input.category}」類的焦點之一，已整合 ${input.articleCount} 則相關訊號、${input.sourceCount} 個來源；重點包括：${points.join("；")}。`;
+    return `這是目前「${input.category}」類的焦點之一，已整合 ${input.articleCount} 則相關訊號、${input.sourceCount} 個來源；重點包括：${points.join("；")}。`;
   }
 
-  return `${input.title} 是目前「${input.category}」類的焦點之一，已整合 ${input.articleCount} 則相關訊號、${input.sourceCount} 個來源，後續可從來源文章追蹤細節。`;
+  return `這是目前「${input.category}」類的焦點之一，已整合 ${input.articleCount} 則相關訊號、${input.sourceCount} 個來源，後續可從來源文章追蹤細節。`;
 }
 
 function getTextTokens(value: string) {
@@ -205,7 +213,7 @@ function isLowValueTrendText(value: string) {
     return true;
   }
 
-  if (/台股|股價|股市|美國股市|歐洲股市|開盤|買超|賣超|eps|營收展望|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值/.test(text)) {
+  if (/台股|股價|股市|美國股市|歐洲股市|開盤|買超|賣超|eps|營收展望|合併營收|月營收|\d+\s*月營收|公布\s*\d+\s*月營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值|較去年同期|較上月|殖利率|本益比/.test(text)) {
     return true;
   }
 
