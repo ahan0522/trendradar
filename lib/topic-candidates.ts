@@ -734,7 +734,9 @@ function hasStandaloneDigestSignal(article: NewsArticle) {
   if (getEmbeddedSourceCount(article) < 3) return false;
 
   const text = `${article.title} ${article.description ?? ""}`;
-  const title = inferTopicTitleFromSignals(text) || cleanTitle(article.title);
+  const title = inferTopicTitleFromSignals(text);
+  if (!title) return false;
+
   const keywords = getTopKeywords([article], 6);
 
   return hasStrongEventSignal(title, keywords) && !isLowValueTopic(title, keywords);
