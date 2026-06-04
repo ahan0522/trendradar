@@ -62,7 +62,8 @@ function stripHtml(value: string) {
 
 function cleanTitle(value: string) {
   return stripHtml(value)
-    .replace(/\s*-\s*(Yahoo新聞|Yahoo運動|UDN|自由健康網|中天新聞網|三立新聞網SETN\.com)$/i, "")
+    .replace(/\s*\|\s*[^|]{1,12}\s*\|\s*新聞\s*-\s*風傳媒$/i, "")
+    .replace(/\s*-\s*(Yahoo新聞|Yahoo運動|UDN|自由健康網|中天新聞網|三立新聞網SETN\.com|風傳媒)$/i, "")
     .replace(/國價油價/g, "國際油價")
     .replace(/^[^：:]{1,5}[：:]\s*/, "")
     .replace(/\s+/g, " ")
@@ -225,7 +226,7 @@ function inferGlobeCategory(input: {
     return "AI";
   }
 
-  if (/強制險|金管會|保險|經濟|租賃|關稅|貿易|產業|金融/.test(text)) {
+  if (/關稅|課稅|貿易戰|川普課稅|強制險|金管會|保險|經濟|租賃|貿易|產業|金融/.test(text)) {
     return "財經";
   }
 
