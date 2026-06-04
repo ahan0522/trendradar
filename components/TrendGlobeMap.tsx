@@ -12,6 +12,20 @@ type HomepageTopic = {
   sourceCount: number;
   articleCount: number;
   updatedAt: string;
+  discoveryMode?: string;
+  summary?: string;
+  keywords?: string[];
+  detailUrl?: string;
+  articles?: Array<{
+    id: string;
+    title: string;
+    description?: string;
+    quickSummary?: string;
+    category?: string;
+    region?: string;
+    sourceName?: string;
+    publishedAt?: string | null;
+  }>;
 };
 
 type TopicDetail = {
@@ -32,7 +46,7 @@ type TopicDetail = {
     category?: string;
     region?: string;
     sourceName?: string;
-    publishedAt?: string;
+    publishedAt?: string | null;
   }>;
 };
 
@@ -375,26 +389,45 @@ export default function TrendGlobeMap() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/topics/db-home?limit=12")
+    fetch("/api/topics/globe-home")
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
         const nextTopics = (data.topics ?? []).slice(0, 12);
         setTopics(nextTopics);
         setSelectedTopicId(nextTopics[0]?.id ?? null);
+        const inlineDetails = Object.fromEntries(
+          nextTopics.map((topic: HomepageTopic) => [
+            topic.slug,
+            {
+              summary: topic.summary,
+              category: topic.category,
+              keywords: topic.keywords ?? [],
+              articles: topic.articles ?? [],
+            } satisfies TopicDetail,
+          ])
+        );
+        setDetailsBySlug(inlineDetails);
 
         return Promise.all(
-          nextTopics.map((topic: HomepageTopic) =>
-            fetch(`/api/topics/db/${encodeURIComponent(topic.slug)}`)
+          nextTopics
+            .filter((topic: HomepageTopic) =>
+              !topic.discoveryMode?.startsWith("globe_")
+            )
+            .map((topic: HomepageTopic) =>
+              fetch(`/api/topics/db/${encodeURIComponent(topic.slug)}`)
               .then((res) => (res.ok ? res.json() : null))
               .then((detailData) => [topic.slug, detailData?.topic ?? {}])
               .catch(() => [topic.slug, {}])
-          )
+            )
         );
       })
       .then((detailEntries) => {
         if (cancelled || !detailEntries) return;
-        setDetailsBySlug(Object.fromEntries(detailEntries));
+        setDetailsBySlug((current) => ({
+          ...current,
+          ...Object.fromEntries(detailEntries),
+        }));
       })
       .catch((err) => console.error("Failed to load trend globe:", err))
       .finally(() => {
@@ -644,6 +677,9 @@ export default function TrendGlobeMap() {
     : [];
   const selectedSourceNames = getSourceNames(selectedDetail);
   const selectedEvents = getRepresentativeEvents(selectedDetail);
+  const selectedDetailHref = selectedTopic
+    ? selectedTopic.detailUrl || `/topics/${selectedTopic.slug}`
+    : "/";
   const maxHeatScore = Math.max(...topics.map((topic) => topic.heatScore), 1);
   const minHeatScore = Math.min(
     ...topics.map((topic) => topic.heatScore),
@@ -1205,7 +1241,7 @@ export default function TrendGlobeMap() {
                 </div>
               )}
               <Link
-                href={`/topics/${selectedTopic.slug}`}
+                href={selectedDetailHref}
                 className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-200"
               >
                 深入閱讀
@@ -1219,7 +1255,7 @@ export default function TrendGlobeMap() {
                 正在聚焦：<span className="font-semibold text-white">{selectedTopic.title}</span>
               </span>
               <Link
-                href={`/topics/${selectedTopic.slug}`}
+                href={selectedDetailHref}
                 className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-slate-200"
               >
                 進入詳情
@@ -1265,7 +1301,7 @@ export default function TrendGlobeMap() {
                 </div>
               </div>
               <Link
-                href={`/topics/${selectedTopic.slug}`}
+                href={selectedDetailHref}
                 className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
               >
                 查看主題詳情
