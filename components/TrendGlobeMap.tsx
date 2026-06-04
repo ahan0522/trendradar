@@ -254,6 +254,24 @@ function getBriefItems(detail: TopicDetail | undefined, fallback: string) {
     .map((item) => truncateText(item, 42));
 }
 
+function getPointRadius(
+  point: ReturnType<typeof projectPoint>,
+  minHeatScore: number,
+  maxHeatScore: number
+) {
+  if (point.kind === "topic") {
+    const heatRatio = clamp(
+      ((point.heatScore ?? minHeatScore) - minHeatScore) /
+        Math.max(maxHeatScore - minHeatScore, 1),
+      0,
+      1
+    );
+    return clamp(28 + heatRatio * 26, 28, 54);
+  }
+
+  return point.kind === "shared" ? 22 : 15;
+}
+
 export default function TrendGlobeMap() {
   const [topics, setTopics] = useState<HomepageTopic[]>([]);
   const [detailsBySlug, setDetailsBySlug] = useState<Record<string, TopicDetail>>(
@@ -275,6 +293,7 @@ export default function TrendGlobeMap() {
   const velocityRef = useRef(0);
   const lastDragXRef = useRef(0);
   const dragMovedRef = useRef(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -389,10 +408,43 @@ export default function TrendGlobeMap() {
 
   function handlePointerUp(event: PointerEvent<SVGSVGElement>) {
     event.currentTarget.releasePointerCapture(event.pointerId);
+    if (!dragState?.moved && !dragMovedRef.current) {
+      selectNearestTopic(event);
+    }
     window.setTimeout(() => {
       setDragState(null);
       dragMovedRef.current = false;
     }, 0);
+  }
+
+  function selectNearestTopic(event: PointerEvent<SVGSVGElement>) {
+    const svg = svgRef.current ?? event.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const pointerX = ((event.clientX - rect.left) / Math.max(rect.width, 1)) * 800;
+    const pointerY = ((event.clientY - rect.top) / Math.max(rect.height, 1)) * 680;
+    let nearestPoint: ReturnType<typeof projectPoint> | null = null;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
+    for (const point of projectedPoints) {
+      if (point.kind !== "topic" || !point.visible) continue;
+      const radius =
+        getPointRadius(point, minHeatScore, maxHeatScore) * point.scale + 18;
+      const distance = Math.hypot(point.x - pointerX, point.y - pointerY);
+      if (distance > radius) continue;
+      if (distance < nearestDistance) {
+        nearestPoint = point;
+        nearestDistance = distance;
+      }
+    }
+
+    if (!nearestPoint) return;
+    velocityRef.current = 0;
+    const targetRotation = (360 - nearestPoint.lon) % 360;
+    rotationTargetRef.current = targetRotation;
+    setRotationTarget(targetRotation);
+    setSelectedTopicId(nearestPoint.id);
+    setFocusMode(true);
+    setPaused(true);
   }
 
   const points = useMemo<GlobePoint[]>(() => {
@@ -561,6 +613,7 @@ export default function TrendGlobeMap() {
 
         <div className="relative overflow-hidden bg-[radial-gradient(circle_at_48%_42%,_#1e3a8a_0,_#0f172a_42%,_#020617_74%,_#000_100%)]">
           <svg
+            ref={svgRef}
             viewBox="0 0 800 680"
             role="img"
             aria-label="旋轉地球村主題圖"
@@ -793,21 +846,11 @@ export default function TrendGlobeMap() {
             {projectedPoints
               .filter((point) => point.visible)
               .map((point) => {
-                const heatRatio =
-                  point.kind === "topic"
-                    ? clamp(
-                        ((point.heatScore ?? minHeatScore) - minHeatScore) /
-                          Math.max(maxHeatScore - minHeatScore, 1),
-                        0,
-                        1
-                      )
-                    : 0;
-                const radius =
-                  point.kind === "topic"
-                    ? clamp(28 + heatRatio * 26, 28, 54)
-                    : point.kind === "shared"
-                      ? 22
-                      : 15;
+                const radius = getPointRadius(
+                  point,
+                  minHeatScore,
+                  maxHeatScore
+                );
                 const opacity = clamp(0.45 + point.z * 0.55, 0.18, 1);
 
                 return (
