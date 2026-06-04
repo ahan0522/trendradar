@@ -44,6 +44,10 @@ function getTopicFamily(topic: HomeTopic) {
     return "basketball";
   }
 
+  if (/法網|網球|女雙|大滿貫|tennis/.test(text)) {
+    return "tennis";
+  }
+
   return topic.category || "general";
 }
 

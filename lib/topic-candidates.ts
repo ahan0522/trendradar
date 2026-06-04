@@ -328,6 +328,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "體育";
   }
 
+  if (/法網|網球|女雙|大滿貫|謝淑薇|梁恩碩/.test(value)) {
+    return "體育";
+  }
+
   if (/iphone|android|手機|3c|高通|qualcomm|pc/.test(value.toLowerCase())) {
     return "3C";
   }
