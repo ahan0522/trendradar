@@ -129,7 +129,9 @@ function makeQuickSummary(input: {
   return selected
     .replace(/^[\s:：,，、-]+/, "")
     .replace(/\s+/g, " ")
-    .slice(0, 120)
+    .slice(0, 116)
+    .replace(/\s+\S{0,16}$/, "")
+    .replace(/[。．.]+$/, "")
     .trim();
 }
 
@@ -210,6 +212,10 @@ function isLowValueTrendText(value: string) {
   }
 
   if (/social media stars|customize their search result page|creator search profile|influencer search result/.test(text)) {
+    return true;
+  }
+
+  if (/joy-con grips?|switch 2 accessories|battery life|magic wand|tap-and-pay|contactless payments|microsoft menu|build keynote|new gadget|accessories are designed/.test(text)) {
     return true;
   }
 
@@ -431,6 +437,14 @@ function isUsableInstantItem(item: Awaited<ReturnType<typeof getNewsItems>>[numb
     return false;
   }
   if (/Google News/.test(item.sourceName) && !/台灣熱門|國際|體育/.test(item.sourceName)) {
+    return false;
+  }
+  if (
+    /The Verge|Engadget|TechCrunch/.test(item.sourceName) &&
+    !/ai|人工智慧|robot|機器人|data center|datacenter|資料中心|晶片|semiconductor|security|cyber|lawsuit|regulation|antitrust/.test(
+      normalizeText(text)
+    )
+  ) {
     return false;
   }
 
