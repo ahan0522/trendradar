@@ -312,6 +312,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "財經";
   }
 
+  if (/關稅|301調查|美擬對台徵|貿易談判|重建關稅壁壘/.test(value)) {
+    return "國際";
+  }
+
   if (/輝達|黃仁勳|nvidia|openai|anthropic|ai|晶片|半導體|伺服器|hbm|記憶體|散熱/.test(value.toLowerCase())) {
     return "AI";
   }
