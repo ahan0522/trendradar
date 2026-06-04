@@ -167,6 +167,66 @@ function getFamilyKey(topic: Pick<GlobeTopic, "title" | "category">) {
   return topic.category || "general";
 }
 
+function inferGlobeCategory(input: {
+  title: string;
+  summary?: string;
+  keywords?: string[];
+  category?: string;
+  articles?: Array<{ title: string; category?: string; sourceName?: string }>;
+}) {
+  const text = normalizeText(
+    [
+      input.title,
+      input.summary ?? "",
+      input.category ?? "",
+      ...(input.keywords ?? []),
+      ...(input.articles ?? []).flatMap((article) => [
+        article.title,
+        article.category ?? "",
+        article.sourceName ?? "",
+      ]),
+    ].join(" ")
+  );
+
+  if (/台海|反艦|飛彈|共軍|國防|軍售|軍演|海巡|eez|主權|制裁|中國侵略|anduril/.test(text)) {
+    return "國際";
+  }
+
+  if (/伊朗|以色列|黎巴嫩|美軍|中東|停火|俄烏|烏克蘭|菲律賓|韓國|日本|中國制裁/.test(text)) {
+    return "國際";
+  }
+
+  if (/豪雨|颱風|地震|防災|氣象|大雨|強降雨|淹水/.test(text)) {
+    return "新聞";
+  }
+
+  if (/醫藥|新藥|臨床|脂肪肝|阿茲海默|疾病|健康|醫療|疫苗|藥物|判讀/.test(text)) {
+    return "健康";
+  }
+
+  if (/ai|人工智慧|機器人|robot|晶片|半導體|伺服器|科技|平台|自動化|maven|火星探測|無人機|uas/.test(text)) {
+    return "AI";
+  }
+
+  if (/強制險|金管會|保險|經濟|租賃|關稅|貿易|產業|金融/.test(text)) {
+    return "財經";
+  }
+
+  if (/nba|tpbl|mlb|棒球|籃球|網球|大谷|馬刺|尼克|國王|總冠軍/.test(text)) {
+    return "體育";
+  }
+
+  if (/遊戲|game|nintendo|switch|elden|polygon/.test(text)) {
+    return "遊戲";
+  }
+
+  if (/手機|gadget|google photos|oura|app|3c|科技產品/.test(text)) {
+    return "3C";
+  }
+
+  return input.category || "新聞";
+}
+
 function selectDiverseTopics(topics: GlobeTopic[], limit: number) {
   const selected: GlobeTopic[] = [];
   const categoryCounts = new Map<string, number>();
@@ -292,20 +352,27 @@ export async function GET() {
       .filter(isUsableCandidate)
       .map((topic) => {
         const displayTitle = getDisplayTitle(topic.title, topic.articles);
+        const category = inferGlobeCategory({
+          title: displayTitle,
+          summary: topic.summary,
+          keywords: topic.keywords,
+          category: topic.category,
+          articles: topic.articles,
+        });
 
         return {
           id: `globe-${topic.id}`,
           slug: makeSlug(displayTitle, Number(topic.id.replace("candidate-", "")) || 0),
           title: displayTitle,
-          category: topic.category,
-          heroImageUrl: getHeroImageForCategory(topic.category),
+          category,
+          heroImageUrl: getHeroImageForCategory(category),
           heatScore: topic.heatScore,
           sourceCount: topic.sourceCount,
           articleCount: topic.articleCount,
           updatedAt: topic.latestPublishedAt,
           discoveryMode: "globe_candidate",
           summary: topic.summary.replace(topic.title, displayTitle),
-          keywords: topic.keywords,
+          keywords: [category, ...topic.keywords],
           detailUrl: topic.articles[0]?.link,
           articles: topic.articles.map((article) => ({
             ...article,
@@ -328,6 +395,18 @@ export async function GET() {
       if (!isUsableInstantItem(item)) continue;
 
       const title = cleanTitle(item.title);
+      const category = inferGlobeCategory({
+        title,
+        summary: item.description,
+        category: item.category,
+        articles: [
+          {
+            title,
+            category: item.category,
+            sourceName: item.sourceName,
+          },
+        ],
+      });
       const normalizedTitle = normalizeText(title);
       if (seenArticleTitles.has(normalizedTitle)) continue;
       seenArticleTitles.add(normalizedTitle);
@@ -336,22 +415,22 @@ export async function GET() {
         id: `globe-news-${item.id}`,
         slug: makeSlug(title, instantTopics.length),
         title,
-        category: item.category,
-        heroImageUrl: getHeroImageForCategory(item.category),
+        category,
+        heroImageUrl: getHeroImageForCategory(category),
         heatScore: Math.max(24, Math.round(getInstantImportanceScore(item))),
         sourceCount: 1,
         articleCount: 1,
         updatedAt: item.publishedAt ?? new Date().toISOString(),
         discoveryMode: "globe_instant_signal",
         summary: stripHtml(item.description || title),
-        keywords: [item.category, item.region].filter(Boolean),
+        keywords: [category, item.region].filter(Boolean),
         detailUrl: item.link,
         articles: [
           {
             id: item.id,
             title,
             sourceName: item.sourceName,
-            category: item.category,
+            category,
             link: item.link,
             publishedAt: item.publishedAt,
             quickSummary: stripHtml(item.description || title),
