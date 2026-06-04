@@ -127,6 +127,17 @@ function getTopicColor(heatScore: number, index: number) {
   return index % 2 === 0 ? "#38bdf8" : "#a78bfa";
 }
 
+function getTopicFillId(heatScore: number) {
+  if (heatScore >= 420) return "topic-fill-hot";
+  if (heatScore >= 260) return "topic-fill-warm";
+  if (heatScore >= 140) return "topic-fill-red";
+  return "topic-fill-cool";
+}
+
+function getShortestRotationDelta(current: number, target: number) {
+  return ((((target - current) % 360) + 540) % 360) - 180;
+}
+
 function normalizeSignal(signal: string) {
   return signal
     .replace(/Google News/g, "")
@@ -220,6 +231,29 @@ function truncateText(text: string, maxLength: number) {
   return `${text.slice(0, maxLength)}...`;
 }
 
+function getBriefItems(detail: TopicDetail | undefined, fallback: string) {
+  const candidates = [
+    ...(detail?.subtopics ?? []),
+    ...(detail?.articles ?? []).map(
+      (article) => article.quickSummary || article.description || article.title
+    ),
+    fallback,
+  ];
+
+  return candidates
+    .map((item) =>
+      item
+        .replace(/&nbsp;/g, " ")
+        .replace(/\s+/g, " ")
+        .replace(/^AI\s*快讀摘要[:：]?\s*/i, "")
+        .trim()
+    )
+    .filter(Boolean)
+    .filter((item, index, list) => list.findIndex((next) => next === item) === index)
+    .slice(0, 3)
+    .map((item) => truncateText(item, 42));
+}
+
 export default function TrendGlobeMap() {
   const [topics, setTopics] = useState<HomepageTopic[]>([]);
   const [detailsBySlug, setDetailsBySlug] = useState<Record<string, TopicDetail>>(
@@ -229,12 +263,15 @@ export default function TrendGlobeMap() {
   const [focusMode, setFocusMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rotation, setRotation] = useState(0);
+  const [rotationTarget, setRotationTarget] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const [dragState, setDragState] = useState<{
     startX: number;
     startRotation: number;
     moved: boolean;
   } | null>(null);
+  const rotationRef = useRef(0);
+  const rotationTargetRef = useRef<number | null>(null);
   const velocityRef = useRef(0);
   const lastDragXRef = useRef(0);
   const dragMovedRef = useRef(false);
@@ -274,17 +311,43 @@ export default function TrendGlobeMap() {
   }, []);
 
   useEffect(() => {
+    rotationRef.current = rotation;
+  }, [rotation]);
+
+  useEffect(() => {
+    rotationTargetRef.current = rotationTarget;
+  }, [rotationTarget]);
+
+  useEffect(() => {
     if (dragState) return;
     let frame = 0;
 
     function tick() {
       const inertia = velocityRef.current;
       const autoSpin = paused || focusMode ? 0 : 0.18;
+      const target = rotationTargetRef.current;
+      const targetDelta =
+        target === null
+          ? 0
+          : getShortestRotationDelta(rotationRef.current, target);
+      const focusSpin =
+        target === null
+          ? 0
+          : Math.abs(targetDelta) < 0.2
+            ? targetDelta
+            : targetDelta * 0.09;
 
-      if (autoSpin || Math.abs(inertia) > 0.01) {
-        setRotation((value) => (value + autoSpin + inertia + 360) % 360);
+      if (autoSpin || focusSpin || Math.abs(inertia) > 0.01) {
+        const nextRotation =
+          (rotationRef.current + autoSpin + focusSpin + inertia + 360) % 360;
+        rotationRef.current = nextRotation;
+        setRotation(nextRotation);
         velocityRef.current *= 0.94;
         if (Math.abs(velocityRef.current) < 0.01) velocityRef.current = 0;
+        if (target !== null && Math.abs(targetDelta) < 0.2) {
+          rotationTargetRef.current = null;
+          setRotationTarget(null);
+        }
       }
 
       frame = requestAnimationFrame(tick);
@@ -297,6 +360,8 @@ export default function TrendGlobeMap() {
   function handlePointerDown(event: PointerEvent<SVGSVGElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
     velocityRef.current = 0;
+    rotationTargetRef.current = null;
+    setRotationTarget(null);
     lastDragXRef.current = event.clientX;
     dragMovedRef.current = false;
     setDragState({
@@ -313,7 +378,9 @@ export default function TrendGlobeMap() {
 
     velocityRef.current = frameDelta * 0.24;
     lastDragXRef.current = event.clientX;
-    setRotation((dragState.startRotation + deltaX * 0.45 + 360) % 360);
+    const nextRotation = (dragState.startRotation + deltaX * 0.45 + 360) % 360;
+    rotationRef.current = nextRotation;
+    setRotation(nextRotation);
     if (Math.abs(deltaX) > 4 && !dragState.moved) {
       dragMovedRef.current = true;
       setDragState({ ...dragState, moved: true });
@@ -436,6 +503,12 @@ export default function TrendGlobeMap() {
     selectedDetail?.articles?.[0]?.quickSummary ||
     selectedDetail?.articles?.[0]?.description ||
     "正在整理這個主題的快讀摘要。";
+  const selectedBriefItems = getBriefItems(selectedDetail, selectedSummary);
+  const maxHeatScore = Math.max(...topics.map((topic) => topic.heatScore), 1);
+  const minHeatScore = Math.min(
+    ...topics.map((topic) => topic.heatScore),
+    maxHeatScore
+  );
 
   if (loading) {
     return (
@@ -444,9 +517,19 @@ export default function TrendGlobeMap() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <div
+      className={`grid gap-5 transition-all duration-500 ${
+        focusMode ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_340px]"
+      }`}
+    >
       <section className="overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/30">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+        <div
+          className={`flex flex-wrap items-center justify-between gap-3 overflow-hidden border-b border-white/10 px-5 transition-all duration-500 ${
+            focusMode
+              ? "max-h-0 py-0 opacity-0"
+              : "max-h-40 py-4 opacity-100"
+          }`}
+        >
           <div>
             <div className="text-sm font-semibold text-sky-300">
               Trend Globe
@@ -482,7 +565,7 @@ export default function TrendGlobeMap() {
             role="img"
             aria-label="旋轉地球村主題圖"
             className={`h-[620px] w-full touch-none select-none transition-transform duration-500 ${
-              focusMode ? "scale-[1.16]" : "scale-100"
+              focusMode ? "scale-[1.2] sm:h-[720px] sm:scale-[1.14]" : "scale-100"
             } ${
               dragState ? "cursor-grabbing" : "cursor-grab"
             }`}
@@ -502,6 +585,30 @@ export default function TrendGlobeMap() {
                 <stop offset="68%" stopColor="#38bdf8" stopOpacity="0" />
                 <stop offset="86%" stopColor="#38bdf8" stopOpacity="0.16" />
                 <stop offset="100%" stopColor="#67e8f9" stopOpacity="0.36" />
+              </radialGradient>
+              <radialGradient id="topic-fill-hot" cx="34%" cy="28%" r="72%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.82" />
+                <stop offset="24%" stopColor="#fb7185" />
+                <stop offset="62%" stopColor="#f97316" />
+                <stop offset="100%" stopColor="#7f1d1d" />
+              </radialGradient>
+              <radialGradient id="topic-fill-warm" cx="34%" cy="28%" r="72%">
+                <stop offset="0%" stopColor="#ffedd5" stopOpacity="0.82" />
+                <stop offset="34%" stopColor="#f97316" />
+                <stop offset="74%" stopColor="#e11d48" />
+                <stop offset="100%" stopColor="#4c0519" />
+              </radialGradient>
+              <radialGradient id="topic-fill-red" cx="34%" cy="28%" r="72%">
+                <stop offset="0%" stopColor="#ffe4e6" stopOpacity="0.82" />
+                <stop offset="36%" stopColor="#fb7185" />
+                <stop offset="78%" stopColor="#be123c" />
+                <stop offset="100%" stopColor="#4c0519" />
+              </radialGradient>
+              <radialGradient id="topic-fill-cool" cx="34%" cy="28%" r="72%">
+                <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.86" />
+                <stop offset="36%" stopColor="#38bdf8" />
+                <stop offset="76%" stopColor="#6366f1" />
+                <stop offset="100%" stopColor="#1e1b4b" />
               </radialGradient>
               <linearGradient id="route-blue" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.2" />
@@ -686,9 +793,18 @@ export default function TrendGlobeMap() {
             {projectedPoints
               .filter((point) => point.visible)
               .map((point) => {
+                const heatRatio =
+                  point.kind === "topic"
+                    ? clamp(
+                        ((point.heatScore ?? minHeatScore) - minHeatScore) /
+                          Math.max(maxHeatScore - minHeatScore, 1),
+                        0,
+                        1
+                      )
+                    : 0;
                 const radius =
                   point.kind === "topic"
-                    ? clamp(22 + (point.heatScore ?? 80) / 8, 30, 48)
+                    ? clamp(28 + heatRatio * 26, 28, 54)
                     : point.kind === "shared"
                       ? 22
                       : 15;
@@ -711,6 +827,9 @@ export default function TrendGlobeMap() {
                       if (dragState?.moved || dragMovedRef.current) return;
                       if (point.kind === "topic") {
                         velocityRef.current = 0;
+                        const targetRotation = (360 - point.lon) % 360;
+                        rotationTargetRef.current = targetRotation;
+                        setRotationTarget(targetRotation);
                         setSelectedTopicId(point.id);
                         setFocusMode(true);
                         setPaused(true);
@@ -721,9 +840,9 @@ export default function TrendGlobeMap() {
                       <circle
                         cx={point.x}
                         cy={point.y}
-                        r={radius * point.scale * 1.35}
-                        fill={point.color}
-                        opacity={point.id === selectedTopicId ? "0.24" : "0.16"}
+                      r={radius * point.scale * 1.35}
+                      fill={point.color}
+                        opacity={point.id === selectedTopicId ? "0.32" : "0.14"}
                         className="animate-ping"
                       />
                     )}
@@ -740,7 +859,11 @@ export default function TrendGlobeMap() {
                       cx={point.x}
                       cy={point.y}
                       r={radius * point.scale}
-                      fill={point.color}
+                      fill={
+                        point.kind === "topic"
+                          ? `url(#${getTopicFillId(point.heatScore ?? 0)})`
+                          : point.color
+                      }
                       stroke={point.kind === "shared" ? "#94a3b8" : "#f8fafc"}
                       strokeOpacity="0.82"
                       strokeWidth={point.kind === "topic" ? 3 : 1.5}
@@ -782,9 +905,9 @@ export default function TrendGlobeMap() {
               <foreignObject
                 x={focusMode ? 252 : clamp(selectedPoint.x + 34, 90, 520)}
                 y={focusMode ? 206 : clamp(selectedPoint.y - 92, 56, 478)}
-                width={focusMode ? "296" : "250"}
-                height={focusMode ? "236" : "158"}
-                className="pointer-events-none"
+                width={focusMode ? "330" : "250"}
+                height={focusMode ? "286" : "158"}
+                className="pointer-events-none hidden sm:block"
               >
                 <div
                   className={`border border-cyan-200/20 bg-slate-950/72 text-white shadow-2xl shadow-cyan-950/40 backdrop-blur-xl ring-1 ring-white/10 ${
@@ -808,6 +931,21 @@ export default function TrendGlobeMap() {
                   >
                     {truncateText(selectedSummary, focusMode ? 138 : 78)}
                   </p>
+                  {focusMode && (
+                    <div className="mt-3 space-y-2">
+                      {selectedBriefItems.map((item, index) => (
+                        <div
+                          key={`${item}-${index}`}
+                          className="flex gap-2 rounded-2xl bg-white/[0.08] px-3 py-2 text-xs leading-5 text-slate-200"
+                        >
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-300/20 text-[10px] font-black text-cyan-100">
+                            {index + 1}
+                          </span>
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {focusMode && selectedDetail?.subtopics && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {selectedDetail.subtopics.slice(0, 4).map((subtopic) => (
@@ -834,7 +972,43 @@ export default function TrendGlobeMap() {
           </svg>
 
           {focusMode && selectedTopic && (
-            <div className="absolute bottom-5 left-1/2 flex w-[min(92%,620px)] -translate-x-1/2 items-center justify-between gap-3 rounded-full border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white shadow-2xl shadow-black/30 backdrop-blur">
+            <div className="absolute inset-x-3 bottom-3 rounded-[28px] border border-cyan-100/20 bg-slate-950/62 p-4 text-white shadow-2xl shadow-cyan-950/40 backdrop-blur-2xl ring-1 ring-white/10 sm:hidden">
+              <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-white/30" />
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-cyan-200">快速快讀</div>
+                  <h3 className="mt-1 text-lg font-black leading-tight">
+                    {selectedTopic.title}
+                  </h3>
+                </div>
+                <div className="shrink-0 rounded-full bg-rose-400/20 px-3 py-1 text-xs font-bold text-rose-100">
+                  熱度 {selectedTopic.heatScore}
+                </div>
+              </div>
+              <div className="mt-3 space-y-2">
+                {selectedBriefItems.map((item, index) => (
+                  <div
+                    key={`${item}-mobile-${index}`}
+                    className="flex gap-2 rounded-2xl bg-white/10 px-3 py-2 text-sm leading-6 text-slate-100"
+                  >
+                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-300/20 text-[10px] font-black text-cyan-100">
+                      {index + 1}
+                    </span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+              <Link
+                href={`/topics/${selectedTopic.slug}`}
+                className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-200"
+              >
+                深入閱讀
+              </Link>
+            </div>
+          )}
+
+          {focusMode && selectedTopic && (
+            <div className="absolute bottom-5 left-1/2 hidden w-[min(92%,620px)] -translate-x-1/2 items-center justify-between gap-3 rounded-full border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white shadow-2xl shadow-black/30 backdrop-blur sm:flex">
               <span className="truncate text-slate-300">
                 正在聚焦：<span className="font-semibold text-white">{selectedTopic.title}</span>
               </span>
@@ -849,7 +1023,11 @@ export default function TrendGlobeMap() {
         </div>
       </section>
 
-      <aside className="space-y-4">
+      <aside
+        className={`space-y-4 transition-all duration-500 ${
+          focusMode ? "hidden lg:hidden" : "block"
+        }`}
+      >
         <section className="rounded-[30px] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20">
           <div className="text-sm font-semibold text-sky-300">目前選取</div>
           {selectedTopic ? (
