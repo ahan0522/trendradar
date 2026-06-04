@@ -80,6 +80,56 @@ function isAiFixedTopic(topic: TopicDetail) {
   return topic.slug === "ai" || topic.ruleKey === "ai" || topic.title === "AI";
 }
 
+function isPlatformDigestTopic(topic: TopicDetail) {
+  return (
+    topic.discoveryMode === "candidate_cluster" &&
+    topic.articleCount <= 1 &&
+    topic.sourceCount > 1
+  );
+}
+
+function cleanArticleTitle(title: string) {
+  return title
+    .replace(/\s+-\s+[^-]{2,40}$/g, "")
+    .replace(/\s+\|\s+[^|]{2,40}$/g, "")
+    .replace(/Yahoo新聞|Google News|UDN|自由時報|中時新聞網/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getEventHeadline(article: TopicArticle) {
+  const summary = article.quickSummary || article.description;
+  if (summary && summary.length <= 42) return summary;
+
+  return cleanArticleTitle(article.title);
+}
+
+function getWhyItMatters(topic: TopicDetail, article: TopicArticle) {
+  const text = `${topic.title} ${topic.summary} ${article.quickSummary} ${article.description}`;
+
+  if (/關稅|貿易談判|301/.test(text)) {
+    return "可能影響台灣出口、產業成本與後續談判走向，是政策與經濟面都需要追蹤的事件。";
+  }
+
+  if (/停火|美伊|伊朗|中東|以色列/.test(text)) {
+    return "牽動區域安全、能源價格與國際外交互動，後續變化可能外溢到全球市場。";
+  }
+
+  if (/選舉|政局|執政黨|尹錫悅|南韓/.test(text)) {
+    return "選舉結果會影響政府施政、政黨力量與區域外交判斷，適合放進今日國際脈絡。";
+  }
+
+  if (/法網|女雙|梁恩碩|大滿貫|網球/.test(text)) {
+    return "這是台灣選手在國際賽事的焦點進展，重點在賽事成績與後續賽程。";
+  }
+
+  if (/AI|人工智慧|晶片|資料中心|機器人|模型/i.test(text)) {
+    return "這反映 AI 產品、基礎建設或產業應用的最新動向，會影響科技投資與產品發展節奏。";
+  }
+
+  return "這是目前多篇報導共同指向的事件重點，可先用它掌握大致脈絡，再視需要點原文。";
+}
+
 async function getTopic(slug: string): Promise<TopicDetail | null> {
   const requestHeaders = await headers();
   const host = requestHeaders.get("host");
@@ -133,6 +183,7 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
   const topSources = getTopSources(topic.articles);
   const keywords = topic.keywords?.length ? topic.keywords : topic.tags;
   const showAiMindMap = isAiFixedTopic(topic);
+  const platformDigest = isPlatformDigestTopic(topic);
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -213,6 +264,17 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                 {topic.summary || "目前尚未產生摘要，系統會在下一次同步時補上。"}
               </p>
 
+              {platformDigest && (
+                <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="text-sm font-semibold text-amber-800">
+                    平台聚合焦點
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-amber-900">
+                    這個主題目前來自平台聚合新聞，單一連結內已包含約 {topic.sourceCount} 家媒體的相關報導。後續若 RSS 抓到更多原始來源，系統會再自動補強與去重。
+                  </p>
+                </div>
+              )}
+
               <div className="mt-5 flex flex-wrap gap-2">
                 {(topic.tags.length ? topic.tags : [topic.category]).map((tag) => (
                   <span
@@ -282,11 +344,13 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                 <div>
                   <div className="text-sm font-semibold text-blue-700">來源文章</div>
                   <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                    不用點開也能快速看懂
+                    事件重點，不用點開也能快速看懂
                   </h2>
                 </div>
                 <div className="text-sm text-slate-500">
-                  已合併相似來源，共 {topic.articles.length} 則
+                  {platformDigest
+                    ? `平台聚合約 ${topic.sourceCount} 家媒體`
+                    : `已合併相似來源，共 ${topic.articles.length} 則`}
                 </div>
               </div>
 
@@ -300,18 +364,37 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                     aria-label={`查看原文：${article.title}`}
                     className="block rounded-xl border border-slate-200 p-4 transition hover:border-slate-300 hover:bg-slate-50"
                   >
-                    <div className="rounded-xl bg-blue-50/60 p-4">
-                      <div className="text-xs font-semibold text-blue-700">
-                        重點快讀
+                    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                      <div>
+                        <div className="text-xs font-semibold text-blue-700">
+                          發生什麼事
+                        </div>
+                        <h3 className="mt-1 text-lg font-bold leading-7 text-slate-950">
+                          {getEventHeadline(article)}
+                        </h3>
+                        <p className="mt-2 text-base leading-7 text-slate-700">
+                          {article.quickSummary ||
+                            article.description ||
+                            "目前只有原始來源，系統會在下一次同步時補上重點整理。"}
+                        </p>
                       </div>
-                      <p className="mt-1 text-base leading-7 text-slate-800">
-                        {article.quickSummary ||
-                          article.description ||
-                          "目前只有原始來源，系統會在下一次同步時補上重點整理。"}
-                      </p>
+
+                      <div className="rounded-xl bg-blue-50/70 p-4">
+                        <div className="text-xs font-semibold text-blue-700">
+                          為什麼重要
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-slate-700">
+                          {getWhyItMatters(topic, article)}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                      {platformDigest && (
+                        <span className="rounded-full bg-amber-50 px-3 py-1 text-amber-700">
+                          聚合焦點
+                        </span>
+                      )}
                       <span className="rounded-full bg-slate-100 px-3 py-1">
                         {article.sourceName || "未知來源"}
                       </span>
