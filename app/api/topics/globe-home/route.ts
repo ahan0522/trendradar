@@ -60,6 +60,14 @@ function stripHtml(value: string) {
     .trim();
 }
 
+function cleanTitle(value: string) {
+  return stripHtml(value)
+    .replace(/\s*-\s*(Yahoo新聞|Yahoo運動|UDN|自由健康網|中天新聞網|三立新聞網SETN\.com)$/i, "")
+    .replace(/^[^：:]{1,5}[：:]\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function getTextTokens(value: string) {
   const text = normalizeText(stripHtml(value));
   const rawTokens = text.match(/[\p{Script=Han}]{2,}|[\p{Letter}\p{Number}]{2,}/gu) ?? [];
@@ -86,6 +94,14 @@ function isLowValueTrendText(value: string) {
   const text = normalizeText(value);
 
   if (/giveaway|sweepstakes|grab bag|coupon|deal|discount|prime day|sale/.test(text)) {
+    return true;
+  }
+
+  if (/walkthrough|where to find|locations|all .* locations|guide|unlock|攻略|位置|怎麼取得/.test(text)) {
+    return true;
+  }
+
+  if (/review|impressions|noticeably smaller|first impressions|評測|開箱/.test(text)) {
     return true;
   }
 
@@ -133,6 +149,14 @@ function getFamilyKey(topic: Pick<GlobeTopic, "title" | "category">) {
   }
 
   if (/mlb|nba|棒球|籃球|網球|大谷/.test(text)) {
+    if (/nba|wembanyama|brunson|馬刺|尼克|總冠軍/.test(text)) {
+      return "nba";
+    }
+
+    if (/tpbl|國王|籃協/.test(text)) {
+      return "taiwan-basketball";
+    }
+
     return "sports";
   }
 
@@ -180,6 +204,30 @@ function makeSlug(input: string, index: number) {
   return slug || `instant-topic-${index + 1}`;
 }
 
+function getDisplayTitle(title: string, articles: Array<{ title: string }>) {
+  const cleanedTitle = cleanTitle(title);
+  const titleTokens = getTextTokens(cleanedTitle);
+
+  if (cleanedTitle.length < 10 || titleTokens.length < 3) {
+    return cleanTitle(articles[0]?.title ?? cleanedTitle);
+  }
+
+  return cleanedTitle;
+}
+
+function getInstantImportanceScore(item: Awaited<ReturnType<typeof getNewsItems>>[number]) {
+  const text = normalizeText(`${item.title} ${item.description} ${item.category}`);
+  let score = (item.sourceWeight ?? 1) * 20;
+
+  if (/路透|中央社|官方|政府|國防|法院|金管會/.test(text)) score += 18;
+  if (/台海|飛彈|豪雨|防災|強制險|制裁|停火|關稅|選舉/.test(text)) score += 16;
+  if (/國際|新聞|財經/.test(item.category)) score += 6;
+  if (/生活|展覽|特展|娛樂/.test(text)) score -= 12;
+  if (/遊戲/.test(item.category)) score -= 8;
+
+  return score;
+}
+
 function isUsableCandidate(topic: ReturnType<typeof discoverCandidateTopics>[number]) {
   const text = `${topic.title} ${topic.summary} ${topic.keywords.join(" ")}`;
 
@@ -194,6 +242,10 @@ function isUsableInstantItem(item: Awaited<ReturnType<typeof getNewsItems>>[numb
 
   if (isLowValueTrendText(text)) return false;
   if (/Google News/.test(item.sourceName) && !/台灣熱門|國際|體育/.test(item.sourceName)) {
+    return false;
+  }
+
+  if (getInstantImportanceScore(item) < 18) {
     return false;
   }
 
@@ -232,61 +284,71 @@ export async function GET() {
 
     const candidateGlobeTopics: GlobeTopic[] = candidateTopics
       .filter(isUsableCandidate)
-      .map((topic) => ({
-        id: `globe-${topic.id}`,
-        slug: topic.slug,
-        title: topic.title,
-        category: topic.category,
-        heroImageUrl: getHeroImageForCategory(topic.category),
-        heatScore: topic.heatScore,
-        sourceCount: topic.sourceCount,
-        articleCount: topic.articleCount,
-        updatedAt: topic.latestPublishedAt,
-        discoveryMode: "globe_candidate",
-        summary: topic.summary,
-        keywords: topic.keywords,
-        detailUrl: topic.articles[0]?.link,
-        articles: topic.articles.map((article) => ({
-          ...article,
-          quickSummary: article.title,
-        })),
-      }))
+      .map((topic) => {
+        const displayTitle = getDisplayTitle(topic.title, topic.articles);
+
+        return {
+          id: `globe-${topic.id}`,
+          slug: makeSlug(displayTitle, Number(topic.id.replace("candidate-", "")) || 0),
+          title: displayTitle,
+          category: topic.category,
+          heroImageUrl: getHeroImageForCategory(topic.category),
+          heatScore: topic.heatScore,
+          sourceCount: topic.sourceCount,
+          articleCount: topic.articleCount,
+          updatedAt: topic.latestPublishedAt,
+          discoveryMode: "globe_candidate",
+          summary: topic.summary.replace(topic.title, displayTitle),
+          keywords: topic.keywords,
+          detailUrl: topic.articles[0]?.link,
+          articles: topic.articles.map((article) => ({
+            ...article,
+            title: cleanTitle(article.title),
+            quickSummary: cleanTitle(article.title),
+          })),
+        } satisfies GlobeTopic;
+      })
       .sort((a, b) => b.heatScore - a.heatScore);
 
     const usedFamilies = new Set(candidateGlobeTopics.map(getFamilyKey));
     const instantTopics: GlobeTopic[] = [];
     const seenArticleTitles = new Set<string>();
 
-    for (const item of newsItems) {
+    const instantItems = newsItems
+      .filter(isUsableInstantItem)
+      .sort((a, b) => getInstantImportanceScore(b) - getInstantImportanceScore(a));
+
+    for (const item of instantItems) {
       if (!isUsableInstantItem(item)) continue;
 
-      const normalizedTitle = normalizeText(item.title);
+      const title = cleanTitle(item.title);
+      const normalizedTitle = normalizeText(title);
       if (seenArticleTitles.has(normalizedTitle)) continue;
       seenArticleTitles.add(normalizedTitle);
 
       const topic: GlobeTopic = {
         id: `globe-news-${item.id}`,
-        slug: makeSlug(item.title, instantTopics.length),
-        title: item.title,
+        slug: makeSlug(title, instantTopics.length),
+        title,
         category: item.category,
         heroImageUrl: getHeroImageForCategory(item.category),
-        heatScore: Math.max(24, Math.round((item.sourceWeight ?? 1) * 28)),
+        heatScore: Math.max(24, Math.round(getInstantImportanceScore(item))),
         sourceCount: 1,
         articleCount: 1,
         updatedAt: item.publishedAt ?? new Date().toISOString(),
         discoveryMode: "globe_instant_signal",
-        summary: item.description || item.title,
+        summary: stripHtml(item.description || title),
         keywords: [item.category, item.region].filter(Boolean),
         detailUrl: item.link,
         articles: [
           {
             id: item.id,
-            title: item.title,
+            title,
             sourceName: item.sourceName,
             category: item.category,
             link: item.link,
             publishedAt: item.publishedAt,
-            quickSummary: item.description || item.title,
+            quickSummary: stripHtml(item.description || title),
           },
         ],
       };
