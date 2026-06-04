@@ -36,6 +36,83 @@ function normalizeText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+const GENERIC_TERMS = new Set([
+  "新聞",
+  "最新",
+  "今日",
+  "焦點",
+  "報導",
+  "相關",
+  "政策",
+  "發布",
+  "review",
+  "news",
+  "more",
+  "with",
+  "from",
+]);
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#8230;|&amp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getTextTokens(value: string) {
+  const text = normalizeText(stripHtml(value));
+  const rawTokens = text.match(/[\p{Script=Han}]{2,}|[\p{Letter}\p{Number}]{2,}/gu) ?? [];
+  const tokens = new Set<string>();
+
+  rawTokens.forEach((token) => {
+    if (GENERIC_TERMS.has(token)) return;
+
+    if (/^[\p{Script=Han}]+$/u.test(token) && token.length > 2) {
+      for (let index = 0; index < token.length - 1; index += 1) {
+        const bigram = token.slice(index, index + 2);
+        if (!GENERIC_TERMS.has(bigram)) tokens.add(bigram);
+      }
+      return;
+    }
+
+    tokens.add(token);
+  });
+
+  return [...tokens];
+}
+
+function isLowValueTrendText(value: string) {
+  const text = normalizeText(value);
+
+  if (/giveaway|sweepstakes|grab bag|coupon|deal|discount|prime day|sale/.test(text)) {
+    return true;
+  }
+
+  if (/股價|買超|賣超|eps|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停/.test(text)) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasTitleSupport(
+  title: string,
+  articles: Array<{ title: string; sourceName?: string; category?: string }>
+) {
+  const terms = getTextTokens(title).filter((term) => term.length >= 2).slice(0, 12);
+  if (terms.length <= 2) return true;
+
+  const articleText = normalizeText(
+    articles
+      .map((article) => `${article.title} ${article.sourceName ?? ""} ${article.category ?? ""}`)
+      .join(" ")
+  );
+  const matchedCount = terms.filter((term) => articleText.includes(term)).length;
+
+  return matchedCount >= Math.min(3, Math.ceil(terms.length * 0.28));
+}
+
 function getFamilyKey(topic: Pick<GlobeTopic, "title" | "category">) {
   const text = normalizeText(`${topic.title} ${topic.category}`);
 
@@ -103,6 +180,26 @@ function makeSlug(input: string, index: number) {
   return slug || `instant-topic-${index + 1}`;
 }
 
+function isUsableCandidate(topic: ReturnType<typeof discoverCandidateTopics>[number]) {
+  const text = `${topic.title} ${topic.summary} ${topic.keywords.join(" ")}`;
+
+  if (isLowValueTrendText(text)) return false;
+  if (!hasTitleSupport(topic.title, topic.articles)) return false;
+
+  return topic.publishable || topic.qualityScore >= 76;
+}
+
+function isUsableInstantItem(item: Awaited<ReturnType<typeof getNewsItems>>[number]) {
+  const text = `${item.title} ${item.description} ${item.sourceName}`;
+
+  if (isLowValueTrendText(text)) return false;
+  if (/Google News/.test(item.sourceName) && !/台灣熱門|國際|體育/.test(item.sourceName)) {
+    return false;
+  }
+
+  return true;
+}
+
 export async function GET() {
   try {
     const newsItems = await getNewsItems({
@@ -134,7 +231,7 @@ export async function GET() {
     });
 
     const candidateGlobeTopics: GlobeTopic[] = candidateTopics
-      .filter((topic) => topic.publishable || topic.qualityScore >= 72)
+      .filter(isUsableCandidate)
       .map((topic) => ({
         id: `globe-${topic.id}`,
         slug: topic.slug,
@@ -161,6 +258,8 @@ export async function GET() {
     const seenArticleTitles = new Set<string>();
 
     for (const item of newsItems) {
+      if (!isUsableInstantItem(item)) continue;
+
       const normalizedTitle = normalizeText(item.title);
       if (seenArticleTitles.has(normalizedTitle)) continue;
       seenArticleTitles.add(normalizedTitle);
