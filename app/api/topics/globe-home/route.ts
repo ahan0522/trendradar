@@ -105,7 +105,7 @@ function isLowValueTrendText(value: string) {
     return true;
   }
 
-  if (/股價|買超|賣超|eps|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停/.test(text)) {
+  if (/台股|股價|買超|賣超|eps|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值/.test(text)) {
     return true;
   }
 
@@ -177,7 +177,9 @@ function selectDiverseTopics(topics: GlobeTopic[], limit: number) {
     const categoryCount = categoryCounts.get(topic.category) ?? 0;
     const familyCount = familyCounts.get(family) ?? 0;
 
-    if (categoryCount >= 3 || familyCount >= 2) {
+    const familyLimit = family === "nba" ? 1 : 2;
+
+    if (categoryCount >= 3 || familyCount >= familyLimit) {
       continue;
     }
 
@@ -374,7 +376,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok: true,
-        mode: "globe-home-v1",
+        mode: "globe-home-v2",
         generatedAt: new Date().toISOString(),
         articleCount: newsItems.length,
         candidateCount: candidateTopics.length,
