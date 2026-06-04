@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
 type HomepageTopic = {
   id: string;
@@ -101,8 +101,30 @@ const LOW_SIGNAL_WORDS = new Set([
   "科技",
 ]);
 
+const STAR_POINTS = [
+  { x: 84, y: 76, r: 1.1, opacity: 0.48 },
+  { x: 152, y: 548, r: 1.3, opacity: 0.34 },
+  { x: 205, y: 118, r: 0.9, opacity: 0.28 },
+  { x: 287, y: 604, r: 1.0, opacity: 0.34 },
+  { x: 342, y: 58, r: 1.5, opacity: 0.46 },
+  { x: 512, y: 96, r: 1.1, opacity: 0.32 },
+  { x: 612, y: 562, r: 1.4, opacity: 0.42 },
+  { x: 692, y: 162, r: 1.0, opacity: 0.3 },
+  { x: 736, y: 438, r: 1.2, opacity: 0.36 },
+  { x: 96, y: 384, r: 0.9, opacity: 0.26 },
+  { x: 558, y: 632, r: 0.8, opacity: 0.24 },
+  { x: 732, y: 68, r: 1.0, opacity: 0.3 },
+];
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function getTopicColor(heatScore: number, index: number) {
+  if (heatScore >= 420) return "#fb7185";
+  if (heatScore >= 260) return "#f97316";
+  if (heatScore >= 140) return "#f43f5e";
+  return index % 2 === 0 ? "#38bdf8" : "#a78bfa";
 }
 
 function normalizeSignal(signal: string) {
@@ -213,6 +235,9 @@ export default function TrendGlobeMap() {
     startRotation: number;
     moved: boolean;
   } | null>(null);
+  const velocityRef = useRef(0);
+  const lastDragXRef = useRef(0);
+  const dragMovedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,20 +274,31 @@ export default function TrendGlobeMap() {
   }, []);
 
   useEffect(() => {
-    if (paused || dragState) return;
+    if (dragState) return;
     let frame = 0;
 
     function tick() {
-      setRotation((value) => (value + 0.18) % 360);
+      const inertia = velocityRef.current;
+      const autoSpin = paused || focusMode ? 0 : 0.18;
+
+      if (autoSpin || Math.abs(inertia) > 0.01) {
+        setRotation((value) => (value + autoSpin + inertia + 360) % 360);
+        velocityRef.current *= 0.94;
+        if (Math.abs(velocityRef.current) < 0.01) velocityRef.current = 0;
+      }
+
       frame = requestAnimationFrame(tick);
     }
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [paused, dragState]);
+  }, [paused, focusMode, dragState]);
 
   function handlePointerDown(event: PointerEvent<SVGSVGElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
+    velocityRef.current = 0;
+    lastDragXRef.current = event.clientX;
+    dragMovedRef.current = false;
     setDragState({
       startX: event.clientX,
       startRotation: rotation,
@@ -273,16 +309,23 @@ export default function TrendGlobeMap() {
   function handlePointerMove(event: PointerEvent<SVGSVGElement>) {
     if (!dragState) return;
     const deltaX = event.clientX - dragState.startX;
+    const frameDelta = event.clientX - lastDragXRef.current;
 
+    velocityRef.current = frameDelta * 0.24;
+    lastDragXRef.current = event.clientX;
     setRotation((dragState.startRotation + deltaX * 0.45 + 360) % 360);
     if (Math.abs(deltaX) > 4 && !dragState.moved) {
+      dragMovedRef.current = true;
       setDragState({ ...dragState, moved: true });
     }
   }
 
   function handlePointerUp(event: PointerEvent<SVGSVGElement>) {
     event.currentTarget.releasePointerCapture(event.pointerId);
-    window.setTimeout(() => setDragState(null), 0);
+    window.setTimeout(() => {
+      setDragState(null);
+      dragMovedRef.current = false;
+    }, 0);
   }
 
   const points = useMemo<GlobePoint[]>(() => {
@@ -293,7 +336,7 @@ export default function TrendGlobeMap() {
       topicIndex: index,
       slug: topic.slug,
       heatScore: topic.heatScore,
-      color: "#ef4444",
+      color: getTopicColor(topic.heatScore, index),
       ...TOPIC_COORDS[index % TOPIC_COORDS.length],
     }));
 
@@ -406,11 +449,11 @@ export default function TrendGlobeMap() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div>
             <div className="text-sm font-semibold text-sky-300">
-              Globe Prototype
+              Trend Globe
             </div>
             <h2 className="mt-1 text-2xl font-black">全球議題正在轉動</h2>
             <p className="mt-1 text-sm text-slate-400">
-              航線代表主題、共同脈絡與子訊號之間的連結；點紅色主題會放大地球並顯示主題快讀。
+              航線代表主題、共同脈絡與子訊號之間的連結；拖曳地球可旋轉，點熱門節點會放大並顯示主題快讀。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -433,7 +476,7 @@ export default function TrendGlobeMap() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden bg-[radial-gradient(circle_at_center,_#1e3a8a_0,_#0f172a_46%,_#020617_100%)]">
+        <div className="relative overflow-hidden bg-[radial-gradient(circle_at_48%_42%,_#1e3a8a_0,_#0f172a_42%,_#020617_74%,_#000_100%)]">
           <svg
             viewBox="0 0 800 680"
             role="img"
@@ -450,10 +493,43 @@ export default function TrendGlobeMap() {
           >
             <defs>
               <radialGradient id="globe-fill" cx="38%" cy="28%" r="72%">
-                <stop offset="0%" stopColor="#60a5fa" stopOpacity="0.62" />
-                <stop offset="46%" stopColor="#1d4ed8" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="#020617" stopOpacity="0.92" />
+                <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.72" />
+                <stop offset="36%" stopColor="#2563eb" stopOpacity="0.32" />
+                <stop offset="72%" stopColor="#0f172a" stopOpacity="0.86" />
+                <stop offset="100%" stopColor="#020617" stopOpacity="0.98" />
               </radialGradient>
+              <radialGradient id="atmosphere-fill" cx="50%" cy="50%" r="50%">
+                <stop offset="68%" stopColor="#38bdf8" stopOpacity="0" />
+                <stop offset="86%" stopColor="#38bdf8" stopOpacity="0.16" />
+                <stop offset="100%" stopColor="#67e8f9" stopOpacity="0.36" />
+              </radialGradient>
+              <linearGradient id="route-blue" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.2" />
+                <stop offset="46%" stopColor="#93c5fd" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="#a78bfa" stopOpacity="0.34" />
+              </linearGradient>
+              <linearGradient id="route-hot" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#67e8f9" stopOpacity="0.3" />
+                <stop offset="48%" stopColor="#fef3c7" stopOpacity="1" />
+                <stop offset="100%" stopColor="#fb7185" stopOpacity="0.42" />
+              </linearGradient>
+              <pattern
+                id="data-texture"
+                width="36"
+                height="36"
+                patternUnits="userSpaceOnUse"
+              >
+                <path
+                  d="M 0 18 H 36 M 18 0 V 36"
+                  stroke="#7dd3fc"
+                  strokeOpacity="0.08"
+                  strokeWidth="0.8"
+                />
+                <circle cx="18" cy="18" r="1.1" fill="#bae6fd" opacity="0.16" />
+              </pattern>
+              <clipPath id="globe-clip">
+                <circle cx="400" cy="340" r={focusMode ? "304" : "286"} />
+              </clipPath>
               <filter id="globe-glow" x="-40%" y="-40%" width="180%" height="180%">
                 <feDropShadow
                   dx="0"
@@ -463,8 +539,47 @@ export default function TrendGlobeMap() {
                   floodOpacity="0.28"
                 />
               </filter>
+              <filter id="node-glow" x="-80%" y="-80%" width="260%" height="260%">
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="8"
+                  floodColor="#67e8f9"
+                  floodOpacity="0.48"
+                />
+              </filter>
+              <filter id="route-glow" x="-40%" y="-40%" width="180%" height="180%">
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="3"
+                  floodColor="#7dd3fc"
+                  floodOpacity="0.32"
+                />
+              </filter>
             </defs>
 
+            <g opacity="0.95">
+              {STAR_POINTS.map((star, index) => (
+                <circle
+                  key={`${star.x}-${star.y}`}
+                  cx={star.x + Math.sin(rotation / 42 + index) * 4}
+                  cy={star.y + Math.cos(rotation / 58 + index) * 2}
+                  r={star.r}
+                  fill="#e0f2fe"
+                  opacity={star.opacity}
+                />
+              ))}
+            </g>
+
+            <circle
+              cx="400"
+              cy="340"
+              r={focusMode ? "336" : "318"}
+              fill="url(#atmosphere-fill)"
+              opacity={focusMode ? "0.9" : "0.68"}
+              className="transition-all duration-500"
+            />
             <circle
               cx="400"
               cy="340"
@@ -476,6 +591,32 @@ export default function TrendGlobeMap() {
               filter="url(#globe-glow)"
               className="transition-all duration-500"
             />
+            <g clipPath="url(#globe-clip)" opacity={focusMode ? "0.42" : "0.28"}>
+              <rect
+                x="70"
+                y="20"
+                width="660"
+                height="640"
+                fill="url(#data-texture)"
+                transform={`translate(${(rotation % 36) - 18} 0)`}
+              />
+              <path
+                d="M 146 264 C 240 206, 304 458, 436 392 S 610 238, 688 332"
+                fill="none"
+                stroke="#67e8f9"
+                strokeOpacity="0.16"
+                strokeWidth="2"
+                strokeDasharray="4 12"
+              />
+              <path
+                d="M 116 418 C 256 352, 344 534, 492 472 S 628 384, 704 428"
+                fill="none"
+                stroke="#a78bfa"
+                strokeOpacity="0.12"
+                strokeWidth="2"
+                strokeDasharray="2 10"
+              />
+            </g>
             {[-60, -30, 0, 30, 60].map((lat) => (
               <ellipse
                 key={lat}
@@ -485,7 +626,9 @@ export default function TrendGlobeMap() {
                 ry="26"
                 fill="none"
                 stroke="#93c5fd"
-                strokeOpacity="0.18"
+                strokeOpacity={lat === 0 ? "0.26" : "0.15"}
+                strokeDasharray="2 9"
+                strokeLinecap="round"
               />
             ))}
             {Array.from({ length: 8 }).map((_, index) => (
@@ -497,7 +640,9 @@ export default function TrendGlobeMap() {
                 ry="286"
                 fill="none"
                 stroke="#93c5fd"
-                strokeOpacity="0.12"
+                strokeOpacity={index % 2 === 0 ? "0.13" : "0.08"}
+                strokeDasharray="2 10"
+                strokeLinecap="round"
               />
             ))}
 
@@ -515,7 +660,7 @@ export default function TrendGlobeMap() {
                     key={route.id}
                     d={getRoutePath(from, to)}
                     fill="none"
-                    stroke={isSelected ? "#fef3c7" : "#93c5fd"}
+                    stroke={isSelected ? "url(#route-hot)" : "url(#route-blue)"}
                     strokeWidth={
                       isSelected
                         ? clamp(2.6 + route.strength / 90, 3, 5.2)
@@ -523,6 +668,7 @@ export default function TrendGlobeMap() {
                     }
                     strokeLinecap="round"
                     strokeDasharray={isSelected ? "1 0" : "7 9"}
+                    filter={isSelected ? "url(#route-glow)" : undefined}
                     opacity={
                       focusMode
                         ? isSelected
@@ -562,14 +708,34 @@ export default function TrendGlobeMap() {
                     }
                     className={point.kind === "topic" ? "cursor-pointer" : ""}
                     onClick={() => {
-                      if (dragState?.moved) return;
+                      if (dragState?.moved || dragMovedRef.current) return;
                       if (point.kind === "topic") {
+                        velocityRef.current = 0;
                         setSelectedTopicId(point.id);
                         setFocusMode(true);
                         setPaused(true);
                       }
                     }}
                   >
+                    {point.kind === "topic" && (
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r={radius * point.scale * 1.35}
+                        fill={point.color}
+                        opacity={point.id === selectedTopicId ? "0.24" : "0.16"}
+                        className="animate-ping"
+                      />
+                    )}
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r={radius * point.scale * 1.16}
+                      fill="none"
+                      stroke={point.color}
+                      strokeOpacity={point.kind === "topic" ? "0.42" : "0.2"}
+                      strokeWidth={point.kind === "topic" ? 2 : 1}
+                    />
                     <circle
                       cx={point.x}
                       cy={point.y}
@@ -578,6 +744,14 @@ export default function TrendGlobeMap() {
                       stroke={point.kind === "shared" ? "#94a3b8" : "#f8fafc"}
                       strokeOpacity="0.82"
                       strokeWidth={point.kind === "topic" ? 3 : 1.5}
+                      filter={point.kind === "topic" ? "url(#node-glow)" : undefined}
+                    />
+                    <circle
+                      cx={point.x - radius * point.scale * 0.28}
+                      cy={point.y - radius * point.scale * 0.32}
+                      r={radius * point.scale * 0.22}
+                      fill="#ffffff"
+                      opacity={point.kind === "shared" ? "0.38" : "0.46"}
                     />
                     {splitLabel(point.label, point.kind === "topic" ? 5 : 4).map(
                       (line, lineIndex, lines) => (
@@ -613,7 +787,7 @@ export default function TrendGlobeMap() {
                 className="pointer-events-none"
               >
                 <div
-                  className={`border border-white/15 bg-slate-950/82 text-white shadow-2xl shadow-black/35 backdrop-blur ${
+                  className={`border border-cyan-200/20 bg-slate-950/72 text-white shadow-2xl shadow-cyan-950/40 backdrop-blur-xl ring-1 ring-white/10 ${
                     focusMode ? "rounded-[28px] p-5" : "rounded-2xl p-3"
                   }`}
                 >
@@ -722,13 +896,13 @@ export default function TrendGlobeMap() {
           <div className="text-sm font-semibold text-sky-300">目前判斷</div>
           <div className="mt-3 space-y-3 text-sm leading-6 text-slate-300">
             <p>
-              這版是 3D-like SVG 投影，已經有旋轉、遠近大小、節點點選與航線連結，成本低且不需要新增套件。
+              這版先用 3D-like SVG 做出資料星球：有大氣外光、點狀網格、資料紋理、拖曳慣性與熱度分級節點，成本低且不用新增大型套件。
             </p>
             <p>
-              航線可以用來表達主題與共同脈絡的關係；下一步可讓線條粗細代表關聯強度。
+              航線已用貝茲曲線呈現主題、共同脈絡與子訊號；線條粗細和亮度可以繼續連到關聯強度、來源數與更新速度。
             </p>
             <p>
-              如果要做真正可拖曳、縮放、慣性旋轉的地球，下一版可以升級成 Three.js。
+              之後若要做真正 3D 轉動、縮放、飛線粒子與節點懸浮，可以再升級成 Three.js。
             </p>
           </div>
         </section>
