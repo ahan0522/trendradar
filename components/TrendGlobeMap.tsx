@@ -204,6 +204,7 @@ export default function TrendGlobeMap() {
     {}
   );
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [rotation, setRotation] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -380,6 +381,9 @@ export default function TrendGlobeMap() {
 
   const selectedTopic =
     topics.find((topic) => topic.id === selectedTopicId) ?? topics[0];
+  const selectedTopicIndex = selectedTopic
+    ? topics.findIndex((topic) => topic.id === selectedTopic.id)
+    : -1;
   const selectedDetail = selectedTopic
     ? detailsBySlug[selectedTopic.slug]
     : undefined;
@@ -406,16 +410,27 @@ export default function TrendGlobeMap() {
             </div>
             <h2 className="mt-1 text-2xl font-black">全球議題正在轉動</h2>
             <p className="mt-1 text-sm text-slate-400">
-              航線代表主題、共同脈絡與子訊號之間的連結；點紅色主題會高亮它的路線。
+              航線代表主題、共同脈絡與子訊號之間的連結；點紅色主題會放大地球並顯示主題快讀。
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setPaused((value) => !value)}
-            className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/15 transition hover:bg-white/15"
-          >
-            {paused ? "繼續轉動" : "暫停旋轉"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {focusMode && (
+              <button
+                type="button"
+                onClick={() => setFocusMode(false)}
+                className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"
+              >
+                返回全局
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setPaused((value) => !value)}
+              className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/15 transition hover:bg-white/15"
+            >
+              {paused ? "繼續轉動" : "暫停旋轉"}
+            </button>
+          </div>
         </div>
 
         <div className="relative overflow-hidden bg-[radial-gradient(circle_at_center,_#1e3a8a_0,_#0f172a_46%,_#020617_100%)]">
@@ -423,7 +438,9 @@ export default function TrendGlobeMap() {
             viewBox="0 0 800 680"
             role="img"
             aria-label="旋轉地球村主題圖"
-            className={`h-[620px] w-full touch-none select-none ${
+            className={`h-[620px] w-full touch-none select-none transition-transform duration-500 ${
+              focusMode ? "scale-[1.16]" : "scale-100"
+            } ${
               dragState ? "cursor-grabbing" : "cursor-grab"
             }`}
             onPointerDown={handlePointerDown}
@@ -451,12 +468,13 @@ export default function TrendGlobeMap() {
             <circle
               cx="400"
               cy="340"
-              r="286"
+              r={focusMode ? "304" : "286"}
               fill="url(#globe-fill)"
               stroke="#7dd3fc"
-              strokeOpacity="0.28"
-              strokeWidth="2"
+              strokeOpacity={focusMode ? "0.46" : "0.28"}
+              strokeWidth={focusMode ? "3" : "2"}
               filter="url(#globe-glow)"
+              className="transition-all duration-500"
             />
             {[-60, -30, 0, 30, 60].map((lat) => (
               <ellipse
@@ -505,7 +523,15 @@ export default function TrendGlobeMap() {
                     }
                     strokeLinecap="round"
                     strokeDasharray={isSelected ? "1 0" : "7 9"}
-                    opacity={isSelected ? depthOpacity : depthOpacity * 0.55}
+                    opacity={
+                      focusMode
+                        ? isSelected
+                          ? depthOpacity
+                          : depthOpacity * 0.12
+                        : isSelected
+                          ? depthOpacity
+                          : depthOpacity * 0.55
+                    }
                   />
                 );
               })}
@@ -525,11 +551,23 @@ export default function TrendGlobeMap() {
                 return (
                   <g
                     key={point.id}
-                    opacity={opacity}
+                    opacity={
+                      focusMode && point.kind === "topic" && point.id !== selectedTopicId
+                        ? opacity * 0.28
+                        : focusMode &&
+                            point.kind === "signal" &&
+                            point.topicIndex !== selectedTopicIndex
+                          ? opacity * 0.72
+                          : opacity
+                    }
                     className={point.kind === "topic" ? "cursor-pointer" : ""}
                     onClick={() => {
                       if (dragState?.moved) return;
-                      if (point.kind === "topic") setSelectedTopicId(point.id);
+                      if (point.kind === "topic") {
+                        setSelectedTopicId(point.id);
+                        setFocusMode(true);
+                        setPaused(true);
+                      }
                     }}
                   >
                     <circle
@@ -568,22 +606,46 @@ export default function TrendGlobeMap() {
 
             {selectedTopic && selectedPoint?.visible && (
               <foreignObject
-                x={clamp(selectedPoint.x + 34, 90, 520)}
-                y={clamp(selectedPoint.y - 92, 56, 478)}
-                width="250"
-                height="158"
+                x={focusMode ? 252 : clamp(selectedPoint.x + 34, 90, 520)}
+                y={focusMode ? 206 : clamp(selectedPoint.y - 92, 56, 478)}
+                width={focusMode ? "296" : "250"}
+                height={focusMode ? "236" : "158"}
                 className="pointer-events-none"
               >
-                <div className="rounded-2xl border border-white/15 bg-slate-950/82 p-3 text-white shadow-2xl shadow-black/35 backdrop-blur">
+                <div
+                  className={`border border-white/15 bg-slate-950/82 text-white shadow-2xl shadow-black/35 backdrop-blur ${
+                    focusMode ? "rounded-[28px] p-5" : "rounded-2xl p-3"
+                  }`}
+                >
                   <div className="text-xs font-semibold text-sky-300">
-                    球上快讀
+                    {focusMode ? "主題展開" : "球上快讀"}
                   </div>
-                  <div className="mt-1 text-sm font-black leading-snug">
+                  <div
+                    className={`mt-1 font-black leading-snug ${
+                      focusMode ? "text-xl" : "text-sm"
+                    }`}
+                  >
                     {selectedTopic.title}
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-300">
-                    {truncateText(selectedSummary, 78)}
+                  <p
+                    className={`mt-2 leading-6 text-slate-300 ${
+                      focusMode ? "text-sm" : "text-xs"
+                    }`}
+                  >
+                    {truncateText(selectedSummary, focusMode ? 138 : 78)}
                   </p>
+                  {focusMode && selectedDetail?.subtopics && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {selectedDetail.subtopics.slice(0, 4).map((subtopic) => (
+                        <span
+                          key={subtopic}
+                          className="rounded-full bg-sky-400/15 px-2.5 py-1 text-[11px] font-semibold text-sky-100"
+                        >
+                          {subtopic}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div className="mt-2 flex gap-2 text-[11px] text-slate-300">
                     <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-red-100">
                       熱度 {selectedTopic.heatScore}
@@ -596,6 +658,20 @@ export default function TrendGlobeMap() {
               </foreignObject>
             )}
           </svg>
+
+          {focusMode && selectedTopic && (
+            <div className="absolute bottom-5 left-1/2 flex w-[min(92%,620px)] -translate-x-1/2 items-center justify-between gap-3 rounded-full border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white shadow-2xl shadow-black/30 backdrop-blur">
+              <span className="truncate text-slate-300">
+                正在聚焦：<span className="font-semibold text-white">{selectedTopic.title}</span>
+              </span>
+              <Link
+                href={`/topics/${selectedTopic.slug}`}
+                className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-slate-200"
+              >
+                進入詳情
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
