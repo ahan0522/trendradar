@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "../../../../utils/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -51,50 +52,83 @@ function getTopicFamily(topic: HomeTopic) {
   return topic.category || "general";
 }
 
-function selectDiverseHomeTopics(topics: HomeTopic[]) {
+function isBroadFallbackTopic(topic: HomeTopic) {
+  const title = topic.title.trim().toLowerCase();
+
+  return (
+    topic.discoveryMode !== "candidate_cluster" &&
+    /^(ai|nba|iphone|3c|財經|國際|新聞|體育)$/.test(title)
+  );
+}
+
+function getDiversityScore(topic: HomeTopic) {
+  const discoveryBoost = topic.discoveryMode === "candidate_cluster" ? 600 : 0;
+  const sourceBoost = Math.min(topic.sourceCount, 5) * 80;
+  const articleBoost = Math.min(topic.articleCount, 8) * 30;
+  const fallbackPenalty = isBroadFallbackTopic(topic) ? 900 : 0;
+
+  return discoveryBoost + sourceBoost + articleBoost + topic.heatScore - fallbackPenalty;
+}
+
+function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
   const selected: HomeTopic[] = [];
   const categoryCounts = new Map<string, number>();
   const familyCounts = new Map<string, number>();
 
-  for (const topic of topics) {
+  function addTopic(topic: HomeTopic, categoryLimit: number, familyLimit: number) {
+    if (selected.some((item) => item.id === topic.id)) {
+      return false;
+    }
+
     const categoryCount = categoryCounts.get(topic.category) ?? 0;
     const family = getTopicFamily(topic);
     const familyCount = familyCounts.get(family) ?? 0;
 
-    if (categoryCount >= 2 || familyCount >= 1) {
-      continue;
+    if (categoryCount >= categoryLimit || familyCount >= familyLimit) {
+      return false;
     }
 
     selected.push(topic);
     categoryCounts.set(topic.category, categoryCount + 1);
     familyCounts.set(family, familyCount + 1);
+    return true;
+  }
 
-    if (selected.length >= 6) {
+  const strongTopics = topics
+    .filter((topic) => !isBroadFallbackTopic(topic))
+    .sort((a, b) => getDiversityScore(b) - getDiversityScore(a));
+
+  for (const topic of strongTopics) {
+    addTopic(topic, 1, 1);
+
+    if (selected.length >= targetCount) {
       return selected;
     }
   }
 
-  const minimumTopicCount = Math.min(3, topics.length);
+  for (const topic of strongTopics) {
+    addTopic(topic, 2, 1);
 
-  if (selected.length < minimumTopicCount) {
-    for (const topic of topics) {
-      if (selected.some((item) => item.id === topic.id)) {
-        continue;
-      }
-
-      selected.push(topic);
-
-      if (selected.length >= minimumTopicCount) {
-        break;
-      }
+    if (selected.length >= targetCount) {
+      return selected;
     }
   }
 
-  return selected.slice(0, 6);
+  for (const topic of topics.sort((a, b) => getDiversityScore(b) - getDiversityScore(a))) {
+    addTopic(topic, targetCount > 6 ? 3 : 2, 2);
+
+    if (selected.length >= targetCount) {
+      return selected;
+    }
+  }
+
+  return selected.slice(0, targetCount);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const requestedLimit = Number(request.nextUrl.searchParams.get("limit") ?? 6);
+    const topicLimit = Math.min(Math.max(requestedLimit, 3), 12);
     const supabase = createServiceRoleClient();
 
     const { data, error } = await supabase
@@ -116,9 +150,9 @@ export async function GET() {
       .eq("status", "active")
       .not("slug", "is", null)
       .gt("article_count", 0)
-      .gt("source_count", 1)
+      .gt("source_count", 0)
       .order("heat_score", { ascending: false })
-      .limit(12);
+      .limit(36);
 
     if (error) {
       return NextResponse.json(
@@ -151,17 +185,19 @@ export async function GET() {
           return a.discoveryMode === "candidate_cluster" ? -1 : 1;
         }
 
-        if (b.heatScore !== a.heatScore) {
-          return b.heatScore - a.heatScore;
+        const scoreDiff = getDiversityScore(b) - getDiversityScore(a);
+
+        if (scoreDiff !== 0) {
+          return scoreDiff;
         }
 
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      }));
+      }), topicLimit);
 
     return NextResponse.json(
       {
         ok: true,
-        selectionMode: "diverse-category-family-v1",
+        selectionMode: "diverse-category-family-v2",
         generatedAt: new Date().toISOString(),
         count: topics.length,
         topics,

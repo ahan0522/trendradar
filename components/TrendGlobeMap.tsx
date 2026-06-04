@@ -16,6 +16,11 @@ type HomepageTopic = {
 
 type TopicDetail = {
   summary?: string;
+  bullets?: string[];
+  category?: string;
+  heatScore?: number;
+  sourceCount?: number;
+  articleCount?: number;
   tags?: string[];
   subtopics?: string[];
   keywords?: string[];
@@ -24,6 +29,10 @@ type TopicDetail = {
     title: string;
     description?: string;
     quickSummary?: string;
+    category?: string;
+    region?: string;
+    sourceName?: string;
+    publishedAt?: string;
   }>;
 };
 
@@ -54,6 +63,12 @@ const TOPIC_COORDS = [
   { lat: -16, lon: 76 },
   { lat: -24, lon: -18 },
   { lat: 44, lon: 96 },
+  { lat: 2, lon: -128 },
+  { lat: -44, lon: -92 },
+  { lat: 58, lon: 154 },
+  { lat: -8, lon: 146 },
+  { lat: 12, lon: 8 },
+  { lat: -34, lon: 28 },
 ];
 
 const SIGNAL_COORDS = [
@@ -80,6 +95,30 @@ const SIGNAL_COORDS = [
   [
     { lat: 62, lon: 82 },
     { lat: 30, lon: 118 },
+  ],
+  [
+    { lat: 16, lon: -146 },
+    { lat: -18, lon: -112 },
+  ],
+  [
+    { lat: -28, lon: -118 },
+    { lat: -58, lon: -68 },
+  ],
+  [
+    { lat: 72, lon: 136 },
+    { lat: 42, lon: 174 },
+  ],
+  [
+    { lat: 14, lon: 128 },
+    { lat: -30, lon: 166 },
+  ],
+  [
+    { lat: 28, lon: -10 },
+    { lat: -10, lon: 18 },
+  ],
+  [
+    { lat: -18, lon: 8 },
+    { lat: -52, lon: 46 },
   ],
 ];
 
@@ -233,6 +272,7 @@ function truncateText(text: string, maxLength: number) {
 
 function getBriefItems(detail: TopicDetail | undefined, fallback: string) {
   const candidates = [
+    ...(detail?.bullets ?? []),
     ...(detail?.subtopics ?? []),
     ...(detail?.articles ?? []).map(
       (article) => article.quickSummary || article.description || article.title
@@ -252,6 +292,43 @@ function getBriefItems(detail: TopicDetail | undefined, fallback: string) {
     .filter((item, index, list) => list.findIndex((next) => next === item) === index)
     .slice(0, 3)
     .map((item) => truncateText(item, 42));
+}
+
+function getInsightChips(topic: HomepageTopic, detail?: TopicDetail) {
+  const chips: string[] = [];
+  pushSignals(chips, [
+    detail?.category || topic.category,
+    ...(detail?.tags ?? []),
+    ...(detail?.keywords ?? []),
+    ...(detail?.subtopics ?? []),
+  ]);
+
+  return chips.slice(0, 6);
+}
+
+function getSourceNames(detail?: TopicDetail) {
+  const sourceNames = (detail?.articles ?? [])
+    .map((article) => article.sourceName?.trim())
+    .filter((sourceName): sourceName is string => Boolean(sourceName));
+
+  return sourceNames.filter(
+    (sourceName, index, list) => list.findIndex((item) => item === sourceName) === index
+  );
+}
+
+function getRepresentativeEvents(detail?: TopicDetail) {
+  return (detail?.articles ?? [])
+    .map((article) => ({
+      id: article.id,
+      text: article.quickSummary || article.description || article.title,
+      sourceName: article.sourceName,
+    }))
+    .filter((article) => Boolean(article.text))
+    .slice(0, 2)
+    .map((article) => ({
+      ...article,
+      text: truncateText(article.text.replace(/\s+/g, " ").trim(), 46),
+    }));
 }
 
 function getPointRadius(
@@ -298,11 +375,11 @@ export default function TrendGlobeMap() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/topics/db-home")
+    fetch("/api/topics/db-home?limit=12")
       .then((res) => res.json())
       .then((data) => {
         if (cancelled) return;
-        const nextTopics = (data.topics ?? []).slice(0, 6);
+        const nextTopics = (data.topics ?? []).slice(0, 12);
         setTopics(nextTopics);
         setSelectedTopicId(nextTopics[0]?.id ?? null);
 
@@ -562,6 +639,11 @@ export default function TrendGlobeMap() {
     selectedDetail?.articles?.[0]?.description ||
     "正在整理這個主題的快讀摘要。";
   const selectedBriefItems = getBriefItems(selectedDetail, selectedSummary);
+  const selectedInsightChips = selectedTopic
+    ? getInsightChips(selectedTopic, selectedDetail)
+    : [];
+  const selectedSourceNames = getSourceNames(selectedDetail);
+  const selectedEvents = getRepresentativeEvents(selectedDetail);
   const maxHeatScore = Math.max(...topics.map((topic) => topic.heatScore), 1);
   const minHeatScore = Math.min(
     ...topics.map((topic) => topic.heatScore),
@@ -952,10 +1034,10 @@ export default function TrendGlobeMap() {
 
             {focusMode && selectedTopic && selectedPoint?.visible && (
               <foreignObject
-                x={focusMode ? 252 : clamp(selectedPoint.x + 34, 90, 520)}
-                y={focusMode ? 206 : clamp(selectedPoint.y - 92, 56, 478)}
-                width={focusMode ? "330" : "250"}
-                height={focusMode ? "286" : "158"}
+                x={focusMode ? 226 : clamp(selectedPoint.x + 34, 90, 520)}
+                y={focusMode ? 152 : clamp(selectedPoint.y - 92, 56, 478)}
+                width={focusMode ? "382" : "250"}
+                height={focusMode ? "438" : "158"}
                 className="pointer-events-none hidden sm:block"
               >
                 <div
@@ -978,8 +1060,24 @@ export default function TrendGlobeMap() {
                       focusMode ? "text-sm" : "text-xs"
                     }`}
                   >
-                    {truncateText(selectedSummary, focusMode ? 138 : 78)}
+                    {truncateText(selectedSummary, focusMode ? 178 : 78)}
                   </p>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-[11px]">
+                    <div className="rounded-2xl bg-rose-400/15 px-2 py-2 text-rose-100">
+                      <div className="text-rose-100/60">熱度</div>
+                      <div className="mt-0.5 font-black">{selectedTopic.heatScore}</div>
+                    </div>
+                    <div className="rounded-2xl bg-cyan-300/15 px-2 py-2 text-cyan-100">
+                      <div className="text-cyan-100/60">來源</div>
+                      <div className="mt-0.5 font-black">
+                        {selectedSourceNames.length || selectedTopic.sourceCount}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 px-2 py-2 text-slate-100">
+                      <div className="text-slate-300">事件</div>
+                      <div className="mt-0.5 font-black">{selectedTopic.articleCount}</div>
+                    </div>
+                  </div>
                   {focusMode && (
                     <div className="mt-3 space-y-2">
                       {selectedBriefItems.map((item, index) => (
@@ -995,33 +1093,45 @@ export default function TrendGlobeMap() {
                       ))}
                     </div>
                   )}
-                  {focusMode && selectedDetail?.subtopics && (
+                  {selectedEvents.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      <div className="text-[11px] font-bold text-slate-400">
+                        代表事件
+                      </div>
+                      {selectedEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="rounded-2xl border border-white/10 bg-slate-950/35 px-3 py-2 text-xs leading-5 text-slate-200"
+                        >
+                          {event.text}
+                          {event.sourceName && (
+                            <span className="ml-2 text-[11px] text-cyan-200/80">
+                              {event.sourceName}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {focusMode && selectedInsightChips.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      {selectedDetail.subtopics.slice(0, 4).map((subtopic) => (
+                      {selectedInsightChips.map((chip) => (
                         <span
-                          key={subtopic}
+                          key={chip}
                           className="rounded-full bg-sky-400/15 px-2.5 py-1 text-[11px] font-semibold text-sky-100"
                         >
-                          {subtopic}
+                          {chip}
                         </span>
                       ))}
                     </div>
                   )}
-                  <div className="mt-2 flex gap-2 text-[11px] text-slate-300">
-                    <span className="rounded-full bg-red-500/20 px-2 py-0.5 text-red-100">
-                      熱度 {selectedTopic.heatScore}
-                    </span>
-                    <span className="rounded-full bg-white/10 px-2 py-0.5">
-                      {selectedTopic.articleCount} 篇
-                    </span>
-                  </div>
                 </div>
               </foreignObject>
             )}
           </svg>
 
           {focusMode && selectedTopic && (
-            <div className="absolute inset-x-3 bottom-3 rounded-[28px] border border-cyan-100/20 bg-slate-950/62 p-4 text-white shadow-2xl shadow-cyan-950/40 backdrop-blur-2xl ring-1 ring-white/10 sm:hidden">
+            <div className="absolute inset-x-3 bottom-3 max-h-[58%] overflow-y-auto rounded-[28px] border border-cyan-100/20 bg-slate-950/62 p-4 text-white shadow-2xl shadow-cyan-950/40 backdrop-blur-2xl ring-1 ring-white/10 sm:hidden">
               <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-white/30" />
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1032,6 +1142,24 @@ export default function TrendGlobeMap() {
                 </div>
                 <div className="shrink-0 rounded-full bg-rose-400/20 px-3 py-1 text-xs font-bold text-rose-100">
                   熱度 {selectedTopic.heatScore}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="rounded-2xl bg-white/10 px-2 py-2">
+                  <div className="text-slate-400">分類</div>
+                  <div className="mt-0.5 truncate font-bold">
+                    {selectedDetail?.category || selectedTopic.category || "綜合"}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/10 px-2 py-2">
+                  <div className="text-slate-400">來源</div>
+                  <div className="mt-0.5 font-bold">
+                    {selectedSourceNames.length || selectedTopic.sourceCount}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/10 px-2 py-2">
+                  <div className="text-slate-400">事件</div>
+                  <div className="mt-0.5 font-bold">{selectedTopic.articleCount}</div>
                 </div>
               </div>
               <div className="mt-3 space-y-2">
@@ -1047,6 +1175,35 @@ export default function TrendGlobeMap() {
                   </div>
                 ))}
               </div>
+              {selectedEvents.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {selectedEvents.slice(0, 1).map((event) => (
+                    <div
+                      key={`${event.id}-mobile-event`}
+                      className="rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs leading-5 text-slate-200"
+                    >
+                      {event.text}
+                      {event.sourceName && (
+                        <span className="ml-2 text-cyan-200/80">
+                          {event.sourceName}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedInsightChips.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {selectedInsightChips.slice(0, 5).map((chip) => (
+                    <span
+                      key={`${chip}-mobile`}
+                      className="rounded-full bg-sky-400/15 px-2.5 py-1 text-[11px] font-semibold text-sky-100"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
               <Link
                 href={`/topics/${selectedTopic.slug}`}
                 className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-slate-200"
