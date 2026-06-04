@@ -105,6 +105,10 @@ function isLowValueTrendText(value: string) {
     return true;
   }
 
+  if (/digital photo frame|google photos update|saved your/.test(text)) {
+    return true;
+  }
+
   if (/台股|股價|買超|賣超|eps|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值/.test(text)) {
     return true;
   }
@@ -179,7 +183,7 @@ function selectDiverseTopics(topics: GlobeTopic[], limit: number) {
 
     const familyLimit = family === "nba" ? 1 : 2;
 
-    if (categoryCount >= 3 || familyCount >= familyLimit) {
+    if (categoryCount >= 2 || familyCount >= familyLimit) {
       continue;
     }
 
