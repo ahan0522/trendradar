@@ -94,6 +94,10 @@ function getTextTokens(value: string) {
 function isLowValueTrendText(value: string) {
   const text = normalizeText(value);
 
+  if (/\bgamereactor\b|\.cn\b|it 又到了|it is time for|上新一輪新增內容/.test(text)) {
+    return true;
+  }
+
   if (/giveaway|sweepstakes|grab bag|coupon|deal|discount|prime day|sale/.test(text)) {
     return true;
   }
@@ -113,6 +117,18 @@ function isLowValueTrendText(value: string) {
   if (/台股|股價|股市|美國股市|歐洲股市|開盤|買超|賣超|eps|營收展望|合併營收|投信|外資|費半|美股早盤|股匯|漲停|跌停|壽險淨值/.test(text)) {
     return true;
   }
+
+  return false;
+}
+
+function hasLowQualityTitle(title: string) {
+  const text = normalizeText(title);
+  const cleaned = cleanTitle(title);
+
+  if (cleaned.length < 8) return true;
+  if (/^[a-z]{1,4}\s+[\p{Script=Han}]/u.test(text)) return true;
+  if (/\bgamereactor\b|\.cn\b/.test(text)) return true;
+  if (/^\W+$/.test(cleaned)) return true;
 
   return false;
 }
@@ -298,6 +314,7 @@ function getInstantImportanceScore(item: Awaited<ReturnType<typeof getNewsItems>
 function isUsableCandidate(topic: ReturnType<typeof discoverCandidateTopics>[number]) {
   const text = `${topic.title} ${topic.summary} ${topic.keywords.join(" ")}`;
 
+  if (hasLowQualityTitle(topic.title)) return false;
   if (isLowValueTrendText(text)) return false;
   if (!hasTitleSupport(topic.title, topic.articles)) return false;
 
@@ -307,7 +324,11 @@ function isUsableCandidate(topic: ReturnType<typeof discoverCandidateTopics>[num
 function isUsableInstantItem(item: Awaited<ReturnType<typeof getNewsItems>>[number]) {
   const text = `${item.title} ${item.description} ${item.sourceName}`;
 
+  if (hasLowQualityTitle(item.title)) return false;
   if (isLowValueTrendText(text)) return false;
+  if (item.category === "遊戲" && !/任天堂|nintendo|switch|索尼|sony|xbox|microsoft|遊戲產業|併購|裁員/.test(text)) {
+    return false;
+  }
   if (/Google News/.test(item.sourceName) && !/台灣熱門|國際|體育/.test(item.sourceName)) {
     return false;
   }
