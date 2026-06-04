@@ -437,7 +437,13 @@ export default function TrendGlobeMap() {
       }
     }
 
-    if (!nearestPoint) return;
+    if (!nearestPoint) {
+      setFocusMode(false);
+      setPaused(false);
+      setRotationTarget(null);
+      rotationTargetRef.current = null;
+      return;
+    }
     velocityRef.current = 0;
     const targetRotation = (360 - nearestPoint.lon) % 360;
     rotationTargetRef.current = targetRotation;
