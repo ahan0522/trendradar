@@ -63,11 +63,97 @@ function stripHtml(value: string) {
 function cleanTitle(value: string) {
   return stripHtml(value)
     .replace(/\s*\|\s*[^|]{1,12}\s*\|\s*新聞\s*-\s*風傳媒$/i, "")
-    .replace(/\s*-\s*(Yahoo新聞|Yahoo運動|UDN|自由健康網|中天新聞網|三立新聞網SETN\.com|風傳媒)$/i, "")
+    .replace(
+      /\s*-\s*(Yahoo新聞|Yahoo運動|UDN|聯合新聞網|自由健康網|自由時報|中天新聞網|三立新聞網SETN\.com|風傳媒|中央社即時新聞|中央社|工商時報|中時新聞網|ETtoday新聞雲|鉅亨網)$/i,
+      ""
+    )
     .replace(/國價油價/g, "國際油價")
     .replace(/^[^：:]{1,5}[：:]\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function cleanSummaryText(value: string) {
+  return stripHtml(value)
+    .replace(/\b(Google News|Yahoo新聞|Yahoo奇摩新聞)\b/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s*-\s*(Yahoo新聞|UDN|聯合新聞網|中央社|自由時報|中時新聞網|三立新聞網SETN\.com)$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function removeTopicEcho(value: string, topicTitle: string) {
+  const cleaned = cleanSummaryText(value);
+  const normalizedTopic = normalizeText(topicTitle);
+  const normalizedValue = normalizeText(cleaned);
+
+  if (
+    normalizedTopic.length >= 8 &&
+    (normalizedValue === normalizedTopic ||
+      normalizedValue.startsWith(`${normalizedTopic} `))
+  ) {
+    return cleaned.slice(topicTitle.length).replace(/^[\s:：,，、-]+/, "").trim();
+  }
+
+  return cleaned;
+}
+
+function makeQuickSummary(input: {
+  title: string;
+  description?: string;
+  topicTitle?: string;
+}) {
+  const candidates = [
+    input.description ? cleanSummaryText(input.description) : "",
+    removeTopicEcho(input.title, input.topicTitle ?? ""),
+    cleanTitle(input.title),
+  ].filter(Boolean);
+
+  const selected =
+    candidates.find((candidate) => {
+      const normalized = normalizeText(candidate);
+      return (
+        candidate.length >= 18 &&
+        normalized !== normalizeText(input.topicTitle ?? "") &&
+        !/^https?:\/\//i.test(candidate)
+      );
+    }) ?? candidates[0] ?? "";
+
+  return selected
+    .replace(/^[\s:：,，、-]+/, "")
+    .replace(/\s+/g, " ")
+    .slice(0, 120)
+    .trim();
+}
+
+function makeGlobeSummary(input: {
+  title: string;
+  category: string;
+  sourceCount: number;
+  articleCount: number;
+  articles: Array<{ title: string; quickSummary?: string }>;
+}) {
+  const points = input.articles
+    .map((article) =>
+      makeQuickSummary({
+        title: article.title,
+        description: article.quickSummary,
+        topicTitle: input.title,
+      })
+    )
+    .filter(Boolean)
+    .filter(
+      (point, index, list) =>
+        list.findIndex((item) => normalizeText(item) === normalizeText(point)) ===
+        index
+    )
+    .slice(0, 2);
+
+  if (points.length > 0) {
+    return `${input.title} 是目前「${input.category}」類的焦點之一，已整合 ${input.articleCount} 則相關訊號、${input.sourceCount} 個來源；重點包括：${points.join("；")}。`;
+  }
+
+  return `${input.title} 是目前「${input.category}」類的焦點之一，已整合 ${input.articleCount} 則相關訊號、${input.sourceCount} 個來源，後續可從來源文章追蹤細節。`;
 }
 
 function getTextTokens(value: string) {
@@ -112,6 +198,10 @@ function isLowValueTrendText(value: string) {
   }
 
   if (/digital photo frame|google photos update|saved your/.test(text)) {
+    return true;
+  }
+
+  if (/social media stars|customize their search result page|creator search profile|influencer search result/.test(text)) {
     return true;
   }
 
@@ -222,12 +312,12 @@ function inferGlobeCategory(input: {
     return "健康";
   }
 
-  if (/關稅|課稅|貿易戰|川普課稅|強制險|金管會|保險|經濟|租賃|貿易|產業|金融/.test(text)) {
-    return "財經";
+  if (/ai|人工智慧|機器人|robot|晶片|半導體|伺服器|資料中心|data center|datacenter|cloud|雲端|科技|平台|自動化|maven|火星探測|無人機|uas/.test(text)) {
+    return "AI";
   }
 
-  if (/ai|人工智慧|機器人|robot|晶片|半導體|伺服器|科技|平台|自動化|maven|火星探測|無人機|uas/.test(text)) {
-    return "AI";
+  if (/關稅|課稅|貿易戰|川普課稅|強制險|金管會|保險|經濟|租賃|貿易|產業|金融/.test(text)) {
+    return "財經";
   }
 
   if (/nba|tpbl|mlb|棒球|籃球|網球|大谷|馬刺|尼克|國王|總冠軍/.test(text)) {
@@ -305,7 +395,9 @@ function getInstantImportanceScore(item: Awaited<ReturnType<typeof getNewsItems>
 
   if (/路透|中央社|官方|政府|國防|法院|金管會/.test(text)) score += 18;
   if (/台海|飛彈|豪雨|防災|強制險|制裁|停火|關稅|選舉/.test(text)) score += 16;
+  if (/資料中心|data center|datacenter|雲端|cloud|機器人|robot|人工智慧|ai infrastructure/.test(text)) score += 10;
   if (/國際|新聞|財經/.test(item.category)) score += 6;
+  if (/google is letting|social media stars|customize their search/.test(text)) score -= 18;
   if (/生活|展覽|特展|娛樂/.test(text)) score -= 12;
   if (/遊戲/.test(item.category)) score -= 8;
 
@@ -383,6 +475,23 @@ export async function GET() {
           articles: topic.articles,
         });
 
+        const articleSummaries = topic.articles.map((article) => ({
+          ...article,
+          title: cleanTitle(article.title),
+          quickSummary: makeQuickSummary({
+            title: article.title,
+            topicTitle: displayTitle,
+          }),
+        }));
+
+        const summary = makeGlobeSummary({
+          title: displayTitle,
+          category,
+          sourceCount: topic.sourceCount,
+          articleCount: topic.articleCount,
+          articles: articleSummaries,
+        });
+
         return {
           id: `globe-${topic.id}`,
           slug: makeSlug(displayTitle, Number(topic.id.replace("candidate-", "")) || 0),
@@ -394,14 +503,10 @@ export async function GET() {
           articleCount: topic.articleCount,
           updatedAt: topic.latestPublishedAt,
           discoveryMode: "globe_candidate",
-          summary: topic.summary.replace(topic.title, displayTitle),
+          summary,
           keywords: [category, ...topic.keywords],
           detailUrl: topic.articles[0]?.link,
-          articles: topic.articles.map((article) => ({
-            ...article,
-            title: cleanTitle(article.title),
-            quickSummary: cleanTitle(article.title),
-          })),
+          articles: articleSummaries,
         } satisfies GlobeTopic;
       })
       .sort((a, b) => b.heatScore - a.heatScore);
@@ -445,7 +550,18 @@ export async function GET() {
         articleCount: 1,
         updatedAt: item.publishedAt ?? new Date().toISOString(),
         discoveryMode: "globe_instant_signal",
-        summary: stripHtml(item.description || title),
+        summary: makeGlobeSummary({
+          title,
+          category,
+          sourceCount: 1,
+          articleCount: 1,
+          articles: [
+            {
+              title,
+              quickSummary: item.description,
+            },
+          ],
+        }),
         keywords: [category, item.region].filter(Boolean),
         detailUrl: item.link,
         articles: [
@@ -456,7 +572,11 @@ export async function GET() {
             category,
             link: item.link,
             publishedAt: item.publishedAt,
-            quickSummary: stripHtml(item.description || title),
+            quickSummary: makeQuickSummary({
+              title,
+              description: item.description,
+              topicTitle: title,
+            }),
           },
         ],
       };
