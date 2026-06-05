@@ -14,10 +14,10 @@ export default function TrendTaiwanPage() {
               返回首頁
             </Link>
             <h1 className="mt-1 text-xl font-black tracking-tight md:text-3xl">
-              台灣新聞航線圖
+              台灣今日主題網絡
             </h1>
             <p className="hidden max-w-2xl text-sm leading-6 text-slate-400 md:mt-1 md:block">
-              主題仍是理解入口，地區只是視覺定位：用台灣上空的航線看今天台灣相關新聞落在哪些區域與議題。
+              不硬切地區，直接用大主題節點整理今天台灣相關新聞；點開節點就看摘要、來源與相關訊號。
             </p>
           </div>
 

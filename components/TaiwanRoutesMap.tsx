@@ -34,16 +34,6 @@ type TaiwanTopic = {
   }>;
 };
 
-const REGION_POINTS: Record<TaiwanRegion, { x: number; y: number; label: string }> = {
-  north: { x: 412, y: 118, label: "北部" },
-  central: { x: 336, y: 266, label: "中部" },
-  south: { x: 314, y: 470, label: "南部" },
-  east: { x: 514, y: 326, label: "東部" },
-  offshore: { x: 152, y: 350, label: "離島" },
-  strait: { x: 186, y: 236, label: "台海" },
-  nationwide: { x: 402, y: 292, label: "全台" },
-};
-
 const CATEGORY_COLORS: Record<string, string> = {
   台海與國際: "#38bdf8",
   天氣與防災: "#22c55e",
@@ -54,6 +44,16 @@ const CATEGORY_COLORS: Record<string, string> = {
   社會與生活: "#f97316",
 };
 
+const CATEGORY_ANCHORS = [
+  { category: "台海與國際", x: 178, y: 176 },
+  { category: "天氣與防災", x: 414, y: 118 },
+  { category: "科技與產業", x: 612, y: 208 },
+  { category: "政策與財經", x: 584, y: 438 },
+  { category: "交通與生活", x: 382, y: 526 },
+  { category: "體育", x: 164, y: 444 },
+  { category: "社會與生活", x: 112, y: 292 },
+];
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -63,17 +63,28 @@ function truncateText(text: string, maxLength: number) {
   return `${text.slice(0, maxLength)}...`;
 }
 
+function getCategoryColor(category: string) {
+  return CATEGORY_COLORS[category] ?? "#38bdf8";
+}
+
+function getAnchor(category: string, index: number) {
+  return (
+    CATEGORY_ANCHORS.find((anchor) => anchor.category === category) ??
+    CATEGORY_ANCHORS[index % CATEGORY_ANCHORS.length]
+  );
+}
+
 function getTopicPosition(topic: TaiwanTopic, index: number, siblings: TaiwanTopic[]) {
-  const regionPoint = REGION_POINTS[topic.region] ?? REGION_POINTS.nationwide;
-  const sameRegionIndex = siblings
-    .filter((item) => item.region === topic.region)
+  const anchor = getAnchor(topic.category, index);
+  const sameCategoryIndex = siblings
+    .filter((item) => item.category === topic.category)
     .findIndex((item) => item.id === topic.id);
-  const angle = -Math.PI / 2 + sameRegionIndex * 1.45 + index * 0.13;
-  const distance = topic.region === "nationwide" ? 54 : 44 + sameRegionIndex * 16;
+  const angle = index * 0.78 + sameCategoryIndex * 1.12;
+  const distance = 34 + sameCategoryIndex * 22;
 
   return {
-    x: regionPoint.x + Math.cos(angle) * distance,
-    y: regionPoint.y + Math.sin(angle) * distance,
+    x: anchor.x + Math.cos(angle) * distance,
+    y: anchor.y + Math.sin(angle) * distance,
   };
 }
 
@@ -83,17 +94,13 @@ function getRoutePath(from: { x: number; y: number }, to: { x: number; y: number
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const distance = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-  const curve = clamp(distance * 0.18, 18, 62);
+  const curve = clamp(distance * 0.14, 18, 58);
   const controlX = midX - (dy / distance) * curve;
   const controlY = midY + (dx / distance) * curve;
 
   return `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} Q ${controlX.toFixed(
     1
   )} ${controlY.toFixed(1)} ${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
-}
-
-function getCategoryColor(category: string) {
-  return CATEGORY_COLORS[category] ?? "#38bdf8";
 }
 
 export default function TaiwanRoutesMap() {
@@ -135,11 +142,12 @@ export default function TaiwanRoutesMap() {
     positionedTopics.find((topic) => topic.id === selectedTopicId) ??
     positionedTopics[0];
   const maxHeat = Math.max(1, ...topics.map((topic) => topic.heatScore));
+  const hub = { x: 380, y: 322 };
 
   if (loading) {
     return (
       <section className="grid min-h-[560px] place-items-center rounded-[32px] border border-white/10 bg-slate-950/70 text-slate-300">
-        正在整理台灣新聞航線...
+        正在整理台灣今日主題...
       </section>
     );
   }
@@ -147,101 +155,119 @@ export default function TaiwanRoutesMap() {
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="relative overflow-hidden rounded-[34px] border border-white/10 bg-slate-950 p-3 shadow-2xl shadow-sky-950/30">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_18%,rgba(56,189,248,0.24),transparent_34%),radial-gradient(circle_at_30%_72%,rgba(34,197,94,0.16),transparent_28%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(56,189,248,0.22),transparent_32%),radial-gradient(circle_at_72%_18%,rgba(251,113,133,0.14),transparent_24%),radial-gradient(circle_at_18%_78%,rgba(34,197,94,0.14),transparent_26%)]" />
         <svg
           viewBox="0 0 760 640"
           role="img"
-          aria-label="台灣新聞航線圖"
+          aria-label="台灣今日主題網絡"
           className="relative z-10 min-h-[560px] w-full"
           onClick={() => setSelectedTopicId(null)}
         >
           <defs>
-            <filter id="taiwan-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <filter id="taiwan-network-glow" x="-50%" y="-50%" width="200%" height="200%">
               <feGaussianBlur stdDeviation="8" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-            <linearGradient id="taiwan-route" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.08" />
-              <stop offset="55%" stopColor="#67e8f9" stopOpacity="0.62" />
+            <linearGradient id="taiwan-network-route" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.12" />
+              <stop offset="55%" stopColor="#67e8f9" stopOpacity="0.58" />
               <stop offset="100%" stopColor="#f8fafc" stopOpacity="0.22" />
             </linearGradient>
           </defs>
 
           <g opacity="0.42">
-            {Array.from({ length: 11 }).map((_, index) => (
-              <path
-                key={`grid-x-${index}`}
-                d={`M 64 ${72 + index * 48} C 260 ${60 + index * 48}, 480 ${
-                  90 + index * 42
-                }, 696 ${72 + index * 48}`}
+            {Array.from({ length: 8 }).map((_, index) => (
+              <circle
+                key={`orbit-${index}`}
+                cx={hub.x}
+                cy={hub.y}
+                r={88 + index * 34}
                 fill="none"
                 stroke="#38bdf8"
-                strokeDasharray="2 14"
-                strokeOpacity="0.14"
+                strokeDasharray="2 16"
+                strokeOpacity={0.11 - index * 0.008}
+              />
+            ))}
+            {Array.from({ length: 10 }).map((_, index) => (
+              <path
+                key={`ray-${index}`}
+                d={`M ${hub.x} ${hub.y} L ${
+                  hub.x + Math.cos((index / 10) * Math.PI * 2) * 330
+                } ${hub.y + Math.sin((index / 10) * Math.PI * 2) * 250}`}
+                stroke="#e0f2fe"
+                strokeOpacity="0.06"
               />
             ))}
           </g>
 
-          <path
-            d="M 432 44 C 478 78 496 128 488 178 C 530 230 548 286 526 350 C 496 438 452 516 392 586 C 350 552 332 486 304 438 C 280 396 252 354 266 302 C 280 250 320 220 318 170 C 316 108 354 66 432 44 Z"
-            fill="#0f172a"
-            stroke="#bae6fd"
-            strokeOpacity="0.8"
-            strokeWidth="3"
-            filter="url(#taiwan-glow)"
-          />
-          <path
-            d="M 420 82 C 452 116 458 176 436 228 C 414 278 418 334 438 388 C 452 426 430 486 392 540"
-            fill="none"
-            stroke="#67e8f9"
-            strokeOpacity="0.24"
-            strokeWidth="2"
-            strokeDasharray="6 12"
-          />
-          <path
-            d="M 336 134 C 382 168 428 188 500 184 M 306 286 C 374 316 438 320 526 302 M 318 442 C 374 466 432 460 488 424"
-            fill="none"
-            stroke="#e0f2fe"
-            strokeOpacity="0.13"
-            strokeWidth="2"
-          />
+          {CATEGORY_ANCHORS.map((anchor) => {
+            const color = getCategoryColor(anchor.category);
+            return (
+              <g key={anchor.category} opacity="0.78">
+                <circle
+                  cx={anchor.x}
+                  cy={anchor.y}
+                  r="11"
+                  fill={color}
+                  opacity="0.38"
+                />
+                <text
+                  x={anchor.x}
+                  y={anchor.y - 18}
+                  textAnchor="middle"
+                  className="fill-slate-300 text-[12px] font-bold"
+                >
+                  {anchor.category}
+                </text>
+              </g>
+            );
+          })}
 
-          {Object.entries(REGION_POINTS).map(([region, point]) => (
-            <g key={region}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r={region === "nationwide" ? 13 : 9}
-                fill="#f8fafc"
-                opacity={region === "nationwide" ? "0.68" : "0.42"}
-              />
-              <text
-                x={point.x + 14}
-                y={point.y + 4}
-                className="fill-slate-200 text-[12px] font-bold"
-              >
-                {point.label}
-              </text>
-            </g>
-          ))}
+          <g>
+            <circle
+              cx={hub.x}
+              cy={hub.y}
+              r="72"
+              fill="#0f172a"
+              stroke="#bae6fd"
+              strokeOpacity="0.9"
+              strokeWidth="2"
+              filter="url(#taiwan-network-glow)"
+            />
+            <circle cx={hub.x - 22} cy={hub.y - 26} r="18" fill="#ffffff" opacity="0.16" />
+            <text
+              x={hub.x}
+              y={hub.y - 8}
+              textAnchor="middle"
+              className="fill-white text-[18px] font-black"
+            >
+              台灣
+            </text>
+            <text
+              x={hub.x}
+              y={hub.y + 18}
+              textAnchor="middle"
+              className="fill-sky-100 text-[13px] font-bold"
+            >
+              今日焦點
+            </text>
+          </g>
 
           {positionedTopics.map((topic) => {
-            const regionPoint = REGION_POINTS[topic.region] ?? REGION_POINTS.nationwide;
             const isSelected = selectedTopic?.id === topic.id;
-
             return (
               <path
                 key={`${topic.id}-route`}
-                d={getRoutePath(regionPoint, topic)}
+                d={getRoutePath(hub, topic)}
                 fill="none"
-                stroke={isSelected ? getCategoryColor(topic.category) : "url(#taiwan-route)"}
+                stroke={isSelected ? getCategoryColor(topic.category) : "url(#taiwan-network-route)"}
                 strokeWidth={isSelected ? 4 : 2}
-                strokeDasharray={isSelected ? "1 0" : "8 10"}
+                strokeDasharray={isSelected ? "1 0" : "8 12"}
                 strokeLinecap="round"
-                opacity={selectedTopic && !isSelected ? 0.18 : 0.72}
+                opacity={selectedTopic && !isSelected ? 0.16 : 0.74}
               />
             );
           })}
@@ -249,7 +275,7 @@ export default function TaiwanRoutesMap() {
           {positionedTopics.map((topic, index) => {
             const color = getCategoryColor(topic.category);
             const heatRatio = topic.heatScore / maxHeat;
-            const radius = clamp(17 + heatRatio * 17, 17, 34);
+            const radius = clamp(19 + heatRatio * 18, 19, 38);
             const isSelected = selectedTopic?.id === topic.id;
 
             return (
@@ -278,7 +304,7 @@ export default function TaiwanRoutesMap() {
                   stroke="#f8fafc"
                   strokeOpacity="0.92"
                   strokeWidth="3"
-                  filter="url(#taiwan-glow)"
+                  filter="url(#taiwan-network-glow)"
                 />
                 <text
                   x={topic.x}
@@ -294,7 +320,7 @@ export default function TaiwanRoutesMap() {
                   textAnchor="middle"
                   className="pointer-events-none fill-slate-100 text-[11px] font-bold"
                 >
-                  {topic.regionLabel}
+                  {truncateText(topic.category.replace("與", "/"), 6)}
                 </text>
               </g>
             );
@@ -308,14 +334,14 @@ export default function TaiwanRoutesMap() {
           {selectedTopic ? (
             <>
               <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-100">
-                  {selectedTopic.regionLabel}
-                </span>
                 <span
                   className="rounded-full px-3 py-1 text-xs font-bold text-white"
                   style={{ backgroundColor: getCategoryColor(selectedTopic.category) }}
                 >
                   {selectedTopic.category}
+                </span>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-slate-100">
+                  {selectedTopic.regionLabel}
                 </span>
               </div>
               <h2 className="mt-3 text-2xl font-black leading-tight">
@@ -374,7 +400,7 @@ export default function TaiwanRoutesMap() {
             </>
           ) : (
             <p className="mt-2 text-sm text-slate-400">
-              點選地圖上的航線節點，就能看該主題快讀。
+              點選主題節點，就能看快讀摘要。
             </p>
           )}
         </section>
@@ -382,7 +408,7 @@ export default function TaiwanRoutesMap() {
         <section className="rounded-[30px] border border-white/10 bg-white/[0.06] p-5 text-sm leading-6 text-slate-300 shadow-xl shadow-black/20">
           <div className="font-semibold text-sky-300">設計判斷</div>
           <p className="mt-2">
-            這版不是把新聞硬切縣市，而是先保留主題，再用地區提示決定點位。全台政策放中央，台海與國防放海峽，豪雨或交通再往北中南東定位。
+            這版不再強迫新聞落到台灣地圖位置。主視覺改成台灣今日主題網絡，分類只用來安排節點與顏色，點開後才看摘要與來源。
           </p>
         </section>
       </aside>
