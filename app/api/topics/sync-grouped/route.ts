@@ -268,8 +268,9 @@ function getCandidateFamily(candidate: {
   if (/股價|投信|外資|買超|營收|eps|概念股|台股|美股/.test(text)) return "stock-market";
   if (/輝達|黃仁勳|nvidia|台積電|晶片|半導體|gpu|ai\s*晶片/.test(text)) return "ai-chips";
   if (/openai|anthropic|模型|ai模型|人工智慧|ai熱潮|ai發展/.test(text)) return "ai-policy-market";
+  if (/台海|美中台海|東海|中國海警|兩岸|國防|軍演|美防長|印太|對台/.test(text)) return "taiwan-security";
+  if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/.test(text)) return "taiwan-incident";
   if (/伊朗|美軍|中東|以色列|黎巴嫩|真主黨|停火/.test(text)) return "middle-east";
-  if (/台海|東海|中國海警|兩岸|國防|軍演/.test(text)) return "taiwan-security";
   if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
   if (/豪雨|強降雨|暴雨|颱風|熱帶低壓|地震|淹水|防災|氣象|地方/.test(text)) return "life-safety";
@@ -289,6 +290,7 @@ function getCandidateCategory(candidate: {
   if (family === "ai-chips") return "科技";
   if (family === "ai-policy-market") return "AI";
   if (family === "taiwan-security") return "台海";
+  if (family === "taiwan-incident") return "新聞";
   if (family === "election-politics") return "政治";
   if (family === "middle-east") return "國際";
   if (family === "trade-policy") return "國際";

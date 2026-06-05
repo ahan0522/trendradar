@@ -311,6 +311,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "文化";
   }
 
+  if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/i.test(value)) {
+    return "新聞";
+  }
+
   if (/playstation|ps5|state of play|god of war|atlantis|trailer|gameplay|nintendo|xbox|steam|遊戲/i.test(value)) {
     return "遊戲";
   }
