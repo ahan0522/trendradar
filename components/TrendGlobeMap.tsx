@@ -660,14 +660,6 @@ export default function TrendGlobeMap() {
     const nextRoutes: GlobeRoute[] = [];
 
     topics.forEach((topic) => {
-      nextRoutes.push({
-        id: `${topic.id}-discussion`,
-        fromId: topic.id,
-        toId: "shared-discussion",
-        topicId: topic.id,
-        strength: topic.heatScore * 0.75,
-      });
-
       if (topic.id === selectedTopicId) {
         nextRoutes.push({
           id: `${topic.id}-global`,
