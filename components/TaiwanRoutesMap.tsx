@@ -55,7 +55,13 @@ const CATEGORY_ANCHORS = [
 ];
 
 const TAIWAN_ISLAND_PATH =
-  "M 392 151 C 414 158 431 179 437 210 C 443 240 439 270 451 298 C 464 329 459 359 442 389 C 428 414 411 435 405 466 C 398 501 374 533 341 552 C 321 532 313 501 321 467 C 329 435 312 405 321 372 C 330 338 318 310 335 280 C 351 253 351 224 361 198 C 370 173 381 156 392 151 Z";
+  "M 399 140 C 421 151 435 178 437 212 C 439 240 432 266 444 296 C 457 328 450 363 431 394 C 414 421 405 452 397 482 C 388 519 365 548 337 568 C 315 546 307 511 315 476 C 322 446 306 414 315 381 C 324 350 308 320 323 286 C 337 256 337 227 349 199 C 361 171 380 143 399 140 Z";
+
+const TAIWAN_RIDGE_PATH =
+  "M 397 158 C 408 203 397 250 407 294 C 416 338 397 378 393 421 C 389 473 367 520 339 550";
+
+const TAIWAN_WEST_COAST_HINT =
+  "M 361 183 C 344 222 348 257 329 293 C 316 318 329 348 318 379 C 308 410 326 439 317 475";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -257,16 +263,16 @@ export default function TaiwanRoutesMap() {
               strokeWidth="2.6"
             />
             <path
-              d="M 395 181 C 408 215 407 247 401 279 C 394 313 405 343 392 378 C 381 408 377 455 348 503"
+              d={TAIWAN_RIDGE_PATH}
               fill="none"
               stroke="#f8fafc"
-              strokeDasharray="5 10"
+              strokeDasharray="4 9"
               strokeLinecap="round"
-              strokeOpacity="0.32"
+              strokeOpacity="0.38"
               strokeWidth="2"
             />
             <path
-              d="M 362 218 C 374 254 359 288 367 322 C 374 354 354 390 360 431"
+              d={TAIWAN_WEST_COAST_HINT}
               fill="none"
               stroke="#7dd3fc"
               strokeLinecap="round"
@@ -281,28 +287,41 @@ export default function TaiwanRoutesMap() {
               strokeWidth="6"
             />
             <g opacity="0.72">
-              <circle cx="289" cy="351" r="8" fill="#e0f2fe" opacity="0.28" />
-              <circle cx="273" cy="371" r="5" fill="#38bdf8" opacity="0.32" />
-              <circle cx="277" cy="329" r="4" fill="#e0f2fe" opacity="0.2" />
-              <circle cx="327" cy="177" r="4" fill="#e0f2fe" opacity="0.22" />
-              <circle cx="452" cy="512" r="4" fill="#38bdf8" opacity="0.28" />
+              <circle cx="288" cy="352" r="8" fill="#e0f2fe" opacity="0.3" />
+              <circle cx="271" cy="371" r="5" fill="#38bdf8" opacity="0.36" />
+              <circle cx="278" cy="329" r="4" fill="#e0f2fe" opacity="0.24" />
+              <circle cx="323" cy="171" r="3.5" fill="#e0f2fe" opacity="0.26" />
+              <circle cx="453" cy="515" r="4.5" fill="#38bdf8" opacity="0.32" />
             </g>
-            <text
-              x={hub.x}
-              y={hub.y - 14}
-              textAnchor="middle"
-              className="fill-white text-[17px] font-black"
-            >
-              台灣今日
-            </text>
-            <text
-              x={hub.x}
-              y={hub.y + 12}
-              textAnchor="middle"
-              className="fill-sky-100 text-[13px] font-bold"
-            >
-              今日焦點
-            </text>
+            <g>
+              <rect
+                x="432"
+                y="282"
+                width="96"
+                height="54"
+                rx="18"
+                fill="#020617"
+                fillOpacity="0.66"
+                stroke="#bae6fd"
+                strokeOpacity="0.42"
+              />
+              <text
+                x="480"
+                y="304"
+                textAnchor="middle"
+                className="fill-white text-[15px] font-black"
+              >
+                台灣今日
+              </text>
+              <text
+                x="480"
+                y="324"
+                textAnchor="middle"
+                className="fill-sky-100 text-[12px] font-bold"
+              >
+                主題雷達
+              </text>
+            </g>
           </g>
 
           {positionedTopics.map((topic) => {
