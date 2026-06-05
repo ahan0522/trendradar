@@ -134,7 +134,7 @@ function makeQuickSummary(input: {
 function inferTaiwanRegion(textValue: string): TaiwanRegion {
   const text = normalizeText(textValue);
 
-  if (/金管會|內政部|教育部|交通部|行政院|立法院|中央|全台|全國|國中教育會考|強制險|政策|法規/.test(text)) {
+  if (/金管會|內政部|教育部|交通部|行政院|立法院|全台|全國|國中教育會考|強制險|政策|法規/.test(text)) {
     return "nationwide";
   }
 
@@ -394,67 +394,14 @@ export async function GET() {
       minArticles: 1,
     });
 
-    const candidateTaiwanTopics: TaiwanTopic[] = candidateTopics
-      .filter((topic) => topic.publishable || topic.qualityScore >= 82)
-      .filter((topic) =>
-        isTaiwanRelated(
-          `${topic.title} ${topic.summary} ${topic.keywords.join(" ")} ${topic.articles
-            .map((article) => article.title)
-            .join(" ")}`
-        )
-      )
-      .filter((topic) => !isLowValueTaiwanText(`${topic.title} ${topic.summary} ${topic.keywords.join(" ")}`))
-      .map((topic, index) => {
-        const title = cleanTitle(topic.title);
-        const topicText = `${title} ${topic.summary} ${topic.keywords.join(" ")} ${topic.articles
-          .map((article) => article.title)
-          .join(" ")}`;
-        const region = inferTaiwanRegion(topicText);
-        const category = inferTaiwanCategory(topicText, topic.category);
-        const articleSummaries = topic.articles.map((article) => ({
-          id: article.id,
-          title: cleanTitle(article.title),
-          sourceName: article.sourceName,
-          category: article.category,
-          link: article.link,
-          publishedAt: article.publishedAt,
-          quickSummary: makeQuickSummary({
-            title: article.title,
-            topicTitle: title,
-          }),
-        }));
-
-        return {
-          id: `taiwan-candidate-${topic.id}`,
-          slug: makeSlug(title, index),
-          title,
-          category,
-          region,
-          regionLabel: REGION_LABELS[region],
-          heatScore: topic.heatScore,
-          sourceCount: topic.sourceCount,
-          articleCount: topic.articleCount,
-          summary: makeTaiwanSummary({
-            title,
-            category,
-            regionLabel: REGION_LABELS[region],
-            articleCount: topic.articleCount,
-            sourceCount: topic.sourceCount,
-            articles: articleSummaries,
-          }),
-          keywords: [category, REGION_LABELS[region], ...topic.keywords].slice(0, 8),
-          updatedAt: topic.latestPublishedAt,
-          detailUrl: topic.articles[0]?.link,
-          articles: articleSummaries,
-        } satisfies TaiwanTopic;
-      });
+    const candidateTaiwanTopics: TaiwanTopic[] = [];
 
     const instantTopics: TaiwanTopic[] = articles
       .filter((article) => getImportanceScore(article) >= 30)
       .slice(0, 80)
       .map((article, index) => {
         const title = cleanTitle(article.title);
-        const text = `${title} ${article.description ?? ""} ${article.sourceName} ${article.category}`;
+        const text = `${title} ${article.description ?? ""} ${article.category}`;
         const region = inferTaiwanRegion(text);
         const category = inferTaiwanCategory(text, article.category ?? "新聞");
         const quickSummary = makeQuickSummary({
