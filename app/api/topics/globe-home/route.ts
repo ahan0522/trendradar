@@ -284,19 +284,88 @@ function getFamilyKey(topic: Pick<GlobeTopic, "title" | "category">) {
     return "ai-tech";
   }
 
-  if (/mlb|nba|棒球|籃球|網球|大谷/.test(text)) {
+  if (/tpbl|夢想家|國王|湯普金斯|冠軍賽|game seven|第7戰|第七戰/.test(text)) {
+    return "tpbl-finals";
+  }
+
+  if (/mlb|nba|棒球|籃球|網球|大谷|法網|女雙/.test(text)) {
     if (/nba|wembanyama|brunson|馬刺|尼克|總冠軍/.test(text)) {
       return "nba";
     }
 
-    if (/tpbl|國王|籃協/.test(text)) {
-      return "taiwan-basketball";
-    }
-
+    if (/大谷|道奇|響尾蛇|mlb/.test(text)) return "mlb-ohtani";
+    if (/法網|女雙|網球|謝淑薇|梁恩碩/.test(text)) return "tennis-french-open";
     return "sports";
   }
 
   return topic.category || "general";
+}
+
+function getTopicMergeKey(topic: GlobeTopic) {
+  const family = getFamilyKey(topic);
+  if (family !== topic.category && family !== "general") return family;
+
+  return normalizeText(topic.title)
+    .replace(/google news|yahoo新聞|自由體育|中央社/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 48);
+}
+
+function mergeGlobeTopics(topics: GlobeTopic[]) {
+  const merged = new Map<string, GlobeTopic>();
+
+  for (const topic of topics) {
+    const key = getTopicMergeKey(topic);
+    const existing = merged.get(key);
+
+    if (!existing) {
+      merged.set(key, {
+        ...topic,
+        articles: topic.articles ? [...topic.articles] : [],
+        keywords: topic.keywords ? [...topic.keywords] : [],
+      });
+      continue;
+    }
+
+    const articleMap = new Map(
+      (existing.articles ?? []).map((article) => [article.link || article.id, article])
+    );
+    (topic.articles ?? []).forEach((article) => {
+      articleMap.set(article.link || article.id, article);
+    });
+
+    const keywordSet = new Set([...(existing.keywords ?? []), ...(topic.keywords ?? [])]);
+    const sourceNames = new Set(
+      [...articleMap.values()].map((article) => article.sourceName).filter(Boolean)
+    );
+
+    const representative =
+      existing.sourceCount >= topic.sourceCount || existing.heatScore >= topic.heatScore
+        ? existing
+        : topic;
+
+    merged.set(key, {
+      ...representative,
+      id: existing.id,
+      slug: existing.slug,
+      title: existing.title.length <= topic.title.length ? existing.title : topic.title,
+      heatScore: Math.max(existing.heatScore, topic.heatScore) + Math.round(Math.min(40, topic.heatScore * 0.25)),
+      sourceCount: Math.max(existing.sourceCount, topic.sourceCount, sourceNames.size),
+      articleCount: Math.max(existing.articleCount, topic.articleCount, articleMap.size),
+      summary: makeGlobeSummary({
+        title: existing.title.length <= topic.title.length ? existing.title : topic.title,
+        category: representative.category,
+        sourceCount: Math.max(existing.sourceCount, topic.sourceCount, sourceNames.size),
+        articleCount: Math.max(existing.articleCount, topic.articleCount, articleMap.size),
+        articles: [...articleMap.values()],
+      }),
+      keywords: [...keywordSet].slice(0, 8),
+      articles: [...articleMap.values()].slice(0, 6),
+    });
+  }
+
+  return [...merged.values()].sort((a, b) => b.heatScore - a.heatScore);
 }
 
 function inferGlobeCategory(input: {
@@ -627,7 +696,7 @@ export async function GET() {
     }
 
     const topics = selectDiverseTopics(
-      [...candidateGlobeTopics, ...instantTopics],
+      mergeGlobeTopics([...candidateGlobeTopics, ...instantTopics]),
       12
     );
 
