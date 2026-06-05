@@ -114,6 +114,10 @@ function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
     }
   }
 
+  if (selected.length >= 3) {
+    return selected;
+  }
+
   for (const topic of topics.sort((a, b) => getDiversityScore(b) - getDiversityScore(a))) {
     addTopic(topic, targetCount > 6 ? 3 : 2, 2);
 
