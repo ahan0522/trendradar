@@ -195,7 +195,7 @@ function inferTaiwanCategory(textValue: string, fallback: string) {
     return "交通與生活";
   }
 
-  if (/ai|人工智慧|晶片|半導體|台積電|鴻海|機器人|科技|資料中心/.test(text)) {
+  if (/ai|人工智慧|晶片|半導體|台積電|鴻海|輝達|黃仁勳|nvidia|機器人|科技|資料中心/.test(text)) {
     return "科技與產業";
   }
 
@@ -252,6 +252,7 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
   if (/捷克|韋德齊/.test(text)) return "czech-visit";
   if (/外交/.test(text)) return "diplomacy";
   if (/台積電|魏哲家|產能|瓶頸/.test(text)) return "tsmc-ai-capacity";
+  if (/輝達|黃仁勳|nvidia/.test(text)) return "nvidia-taiwan";
   if (/鴻海|英特爾|客製化晶片/.test(text)) return "foxconn-intel-chip";
   if (/國泰金|小型語言模型|客戶意圖/.test(text)) return "cathay-ai";
   if (/app store|蘋果app store/.test(text)) return "app-store-economy";
@@ -279,6 +280,7 @@ function getArticleFamilyKey(article: TaiwanArticle) {
   if (/航港局|船艇駕照|買照/.test(text)) return "maritime-license";
   if (/金門|洪成發|涉貪/.test(text)) return "kinmen-corruption";
   if (/台積電|魏哲家|產能|瓶頸/.test(text)) return "tsmc-ai-capacity";
+  if (/輝達|黃仁勳|nvidia/.test(text)) return "nvidia-taiwan";
   if (/鴻海|英特爾|客製化晶片/.test(text)) return "foxconn-intel-chip";
   if (/國泰金|小型語言模型|客戶意圖/.test(text)) return "cathay-ai";
 
