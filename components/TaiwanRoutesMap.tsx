@@ -54,14 +54,59 @@ const CATEGORY_ANCHORS = [
   { category: "社會與生活", x: 112, y: 292 },
 ];
 
-const TAIWAN_ISLAND_PATH =
-  "M 399 140 C 421 151 435 178 437 212 C 439 240 432 266 444 296 C 457 328 450 363 431 394 C 414 421 405 452 397 482 C 388 519 365 548 337 568 C 315 546 307 511 315 476 C 322 446 306 414 315 381 C 324 350 308 320 323 286 C 337 256 337 227 349 199 C 361 171 380 143 399 140 Z";
+const TAIWAN_COASTLINE = [
+  { lon: 121.43, lat: 25.31 },
+  { lon: 121.66, lat: 25.28 },
+  { lon: 121.86, lat: 25.12 },
+  { lon: 121.93, lat: 24.86 },
+  { lon: 121.84, lat: 24.55 },
+  { lon: 121.73, lat: 24.22 },
+  { lon: 121.64, lat: 23.9 },
+  { lon: 121.52, lat: 23.58 },
+  { lon: 121.42, lat: 23.25 },
+  { lon: 121.27, lat: 22.91 },
+  { lon: 121.08, lat: 22.54 },
+  { lon: 120.92, lat: 22.19 },
+  { lon: 120.78, lat: 21.92 },
+  { lon: 120.62, lat: 21.9 },
+  { lon: 120.43, lat: 22.16 },
+  { lon: 120.24, lat: 22.52 },
+  { lon: 120.13, lat: 22.91 },
+  { lon: 120.07, lat: 23.25 },
+  { lon: 120.1, lat: 23.56 },
+  { lon: 120.18, lat: 23.88 },
+  { lon: 120.23, lat: 24.15 },
+  { lon: 120.36, lat: 24.43 },
+  { lon: 120.55, lat: 24.69 },
+  { lon: 120.78, lat: 24.93 },
+  { lon: 121.05, lat: 25.15 },
+  { lon: 121.25, lat: 25.28 },
+];
+
+function mapTaiwanPoint(point: { lon: number; lat: number }) {
+  return {
+    x: 284 + (point.lon - 120) * 88,
+    y: 582 - (point.lat - 21.85) * 132,
+  };
+}
+
+function buildTaiwanPath(points: typeof TAIWAN_COASTLINE) {
+  return points
+    .map((point, index) => {
+      const mapped = mapTaiwanPoint(point);
+      return `${index === 0 ? "M" : "L"} ${mapped.x.toFixed(1)} ${mapped.y.toFixed(1)}`;
+    })
+    .join(" ")
+    .concat(" Z");
+}
+
+const TAIWAN_ISLAND_PATH = buildTaiwanPath(TAIWAN_COASTLINE);
 
 const TAIWAN_RIDGE_PATH =
-  "M 397 158 C 408 203 397 250 407 294 C 416 338 397 378 393 421 C 389 473 367 520 339 550";
+  "M 407 132 C 415 184 407 232 414 282 C 423 339 405 392 396 445 C 389 491 367 535 339 569";
 
 const TAIWAN_WEST_COAST_HINT =
-  "M 361 183 C 344 222 348 257 329 293 C 316 318 329 348 318 379 C 308 410 326 439 317 475";
+  "M 350 163 C 337 203 333 245 317 286 C 303 323 293 366 295 407 C 298 453 304 501 339 569";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
