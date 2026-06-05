@@ -134,6 +134,10 @@ function makeQuickSummary(input: {
 function inferTaiwanRegion(textValue: string): TaiwanRegion {
   const text = normalizeText(textValue);
 
+  if (/金管會|內政部|教育部|交通部|行政院|立法院|中央|全台|全國|國中教育會考|強制險|政策|法規/.test(text)) {
+    return "nationwide";
+  }
+
   if (/台海|台灣海峽|海峽|東海|釣魚台|海警|共軍|反艦|軍售|國防|海巡|eez|離島防衛/.test(text)) {
     return "strait";
   }
@@ -194,7 +198,7 @@ function inferTaiwanCategory(textValue: string, fallback: string) {
 function isTaiwanRelated(textValue: string) {
   const text = normalizeText(textValue);
 
-  return /台灣|臺灣|台北|臺北|新北|桃園|基隆|新竹|苗栗|台中|臺中|彰化|南投|雲林|嘉義|台南|臺南|高雄|屏東|宜蘭|花蓮|台東|臺東|澎湖|金門|馬祖|台海|東海|海峽|國防|金管會|內政部|交通部|中央社|中捷|強制險|豪雨|防災|tpbl|夢想家|國王|台積電|鴻海/.test(
+  return /台灣|臺灣|台北|臺北|新北|桃園|基隆|新竹|苗栗|台中|臺中|彰化|南投|雲林|嘉義|台南|臺南|高雄|屏東|宜蘭|花蓮|台東|臺東|澎湖|金門|馬祖|台海|東海|台灣海峽|國防|金管會|內政部|交通部|教育部|行政院|立法院|中捷|強制險|豪雨|防災|國中教育會考|tpbl|夢想家|新北國王|台積電|鴻海/.test(
     text
   );
 }
@@ -207,6 +211,10 @@ function isLowValueTaiwanText(textValue: string) {
   }
 
   if (/台股|股價|買超|賣超|eps|月營收|合併營收|投信|外資|殖利率|本益比|漲停|跌停/.test(text)) {
+    return true;
+  }
+
+  if (/克羅埃西亞|法蘭克福|漢莎航空|煤炭業|spacex|anthropic|nba總冠軍賽|尼克|溫班亞瑪|steam machine|valve|fortnite|美國股市|歐洲股市/.test(text)) {
     return true;
   }
 
@@ -362,7 +370,7 @@ export async function GET() {
 
     const articles = newsItems
       .filter((item) => {
-        const text = `${item.title} ${item.description} ${item.sourceName} ${item.region} ${item.category}`;
+        const text = `${item.title} ${item.description} ${item.region} ${item.category}`;
         return isTaiwanRelated(text) && !isLowValueTaiwanText(text);
       })
       .map((item) => ({
@@ -387,7 +395,14 @@ export async function GET() {
     });
 
     const candidateTaiwanTopics: TaiwanTopic[] = candidateTopics
-      .filter((topic) => topic.publishable || topic.qualityScore >= 70)
+      .filter((topic) => topic.publishable || topic.qualityScore >= 82)
+      .filter((topic) =>
+        isTaiwanRelated(
+          `${topic.title} ${topic.summary} ${topic.keywords.join(" ")} ${topic.articles
+            .map((article) => article.title)
+            .join(" ")}`
+        )
+      )
       .filter((topic) => !isLowValueTaiwanText(`${topic.title} ${topic.summary} ${topic.keywords.join(" ")}`))
       .map((topic, index) => {
         const title = cleanTitle(topic.title);
