@@ -176,16 +176,16 @@ function inferTaiwanCategory(textValue: string, fallback: string) {
     return "天氣與防災";
   }
 
-  if (/金管會|保險|強制險|金融|銀行|atm|虛擬資產|關稅|貿易|經濟|產業/.test(text)) {
-    return "政策與財經";
-  }
-
-  if (/交通|捷運|公車|列車|機車|道路|機場|中捷/.test(text)) {
+  if (/交通|捷運|公車|列車|機車|道路|機場|中捷|航港局|船艇|駕照/.test(text)) {
     return "交通與生活";
   }
 
   if (/ai|人工智慧|晶片|半導體|台積電|鴻海|機器人|科技|資料中心/.test(text)) {
     return "科技與產業";
+  }
+
+  if (/金管會|保險|強制險|金融|銀行|atm|虛擬資產|關稅|貿易|經濟|產業/.test(text)) {
+    return "政策與財經";
   }
 
   if (/tpbl|中職|棒球|籃球|羽球|法網|運動|賽事|冠軍賽/.test(text)) {
