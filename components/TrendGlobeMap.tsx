@@ -137,6 +137,10 @@ const SIGNAL_COORDS = [
 ];
 
 const LOW_SIGNAL_WORDS = new Set([
+  "AI",
+  "ai",
+  "3C",
+  "3c",
   "新聞",
   "即時",
   "最新",
@@ -148,10 +152,31 @@ const LOW_SIGNAL_WORDS = new Set([
   "來源",
   "相關",
   "Google",
+  "google",
   "News",
+  "news",
   "Yahoo",
+  "yahoo",
+  "綜合",
+  "分類",
+  "類別",
   "國際",
+  "全球",
   "科技",
+  "3C科技",
+  "財經",
+  "體育",
+  "運動",
+  "遊戲",
+  "健康",
+  "生活",
+  "社會",
+  "政治",
+  "international",
+  "finance",
+  "sports",
+  "technology",
+  "tech",
 ]);
 
 const STAR_POINTS = [
@@ -199,19 +224,29 @@ function normalizeSignal(signal: string) {
     .trim();
 }
 
+function isLowSignalWord(signal: string) {
+  const normalized = normalizeSignal(signal);
+  return (
+    !normalized ||
+    LOW_SIGNAL_WORDS.has(normalized) ||
+    LOW_SIGNAL_WORDS.has(normalized.toLowerCase()) ||
+    /^(ai|3c|新聞|國際|財經|體育|遊戲|健康|科技|分類|類別)$/i.test(normalized)
+  );
+}
+
 function splitTopicWords(text: string) {
   return text
     .replace(/[｜:：,，!！?？、\n]/g, " ")
     .split(/\s+/)
     .map(normalizeSignal)
-    .filter((word) => word.length >= 2 && !LOW_SIGNAL_WORDS.has(word));
+    .filter((word) => word.length >= 2 && !isLowSignalWord(word));
 }
 
 function pushSignals(target: string[], signals: Array<string | undefined>) {
   signals.forEach((signal) => {
     if (!signal) return;
     const normalized = normalizeSignal(signal);
-    if (!normalized || LOW_SIGNAL_WORDS.has(normalized)) return;
+    if (isLowSignalWord(normalized)) return;
     if (!target.includes(normalized)) target.push(normalized);
   });
 }
@@ -226,8 +261,8 @@ function getTopicSignals(topic: HomepageTopic, detail?: TopicDetail) {
     pushSignals(signals, splitTopicWords(article.quickSummary ?? "").slice(0, 2));
     pushSignals(signals, splitTopicWords(article.title).slice(0, 1));
   });
-  pushSignals(signals, [topic.category, ...splitTopicWords(topic.title)]);
-  return signals.filter((signal) => signal !== topic.category).slice(0, 2);
+  pushSignals(signals, splitTopicWords(topic.title));
+  return signals.filter((signal) => !isLowSignalWord(signal)).slice(0, 2);
 }
 
 function getShortTitle(title: string) {
