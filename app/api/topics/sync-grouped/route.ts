@@ -46,8 +46,10 @@ type SyncedTopic = {
   linkedArticleCount: number;
 };
 
-const SYNC_SOURCE_POOL_LIMIT = 1000;
+const SYNC_SOURCE_POOL_LIMIT = 2000;
 const SYNC_BALANCED_ARTICLE_LIMIT = 320;
+const SYNC_CATEGORY_SEED_LIMIT = 8;
+const SYNC_OFFICIAL_SEED_LIMIT = 8;
 
 function normalizeText(value: string) {
   return value.toLowerCase().trim();
@@ -174,6 +176,42 @@ function selectBalancedArticlesForSync(
     incrementCount(categoryCounts, category);
     incrementCount(sourceCounts, sourceName);
     incrementCount(poolCounts, sourcePool);
+  }
+
+  const categoryGroups = new Map<string, NewsArticle[]>();
+
+  sortedArticles.forEach((article) => {
+    const category = article.category || "未分類";
+    const items = categoryGroups.get(category) ?? [];
+    items.push(article);
+    categoryGroups.set(category, items);
+  });
+
+  for (const group of categoryGroups.values()) {
+    let categorySeedCount = 0;
+
+    for (const article of group) {
+      if (categorySeedCount >= SYNC_CATEGORY_SEED_LIMIT) break;
+      if (selected.length >= limit) break;
+
+      if (canSelect(article, true)) {
+        addArticle(article);
+        categorySeedCount += 1;
+      }
+    }
+  }
+
+  let officialSeedCount = 0;
+
+  for (const article of sortedArticles) {
+    if (officialSeedCount >= SYNC_OFFICIAL_SEED_LIMIT) break;
+    if (selected.length >= limit) break;
+    if (article.sourcePool !== "official_source") continue;
+
+    if (canSelect(article, true)) {
+      addArticle(article);
+      officialSeedCount += 1;
+    }
   }
 
   for (const article of sortedArticles) {
