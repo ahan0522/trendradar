@@ -214,7 +214,7 @@ function isLowValueTaiwanText(textValue: string) {
     return true;
   }
 
-  if (/克羅埃西亞|法蘭克福|漢莎航空|煤炭業|spacex|anthropic|nba總冠軍賽|尼克|溫班亞瑪|steam machine|valve|fortnite|美國股市|歐洲股市/.test(text)) {
+  if (/克羅埃西亞|法蘭克福|漢莎航空|煤炭業|spacex|anthropic|nba總冠軍賽|尼克|溫班亞瑪|steam machine|valve|fortnite|美國股市|歐洲股市|美股收盤|道瓊|標普500|adr|花旗喊買|國際油價|荷莫茲|中東局勢/.test(text)) {
     return true;
   }
 
@@ -226,10 +226,14 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
 
   if (/台海|東海|海警|反艦|飛彈|共軍|國防|軍售/.test(text)) return "taiwan-security";
   if (/豪雨|強降雨|防災|淹水|氣象|梅雨/.test(text)) return "weather-disaster";
-  if (/強制險|金管會|保險/.test(text)) return "insurance-policy";
+  if (/強制險/.test(text)) return "mandatory-insurance";
+  if (/金檢|中國金檢/.test(text)) return "fsc-china-inspection";
+  if (/金管會|保險/.test(text)) return "finance-policy";
   if (/tpbl|夢想家|新北國王|湯普金斯|game seven/.test(text)) return "tpbl-finals";
   if (/中捷|捷運|公車|交通/.test(text)) return "transport";
-  if (/六四|捷克|外交/.test(text)) return "politics-diplomacy";
+  if (/六四/.test(text)) return "june-fourth";
+  if (/捷克|韋德齊/.test(text)) return "czech-visit";
+  if (/外交/.test(text)) return "diplomacy";
   if (/ai|人工智慧|台積電|鴻海|半導體|機器人/.test(text)) return "taiwan-tech";
 
   return normalizeText(topic.title)
@@ -374,7 +378,7 @@ export async function GET() {
 
     const articles = newsItems
       .filter((item) => {
-        const text = `${item.title} ${item.description} ${item.region} ${item.category}`;
+        const text = `${item.title} ${item.description} ${item.category}`;
         return isTaiwanRelated(text) && !isLowValueTaiwanText(text);
       })
       .map((item) => ({
