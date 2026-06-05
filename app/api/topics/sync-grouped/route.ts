@@ -38,6 +38,7 @@ type PersistedArticle = {
 type SyncedTopic = {
   slug: string;
   title: string;
+  category: string;
   discoveryMode: string;
   articleCount: number;
   sourceCount: number;
@@ -138,6 +139,25 @@ function getCandidateFamily(candidate: {
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
 
   return candidate.category || "general";
+}
+
+function getCandidateCategory(candidate: {
+  title: string;
+  slug: string;
+  category: string;
+  keywords?: string[];
+}) {
+  const family = getCandidateFamily(candidate);
+
+  if (family === "ai-chips") return "科技";
+  if (family === "ai-policy-market") return "AI";
+  if (family === "taiwan-security") return "台海";
+  if (family === "election-politics") return "政治";
+  if (family === "middle-east") return "國際";
+  if (family === "sports") return "體育";
+  if (family === "etf-rebalance") return "財經";
+
+  return candidate.category || "新聞";
 }
 
 function hasEnoughCandidateDepth(input: {
@@ -408,6 +428,7 @@ async function handleSyncGrouped(request: Request) {
       syncedTopics.push({
         slug: grouped.slug,
         title: grouped.title,
+        category: grouped.category,
         discoveryMode: "rule_based",
         articleCount: representativeArticles.length,
         sourceCount: effectiveSourceCount,
@@ -471,8 +492,9 @@ async function handleSyncGrouped(request: Request) {
       }
 
       const candidateFamily = getCandidateFamily(candidate);
+      const candidateCategory = getCandidateCategory(candidate);
       const candidateCategoryCount =
-        candidateCategoryCounts.get(candidate.category) ?? 0;
+        candidateCategoryCounts.get(candidateCategory) ?? 0;
       const candidateFamilyCount =
         candidateFamilyCounts.get(candidateFamily) ?? 0;
 
@@ -513,7 +535,7 @@ async function handleSyncGrouped(request: Request) {
 
       if (
         !hasEnoughCandidateDepth({
-          category: candidate.category,
+          category: candidateCategory,
           title: candidate.title,
           representativeArticleCount: representativeArticles.length,
           effectiveSourceCount,
@@ -526,7 +548,7 @@ async function handleSyncGrouped(request: Request) {
 
       const aiResult = await generateTopicAiSummary({
         topicTitle: candidate.title,
-        category: candidate.category,
+        category: candidateCategory,
         keywords: candidate.keywords,
         articles: representativeArticles.map((article) => ({
           title: article.title,
@@ -539,12 +561,12 @@ async function handleSyncGrouped(request: Request) {
         slug: candidate.slug,
         title: candidate.title,
         long_title: aiResult.longTitle,
-        category: candidate.category,
+        category: candidateCategory,
         summary: aiResult.summary || candidate.summary,
         bullets: aiResult.bullets,
         subtopics: aiResult.subtopics,
         tags: aiResult.tags,
-        hero_image_url: getHeroImageForCategory(candidate.category),
+        hero_image_url: getHeroImageForCategory(candidateCategory),
         heat_score: candidate.heatScore,
         source_count: effectiveSourceCount,
         article_count: representativeArticles.length,
@@ -634,13 +656,14 @@ async function handleSyncGrouped(request: Request) {
       syncedTopics.push({
         slug: candidate.slug,
         title: candidate.title,
+        category: candidateCategory,
         discoveryMode: "candidate_cluster",
         articleCount: representativeArticles.length,
         sourceCount: effectiveSourceCount,
         heatScore: candidate.heatScore,
         linkedArticleCount: topicArticleRows.length,
       });
-      candidateCategoryCounts.set(candidate.category, candidateCategoryCount + 1);
+      candidateCategoryCounts.set(candidateCategory, candidateCategoryCount + 1);
       candidateFamilyCounts.set(candidateFamily, candidateFamilyCount + 1);
     }
 
