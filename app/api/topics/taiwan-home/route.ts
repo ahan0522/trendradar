@@ -222,7 +222,7 @@ function isLowValueTaiwanText(textValue: string) {
 }
 
 function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">) {
-  const text = normalizeText(`${topic.title} ${topic.category} ${topic.region}`);
+  const text = normalizeText(topic.title);
 
   if (/台海|東海|海警|反艦|飛彈|共軍|國防|軍售/.test(text)) return "taiwan-security";
   if (/豪雨|強降雨|防災|淹水|氣象|梅雨/.test(text)) return "weather-disaster";
@@ -232,7 +232,11 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
   if (/六四|捷克|外交/.test(text)) return "politics-diplomacy";
   if (/ai|人工智慧|台積電|鴻海|半導體|機器人/.test(text)) return "taiwan-tech";
 
-  return `${topic.category}-${topic.region}`;
+  return normalizeText(topic.title)
+    .replace(/google news|yahoo新聞|中央社|自由時報|聯合新聞網/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 52);
 }
 
 function getImportanceScore(input: {
