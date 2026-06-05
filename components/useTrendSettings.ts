@@ -26,13 +26,17 @@ export type TrendSettings = {
 
 export const DEFAULT_ENABLED_CATEGORIES: TrendCategory[] = [
   "國際",
+  "台海",
   "新聞",
   "政治",
+  "生活",
   "體育",
+  "科技",
   "3C",
   "遊戲",
   "旅遊",
   "動漫",
+  "文化",
   "娛樂",
   "財經",
   "AI",

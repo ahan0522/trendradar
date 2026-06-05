@@ -137,6 +137,8 @@ function getCandidateFamily(candidate: {
   if (/台海|東海|中國海警|兩岸|國防|軍演/.test(text)) return "taiwan-security";
   if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
+  if (/豪雨|強降雨|暴雨|颱風|熱帶低壓|地震|淹水|防災|氣象|地方/.test(text)) return "life-safety";
+  if (/故宮|文化|影展|金曲|金馬|展覽|博物館|文學|藝術|劇場/.test(text)) return "culture";
 
   return candidate.category || "general";
 }
@@ -156,6 +158,8 @@ function getCandidateCategory(candidate: {
   if (family === "middle-east") return "國際";
   if (family === "sports") return "體育";
   if (family === "etf-rebalance") return "財經";
+  if (family === "life-safety") return "生活";
+  if (family === "culture") return "文化";
 
   return candidate.category || "新聞";
 }

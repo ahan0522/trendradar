@@ -139,9 +139,17 @@ const SIGNAL_KEYWORDS = [
   "關稅",
   "強降雨",
   "豪雨",
+  "暴雨",
+  "淹水",
+  "停班停課",
   "南韓地方選舉",
   "法網",
   "梁恩碩",
+  "故宮",
+  "金曲",
+  "影展",
+  "外交部",
+  "國防部",
 ];
 
 const EMBEDDED_MEDIA_NAMES = [
@@ -288,6 +296,18 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/中國海警|海警|台海|東海|日菲|美防長|印太|國防|軍演|外交部|國防部|兩岸|共軍|解放軍|台灣海峽/.test(value)) {
+    return "台海";
+  }
+
+  if (/強降雨|豪雨|暴雨|颱風|熱帶低壓|地震|淹水|停班停課|災害|防災|氣象|寒流|高溫/.test(value)) {
+    return "生活";
+  }
+
+  if (/展覽|博物館|故宮|文化部|影展|金曲|金馬|文學|出版|藝術|表演|劇場/.test(value)) {
+    return "文化";
+  }
+
   if (/playstation|ps5|state of play|god of war|atlantis|trailer|gameplay|nintendo|xbox|steam|遊戲/i.test(value)) {
     return "遊戲";
   }
@@ -316,7 +336,11 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "國際";
   }
 
-  if (/輝達|黃仁勳|nvidia|openai|anthropic|ai|晶片|半導體|伺服器|hbm|記憶體|散熱/.test(value.toLowerCase())) {
+  if (/輝達|黃仁勳|nvidia|晶片|半導體|伺服器|hbm|記憶體|散熱|台積電|聯發科|高通|qualcomm/.test(value.toLowerCase())) {
+    return "科技";
+  }
+
+  if (/openai|anthropic|生成式ai|生成式 ai|ai模型|人工智慧|llm|大型語言模型/.test(value.toLowerCase())) {
     return "AI";
   }
 
@@ -324,7 +348,7 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "財經";
   }
 
-  if (/中國海警|海警|台海|東海|日菲|美防長|伊朗|美軍|中東|以色列|印太|國防/.test(value)) {
+  if (/伊朗|美軍|中東|以色列|黎巴嫩|真主黨|停火|俄羅斯|烏克蘭/.test(value)) {
     return "國際";
   }
 

@@ -4,22 +4,26 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
+  BarChart3,
+  Bell,
+  BookOpenText,
+  Clock3,
+  Cpu,
+  ExternalLink,
+  Filter,
+  Flame,
   Search,
   TrendingUp,
   Globe2,
+  HeartPulse,
   Newspaper,
   Gamepad2,
   Plane,
   MonitorSmartphone,
+  ShieldAlert,
   Trophy,
   MessageCircle,
-  Flame,
-  Bell,
-  Filter,
-  ExternalLink,
   Sparkles,
-  Clock3,
-  BarChart3,
 } from "lucide-react";
 import { categories, mockTopics } from "@/data/mock-topics";
 import type { TrendCategory, TrendTopic } from "@/types/trend";
@@ -28,13 +32,17 @@ import { TrendBar } from "@/components/TrendBar";
 
 const categoryIcon: Record<TrendCategory, React.ComponentType<{ className?: string }>> = {
   國際: Globe2,
+  台海: ShieldAlert,
   新聞: Newspaper,
   政治: MessageCircle,
+  生活: HeartPulse,
   體育: Trophy,
+  科技: Cpu,
   "3C": MonitorSmartphone,
   遊戲: Gamepad2,
   旅遊: Plane,
   動漫: Sparkles,
+  文化: BookOpenText,
   娛樂: Flame,
   財經: BarChart3,
   AI: Sparkles,
