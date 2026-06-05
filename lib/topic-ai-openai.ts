@@ -36,16 +36,29 @@ const SUMMARY_SCHEMA = {
   required: ["longTitle", "summary", "bullets", "subtopics", "tags"],
 };
 
-function getOpenAiText(response: any) {
-  if (typeof response?.output_text === "string") {
+type OpenAiContentItem = {
+  text?: unknown;
+};
+
+type OpenAiOutputItem = {
+  content?: unknown;
+};
+
+type OpenAiResponsePayload = {
+  output_text?: unknown;
+  output?: unknown;
+};
+
+function getOpenAiText(response: OpenAiResponsePayload) {
+  if (typeof response.output_text === "string") {
     return response.output_text;
   }
 
-  const output = Array.isArray(response?.output) ? response.output : [];
-  const textParts = output.flatMap((item: any) =>
-    Array.isArray(item?.content)
-      ? item.content
-          .map((content: any) => content?.text)
+  const output = Array.isArray(response.output) ? (response.output as OpenAiOutputItem[]) : [];
+  const textParts = output.flatMap((item) =>
+    Array.isArray(item.content)
+      ? (item.content as OpenAiContentItem[])
+          .map((content) => content.text)
           .filter((text: unknown): text is string => typeof text === "string")
       : []
   );
@@ -138,7 +151,7 @@ export async function generateTopicAiSummaryWithOpenAi(
     throw new Error(`OpenAI summary failed: ${response.status} ${errorText}`);
   }
 
-  const data = await response.json();
+  const data = (await response.json()) as OpenAiResponsePayload;
   const outputText = getOpenAiText(data);
 
   if (!outputText) {

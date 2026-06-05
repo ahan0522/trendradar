@@ -8,7 +8,6 @@ import {
   Database,
   ExternalLink,
   Filter,
-  Flame,
   Newspaper,
   RefreshCw,
   Search,
@@ -67,6 +66,7 @@ export function LiveTopicsDashboard({
   const [syncing, setSyncing] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<TrendTopic | null>(null);
   const { settings } = useTrendSettings();
+  const enabledCategoriesKey = settings.enabledCategories.join("|");
 
   const visibleCategories = useMemo(() => {
     return categories.filter((category) => category === "全部" || settings.enabledCategories.includes(category as TrendTopic["category"]));
@@ -123,7 +123,7 @@ export function LiveTopicsDashboard({
     }, 200);
 
     return () => window.clearTimeout(timer);
-  }, [activeCategory, query, settings.limit, settings.useMockFallback, settings.region, settings.minScore, settings.enabledCategories.join("|"), source]);
+  }, [activeCategory, query, settings.limit, settings.useMockFallback, settings.region, settings.minScore, enabledCategoriesKey, source]);
 
   useEffect(() => {
     if (!settings.refreshIntervalMinutes) return;
@@ -136,7 +136,7 @@ export function LiveTopicsDashboard({
     return () => window.clearInterval(interval);
   }, [settings.refreshIntervalMinutes, activeCategory, query, settings.limit, settings.useMockFallback, settings.region, source]);
 
-  const filteredTopics = useMemo(() => filterTopicsBySettings(data?.topics ?? [], settings), [data, settings.region, settings.minScore, settings.enabledCategories.join("|")]);
+  const filteredTopics = useMemo(() => filterTopicsBySettings(data?.topics ?? [], settings), [data, settings, enabledCategoriesKey]);
 
   const topCategories = useMemo(() => {
     const map = new Map<string, { category: string; count: number; avg: number }>();
@@ -166,12 +166,12 @@ export function LiveTopicsDashboard({
             <p className="mt-2 max-w-2xl text-slate-600">{description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <a href="/news" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+            <Link href="/news" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
               RSS 新聞
-            </a>
-            <a href="/topics" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
+            </Link>
+            <Link href="/topics" className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50">
               熱門話題頁
-            </a>
+            </Link>
             <button
               onClick={() => loadTopics({ refresh: true })}
               className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -103,8 +104,8 @@ export function TrendDashboard() {
           </div>
           <div className="flex gap-2">
             <Button><Bell className="mr-2 h-4 w-4" /> 建立追蹤</Button>
-            <a href="/topics" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">即時話題</a>
-            <a href="/news" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">RSS 新聞</a>
+            <Link href="/topics" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">即時話題</Link>
+            <Link href="/news" className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">RSS 新聞</Link>
             <Button variant="outline">匯出簡報</Button>
           </div>
         </header>

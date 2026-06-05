@@ -4,8 +4,16 @@ import { getTopicsFromNews } from "@/lib/topic-clustering";
 import type { NewsItem } from "@/types/news";
 import type { TrendTopic } from "@/types/trend";
 
+type DbRow = Record<string, unknown>;
+
 function nowIso() {
   return new Date().toISOString();
+}
+
+function latestIso(...values: Array<string | null | undefined>) {
+  return values
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 }
 
 function toArticleRow(item: NewsItem) {
@@ -41,41 +49,43 @@ function toTopicRow(topic: TrendTopic) {
   };
 }
 
-function fromTopicRow(row: Record<string, any>): TrendTopic {
+function fromTopicRow(row: DbRow): TrendTopic {
+  const metrics = row.metrics && typeof row.metrics === "object" ? (row.metrics as DbRow) : {};
+
   return {
-    id: row.id,
-    title: row.title,
-    category: row.category,
-    region: row.region,
+    id: String(row.id ?? ""),
+    title: String(row.title ?? ""),
+    category: row.category as TrendTopic["category"],
+    region: String(row.region ?? ""),
     score: Number(row.trend_score ?? 0),
     velocity: Number(row.velocity ?? 0),
-    sentiment: row.sentiment ?? "待分析",
-    updatedAt: row.last_seen_at ?? row.updated_at ?? new Date().toISOString(),
+    sentiment: String(row.sentiment ?? "待分析"),
+    updatedAt: String(row.last_seen_at ?? row.updated_at ?? new Date().toISOString()),
     sources: Array.isArray(row.sources) ? row.sources : [],
-    summary: row.summary ?? "",
+    summary: String(row.summary ?? ""),
     bullets: Array.isArray(row.bullets) ? row.bullets : [],
     metrics: {
-      searchScore: Number(row.metrics?.searchScore ?? 0),
-      newsScore: Number(row.metrics?.newsScore ?? 0),
-      socialScore: Number(row.metrics?.socialScore ?? 0),
-      engagementScore: Number(row.metrics?.engagementScore ?? 0),
-      velocityScore: Number(row.metrics?.velocityScore ?? 0),
-      diversityScore: Number(row.metrics?.diversityScore ?? 0),
+      searchScore: Number(metrics.searchScore ?? 0),
+      newsScore: Number(metrics.newsScore ?? 0),
+      socialScore: Number(metrics.socialScore ?? 0),
+      engagementScore: Number(metrics.engagementScore ?? 0),
+      velocityScore: Number(metrics.velocityScore ?? 0),
+      diversityScore: Number(metrics.diversityScore ?? 0),
     },
   };
 }
 
-function fromArticleRow(row: Record<string, any>): NewsItem {
+function fromArticleRow(row: DbRow): NewsItem {
   return {
-    id: row.id,
-    title: row.title,
-    link: row.link,
-    sourceId: row.source_id,
-    sourceName: row.source_name,
-    category: row.category,
-    region: row.region,
-    publishedAt: row.published_at,
-    description: row.description ?? "",
+    id: String(row.id ?? ""),
+    title: String(row.title ?? ""),
+    link: String(row.link ?? ""),
+    sourceId: String(row.source_id ?? ""),
+    sourceName: String(row.source_name ?? ""),
+    category: row.category as NewsItem["category"],
+    region: String(row.region ?? ""),
+    publishedAt: row.published_at ? String(row.published_at) : null,
+    description: String(row.description ?? ""),
   };
 }
 
@@ -173,19 +183,34 @@ export async function getDatabaseStatus() {
 
   const supabase = getSupabaseAdmin();
 
-  const [{ count: topicCount, error: topicsError }, { count: articleCount, error: articlesError }, { data: metricRow, error: metricsError }] = await Promise.all([
+  const [
+    { count: topicCount, error: topicsError },
+    { count: articleCount, error: articlesError },
+    { data: metricRow, error: metricsError },
+    { data: latestTopicRow, error: latestTopicError },
+    { data: latestArticleRow, error: latestArticleError },
+  ] = await Promise.all([
     supabase.from("topics").select("id", { count: "exact", head: true }),
     supabase.from("articles").select("id", { count: "exact", head: true }),
     supabase.from("trend_metrics").select("measured_at").order("measured_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("topics").select("last_synced_at,updated_at").order("last_synced_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
+    supabase.from("articles").select("updated_at").order("updated_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
   ]);
 
   if (topicsError) throw new Error(`Count topics failed: ${topicsError.message}`);
   if (articlesError) throw new Error(`Count articles failed: ${articlesError.message}`);
   if (metricsError) throw new Error(`Read latest sync failed: ${metricsError.message}`);
+  if (latestTopicError) throw new Error(`Read latest topic sync failed: ${latestTopicError.message}`);
+  if (latestArticleError) throw new Error(`Read latest article sync failed: ${latestArticleError.message}`);
 
   return {
     configured: true,
-    lastSyncedAt: metricRow?.measured_at ?? null,
+    lastSyncedAt: latestIso(
+      latestTopicRow?.last_synced_at,
+      latestTopicRow?.updated_at,
+      latestArticleRow?.updated_at,
+      metricRow?.measured_at,
+    ),
     topicCount: topicCount ?? 0,
     articleCount: articleCount ?? 0,
   };
