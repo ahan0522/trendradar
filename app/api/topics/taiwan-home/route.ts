@@ -40,6 +40,17 @@ type TaiwanTopic = {
   }>;
 };
 
+type TaiwanArticle = {
+  id: string;
+  title: string;
+  description?: string;
+  sourceName: string;
+  category?: string;
+  sourceWeight?: number;
+  link?: string;
+  publishedAt: string | null;
+};
+
 const REGION_LABELS: Record<TaiwanRegion, string> = {
   north: "北部",
   central: "中部",
@@ -250,6 +261,100 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
     .slice(0, 52);
 }
 
+function getArticleFamilyKey(article: TaiwanArticle) {
+  const text = normalizeText(`${article.title} ${article.description ?? ""}`);
+
+  if (/台海|東海|海警|反艦|飛彈|共軍|國防|軍售/.test(text)) return "taiwan-security";
+  if (/桃園|新北|豪雨|強降雨|防災|淹水|積水|氣象|梅雨|大雨特報/.test(text)) return "weather-disaster";
+  if (/強制險|未投保強制險/.test(text)) return "mandatory-insurance";
+  if (/金檢|中國金檢/.test(text)) return "fsc-china-inspection";
+  if (/中捷|捷運綠線|號誌異常/.test(text)) return "taichung-mrt";
+  if (/tpbl|夢想家|新北國王|湯普金斯|game seven|第7戰|第七戰/.test(text)) return "tpbl-finals";
+  if (/邱建富|彰化縣長|陳素月/.test(text)) return "changhua-election";
+  if (/軍博館|國家軍事博物館/.test(text)) return "military-museum";
+  if (/國中教育會考|心測中心/.test(text)) return "education-exam";
+  if (/航港局|船艇駕照|買照/.test(text)) return "maritime-license";
+  if (/金門|洪成發|涉貪/.test(text)) return "kinmen-corruption";
+  if (/台積電|鴻海|英特爾|客製化晶片/.test(text)) return "taiwan-chip-partnership";
+  if (/國泰金|小型語言模型|客戶意圖/.test(text)) return "cathay-ai";
+
+  return "";
+}
+
+const TOKEN_STOP_WORDS = new Set([
+  "新聞",
+  "報導",
+  "今天",
+  "表示",
+  "指出",
+  "台灣",
+  "相關",
+  "中央社",
+  "yahoo",
+  "google",
+  "news",
+]);
+
+function getArticleTokens(article: TaiwanArticle) {
+  const text = normalizeText(`${cleanTitle(article.title)} ${cleanSummaryText(article.description ?? "")}`);
+  const rawTokens = text.match(/[\p{Script=Han}]{2,6}|[a-z0-9][a-z0-9-]{2,}/gu) ?? [];
+
+  return new Set(
+    rawTokens
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2 && !TOKEN_STOP_WORDS.has(token))
+      .slice(0, 28)
+  );
+}
+
+function getSetSimilarity(left: Set<string>, right: Set<string>) {
+  const intersection = [...left].filter((token) => right.has(token)).length;
+  if (intersection === 0) return 0;
+
+  const union = new Set([...left, ...right]).size;
+  return intersection / Math.max(union, 1);
+}
+
+function shouldMergeTaiwanArticles(left: TaiwanArticle, right: TaiwanArticle) {
+  const leftFamily = getArticleFamilyKey(left);
+  const rightFamily = getArticleFamilyKey(right);
+
+  if (leftFamily && leftFamily === rightFamily) return true;
+  if (leftFamily || rightFamily) return false;
+
+  const leftText = `${left.title} ${left.description ?? ""} ${left.category ?? ""}`;
+  const rightText = `${right.title} ${right.description ?? ""} ${right.category ?? ""}`;
+  const sameCategory =
+    inferTaiwanCategory(leftText, left.category ?? "新聞") ===
+    inferTaiwanCategory(rightText, right.category ?? "新聞");
+  const sameRegion = inferTaiwanRegion(leftText) === inferTaiwanRegion(rightText);
+
+  if (!sameCategory || !sameRegion) return false;
+
+  return getSetSimilarity(getArticleTokens(left), getArticleTokens(right)) >= 0.42;
+}
+
+function clusterTaiwanArticles(articles: TaiwanArticle[]) {
+  const clusters: TaiwanArticle[][] = [];
+
+  articles.forEach((article) => {
+    const matchedCluster = clusters.find((cluster) =>
+      cluster.some((clusterArticle) => shouldMergeTaiwanArticles(article, clusterArticle))
+    );
+
+    if (matchedCluster) {
+      matchedCluster.push(article);
+      return;
+    }
+
+    clusters.push([article]);
+  });
+
+  return clusters.map((cluster) =>
+    [...cluster].sort((a, b) => getImportanceScore(b) - getImportanceScore(a))
+  );
+}
+
 function getImportanceScore(input: {
   title: string;
   description?: string;
@@ -411,53 +516,60 @@ export async function GET() {
 
     const candidateTaiwanTopics: TaiwanTopic[] = [];
 
-    const instantTopics: TaiwanTopic[] = articles
+    const instantClusters = clusterTaiwanArticles(
+      articles
       .filter((article) => getImportanceScore(article) >= 30)
       .slice(0, 80)
-      .map((article, index) => {
-        const title = cleanTitle(article.title);
-        const text = `${title} ${article.description ?? ""} ${article.category}`;
-        const region = inferTaiwanRegion(text);
-        const category = inferTaiwanCategory(text, article.category ?? "新聞");
-        const quickSummary = makeQuickSummary({
-          title,
-          description: article.description,
-          topicTitle: title,
-        });
+    );
 
-        const topicArticles = [
-          {
+    const instantTopics: TaiwanTopic[] = instantClusters.map((cluster, index) => {
+        const leadArticle = cluster[0];
+        const title = cleanTitle(leadArticle.title);
+        const clusterText = cluster
+          .map((article) => `${article.title} ${article.description ?? ""} ${article.category ?? ""}`)
+          .join(" ");
+        const region = inferTaiwanRegion(clusterText);
+        const category = inferTaiwanCategory(clusterText, leadArticle.category ?? "新聞");
+
+        const topicArticles = cluster.slice(0, 6).map((article) => ({
             id: article.id,
-            title,
+            title: cleanTitle(article.title),
             sourceName: article.sourceName,
             category,
             link: article.link ?? "",
             publishedAt: article.publishedAt,
-            quickSummary,
-          },
-        ];
+            quickSummary: makeQuickSummary({
+              title: article.title,
+              description: article.description,
+              topicTitle: title,
+            }),
+          }));
+        const sourceCount = new Set(topicArticles.map((article) => article.sourceName)).size;
+        const heatScore =
+          Math.max(...cluster.map((article) => getImportanceScore(article))) +
+          Math.min(36, (cluster.length - 1) * 10 + Math.max(0, sourceCount - 1) * 6);
 
         return {
-          id: `taiwan-news-${article.id}`,
+          id: `taiwan-cluster-${leadArticle.id}`,
           slug: makeSlug(title, index),
           title,
           category,
           region,
           regionLabel: REGION_LABELS[region],
-          heatScore: getImportanceScore(article),
-          sourceCount: 1,
-          articleCount: 1,
+          heatScore,
+          sourceCount,
+          articleCount: cluster.length,
           summary: makeTaiwanSummary({
             title,
             category,
             regionLabel: REGION_LABELS[region],
-            articleCount: 1,
-            sourceCount: 1,
+            articleCount: cluster.length,
+            sourceCount,
             articles: topicArticles,
           }),
           keywords: [category, REGION_LABELS[region]].filter(Boolean),
-          updatedAt: article.publishedAt ?? new Date().toISOString(),
-          detailUrl: article.link,
+          updatedAt: leadArticle.publishedAt ?? new Date().toISOString(),
+          detailUrl: leadArticle.link,
           articles: topicArticles,
         } satisfies TaiwanTopic;
       });
