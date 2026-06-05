@@ -284,7 +284,7 @@ function getFamilyKey(topic: Pick<GlobeTopic, "title" | "category">) {
     return "ai-tech";
   }
 
-  if (/tpbl|夢想家|國王|湯普金斯|冠軍賽|game seven|第7戰|第七戰/.test(text)) {
+  if (/tpbl|夢想家|新北國王|湯普金斯|game seven/.test(text)) {
     return "tpbl-finals";
   }
 
