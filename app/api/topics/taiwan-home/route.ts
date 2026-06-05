@@ -179,6 +179,10 @@ function inferTaiwanRegion(textValue: string): TaiwanRegion {
 function inferTaiwanCategory(textValue: string, fallback: string) {
   const text = normalizeText(textValue);
 
+  if (/輝達|黃仁勳|nvidia|台積電|鴻海|人工智慧|半導體|晶片/.test(text)) {
+    return "科技與產業";
+  }
+
   if (/台海|東海|海警|共軍|國防|軍售|反艦|飛彈|海巡|六四|中國|捷克|外交/.test(text)) {
     return "台海與國際";
   }
