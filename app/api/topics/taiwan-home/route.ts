@@ -239,6 +239,7 @@ function isLowValueTaiwanText(textValue: string) {
 function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">) {
   const text = normalizeText(topic.title);
 
+  if (/軍博館|國家軍事博物館/.test(text)) return "military-museum";
   if (/台海|東海|海警|反艦|飛彈|共軍|國防|軍售/.test(text)) return "taiwan-security";
   if (/豪雨|強降雨|防災|淹水|氣象|梅雨/.test(text)) return "weather-disaster";
   if (/強制險/.test(text)) return "mandatory-insurance";
@@ -250,7 +251,8 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
   if (/六四/.test(text)) return "june-fourth";
   if (/捷克|韋德齊/.test(text)) return "czech-visit";
   if (/外交/.test(text)) return "diplomacy";
-  if (/台積電|鴻海|英特爾|客製化晶片/.test(text)) return "taiwan-chip-partnership";
+  if (/台積電|魏哲家|產能|瓶頸/.test(text)) return "tsmc-ai-capacity";
+  if (/鴻海|英特爾|客製化晶片/.test(text)) return "foxconn-intel-chip";
   if (/國泰金|小型語言模型|客戶意圖/.test(text)) return "cathay-ai";
   if (/app store|蘋果app store/.test(text)) return "app-store-economy";
 
@@ -264,6 +266,7 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
 function getArticleFamilyKey(article: TaiwanArticle) {
   const text = normalizeText(`${article.title} ${article.description ?? ""}`);
 
+  if (/軍博館|國家軍事博物館/.test(text)) return "military-museum";
   if (/台海|東海|海警|反艦|飛彈|共軍|國防|軍售/.test(text)) return "taiwan-security";
   if (/桃園|新北|豪雨|強降雨|防災|淹水|積水|氣象|梅雨|大雨特報/.test(text)) return "weather-disaster";
   if (/強制險|未投保強制險/.test(text)) return "mandatory-insurance";
@@ -275,7 +278,8 @@ function getArticleFamilyKey(article: TaiwanArticle) {
   if (/國中教育會考|心測中心/.test(text)) return "education-exam";
   if (/航港局|船艇駕照|買照/.test(text)) return "maritime-license";
   if (/金門|洪成發|涉貪/.test(text)) return "kinmen-corruption";
-  if (/台積電|鴻海|英特爾|客製化晶片/.test(text)) return "taiwan-chip-partnership";
+  if (/台積電|魏哲家|產能|瓶頸/.test(text)) return "tsmc-ai-capacity";
+  if (/鴻海|英特爾|客製化晶片/.test(text)) return "foxconn-intel-chip";
   if (/國泰金|小型語言模型|客戶意圖/.test(text)) return "cathay-ai";
 
   return "";
@@ -528,8 +532,10 @@ export async function GET() {
         const clusterText = cluster
           .map((article) => `${article.title} ${article.description ?? ""} ${article.category ?? ""}`)
           .join(" ");
-        const region = inferTaiwanRegion(clusterText);
-        const category = inferTaiwanCategory(clusterText, leadArticle.category ?? "新聞");
+        const leadText = `${leadArticle.title} ${leadArticle.description ?? ""} ${leadArticle.category ?? ""}`;
+        const family = getArticleFamilyKey(leadArticle);
+        const region = inferTaiwanRegion(family ? leadText : clusterText);
+        const category = inferTaiwanCategory(family ? leadText : clusterText, leadArticle.category ?? "新聞");
 
         const topicArticles = cluster.slice(0, 6).map((article) => ({
             id: article.id,
