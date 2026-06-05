@@ -54,6 +54,9 @@ const CATEGORY_ANCHORS = [
   { category: "社會與生活", x: 112, y: 292 },
 ];
 
+const TAIWAN_ISLAND_PATH =
+  "M 392 151 C 414 158 431 179 437 210 C 443 240 439 270 451 298 C 464 329 459 359 442 389 C 428 414 411 435 405 466 C 398 501 374 533 341 552 C 321 532 313 501 321 467 C 329 435 312 405 321 372 C 330 338 318 310 335 280 C 351 253 351 224 361 198 C 370 173 381 156 392 151 Z";
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -176,6 +179,16 @@ export default function TaiwanRoutesMap() {
               <stop offset="55%" stopColor="#67e8f9" stopOpacity="0.58" />
               <stop offset="100%" stopColor="#f8fafc" stopOpacity="0.22" />
             </linearGradient>
+            <linearGradient id="taiwan-island-fill" x1="25%" y1="12%" x2="75%" y2="92%">
+              <stop offset="0%" stopColor="#e0f2fe" stopOpacity="0.36" />
+              <stop offset="42%" stopColor="#38bdf8" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#020617" stopOpacity="0.58" />
+            </linearGradient>
+            <radialGradient id="taiwan-island-core" cx="44%" cy="40%" r="62%">
+              <stop offset="0%" stopColor="#f8fafc" stopOpacity="0.24" />
+              <stop offset="56%" stopColor="#38bdf8" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#0f172a" stopOpacity="0.02" />
+            </radialGradient>
           </defs>
 
           <g opacity="0.42">
@@ -226,29 +239,65 @@ export default function TaiwanRoutesMap() {
             );
           })}
 
-          <g>
-            <circle
+          <g filter="url(#taiwan-network-glow)">
+            <ellipse
               cx={hub.x}
-              cy={hub.y}
-              r="72"
-              fill="#0f172a"
-              stroke="#bae6fd"
-              strokeOpacity="0.9"
-              strokeWidth="2"
-              filter="url(#taiwan-network-glow)"
+              cy={hub.y + 4}
+              rx="110"
+              ry="178"
+              fill="#38bdf8"
+              opacity="0.06"
+              transform={`rotate(-18 ${hub.x} ${hub.y})`}
             />
-            <circle cx={hub.x - 22} cy={hub.y - 26} r="18" fill="#ffffff" opacity="0.16" />
+            <path
+              d={TAIWAN_ISLAND_PATH}
+              fill="url(#taiwan-island-fill)"
+              stroke="#e0f2fe"
+              strokeOpacity="0.9"
+              strokeWidth="2.6"
+            />
+            <path
+              d="M 395 181 C 408 215 407 247 401 279 C 394 313 405 343 392 378 C 381 408 377 455 348 503"
+              fill="none"
+              stroke="#f8fafc"
+              strokeDasharray="5 10"
+              strokeLinecap="round"
+              strokeOpacity="0.32"
+              strokeWidth="2"
+            />
+            <path
+              d="M 362 218 C 374 254 359 288 367 322 C 374 354 354 390 360 431"
+              fill="none"
+              stroke="#7dd3fc"
+              strokeLinecap="round"
+              strokeOpacity="0.22"
+              strokeWidth="1.5"
+            />
+            <path
+              d={TAIWAN_ISLAND_PATH}
+              fill="url(#taiwan-island-core)"
+              stroke="#38bdf8"
+              strokeOpacity="0.45"
+              strokeWidth="6"
+            />
+            <g opacity="0.72">
+              <circle cx="289" cy="351" r="8" fill="#e0f2fe" opacity="0.28" />
+              <circle cx="273" cy="371" r="5" fill="#38bdf8" opacity="0.32" />
+              <circle cx="277" cy="329" r="4" fill="#e0f2fe" opacity="0.2" />
+              <circle cx="327" cy="177" r="4" fill="#e0f2fe" opacity="0.22" />
+              <circle cx="452" cy="512" r="4" fill="#38bdf8" opacity="0.28" />
+            </g>
             <text
               x={hub.x}
-              y={hub.y - 8}
+              y={hub.y - 14}
               textAnchor="middle"
-              className="fill-white text-[18px] font-black"
+              className="fill-white text-[17px] font-black"
             >
-              台灣
+              台灣今日
             </text>
             <text
               x={hub.x}
-              y={hub.y + 18}
+              y={hub.y + 12}
               textAnchor="middle"
               className="fill-sky-100 text-[13px] font-bold"
             >
@@ -408,7 +457,7 @@ export default function TaiwanRoutesMap() {
         <section className="rounded-[30px] border border-white/10 bg-white/[0.06] p-5 text-sm leading-6 text-slate-300 shadow-xl shadow-black/20">
           <div className="font-semibold text-sky-300">設計判斷</div>
           <p className="mt-2">
-            這版不再強迫新聞落到台灣地圖位置。主視覺改成台灣今日主題網絡，分類只用來安排節點與顏色，點開後才看摘要與來源。
+            台灣輪廓只作為今日焦點的辨識背景，不硬把新聞塞進縣市。真正的整理仍以大主題、摘要、來源去重與熱度訊號為主。
           </p>
         </section>
       </aside>
