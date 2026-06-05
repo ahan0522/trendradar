@@ -214,7 +214,7 @@ function isLowValueTaiwanText(textValue: string) {
     return true;
   }
 
-  if (/克羅埃西亞|法蘭克福|漢莎航空|煤炭業|spacex|anthropic|nba總冠軍賽|尼克|溫班亞瑪|steam machine|valve|fortnite|美國股市|歐洲股市|美股收盤|道瓊|標普500|adr|花旗喊買|國際油價|荷莫茲|中東局勢/.test(text)) {
+  if (/克羅埃西亞|法蘭克福|漢莎航空|煤炭業|spacex|anthropic|nba總冠軍賽|尼克|溫班亞瑪|steam machine|valve|fortnite|美國股市|歐洲股市|美股收盤|道瓊|標普500|adr|花旗喊買|喊買|ai 鏈四強|ai鏈四強|晶片股|美股盤後|國際油價|荷莫茲|中東局勢/.test(text)) {
     return true;
   }
 
@@ -231,10 +231,13 @@ function getFamilyKey(topic: Pick<TaiwanTopic, "title" | "category" | "region">)
   if (/金管會|保險/.test(text)) return "finance-policy";
   if (/tpbl|夢想家|新北國王|湯普金斯|game seven/.test(text)) return "tpbl-finals";
   if (/中捷|捷運|公車|交通/.test(text)) return "transport";
+  if (/邱建富|彰化縣長|陳素月/.test(text)) return "changhua-election";
   if (/六四/.test(text)) return "june-fourth";
   if (/捷克|韋德齊/.test(text)) return "czech-visit";
   if (/外交/.test(text)) return "diplomacy";
-  if (/ai|人工智慧|台積電|鴻海|半導體|機器人/.test(text)) return "taiwan-tech";
+  if (/台積電|鴻海|英特爾|客製化晶片/.test(text)) return "taiwan-chip-partnership";
+  if (/國泰金|小型語言模型|客戶意圖/.test(text)) return "cathay-ai";
+  if (/app store|蘋果app store/.test(text)) return "app-store-economy";
 
   return normalizeText(topic.title)
     .replace(/google news|yahoo新聞|中央社|自由時報|聯合新聞網/g, " ")
