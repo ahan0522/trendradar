@@ -15,7 +15,7 @@ export async function GET() {
     const items = await getNewsItems({
       category: "全部",
       q: "",
-      limit: 300,
+      limit: 1000,
       refresh: true,
     });
 

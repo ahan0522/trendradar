@@ -130,6 +130,7 @@ function getCandidateFamily(candidate: {
   }`.toLowerCase();
 
   if (/0050|etf|成分股|換股|換血/.test(text)) return "etf-rebalance";
+  if (/關稅|301調查|貿易談判|重建關稅壁壘|對台徵/.test(text)) return "trade-policy";
   if (/股價|投信|外資|買超|營收|eps|概念股|台股|美股/.test(text)) return "stock-market";
   if (/輝達|黃仁勳|nvidia|台積電|晶片|半導體|gpu|ai\s*晶片/.test(text)) return "ai-chips";
   if (/openai|anthropic|模型|ai模型|人工智慧|ai熱潮|ai發展/.test(text)) return "ai-policy-market";
@@ -156,6 +157,7 @@ function getCandidateCategory(candidate: {
   if (family === "taiwan-security") return "台海";
   if (family === "election-politics") return "政治";
   if (family === "middle-east") return "國際";
+  if (family === "trade-policy") return "國際";
   if (family === "sports") return "體育";
   if (family === "etf-rebalance") return "財經";
   if (family === "life-safety") return "生活";
@@ -230,7 +232,7 @@ async function handleSyncGrouped(request: Request) {
     const newsItems = await getNewsItems({
       category: "全部",
       q: "",
-      limit: 240,
+      limit: 320,
     });
 
     const articles: NewsArticle[] = newsItems

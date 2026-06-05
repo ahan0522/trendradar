@@ -135,6 +135,9 @@ const SIGNAL_KEYWORDS = [
   "Instagram",
   "Sony",
   "NBA",
+  "羽球",
+  "周天成",
+  "印尼賽",
   "iPhone",
   "關稅",
   "強降雨",
@@ -352,7 +355,7 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "國際";
   }
 
-  if (/nba|mlb|中職|棒球|籃球|悍將|台鋼|投手/.test(value.toLowerCase())) {
+  if (/nba|mlb|中職|棒球|籃球|悍將|台鋼|投手|羽球|周天成|戴資穎|印尼賽|男單|女單/.test(value.toLowerCase())) {
     return "體育";
   }
 
@@ -582,6 +585,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "台灣棒球賽事動態";
   }
 
+  if (/羽球|周天成|戴資穎|印尼賽|男單|女單|直落二/.test(value)) {
+    return "台灣羽球賽事動態";
+  }
+
   return "";
 }
 
@@ -699,6 +706,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
     return /員工薪酬|平均薪資|薪資破|薪酬|日月光|台積電/.test(sourceText);
   }
 
+  if (title === "台灣羽球賽事動態") {
+    return /羽球|周天成|戴資穎|印尼賽|男單|女單|直落二/.test(sourceText);
+  }
+
   const titleTokens = tokenize(title).filter((token) => token.length >= 2);
   if (titleTokens.length === 0) return true;
 
@@ -714,7 +725,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|關稅|貿易談判|罷免|選舉|法網|梁恩碩|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
     text
   );
 }
