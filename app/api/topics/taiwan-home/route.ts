@@ -176,6 +176,10 @@ function inferTaiwanCategory(textValue: string, fallback: string) {
     return "天氣與防災";
   }
 
+  if (/強制險|金管會|保險|金融|銀行|atm|虛擬資產|關稅|貿易|經濟/.test(text)) {
+    return "政策與財經";
+  }
+
   if (/交通|捷運|公車|列車|機車|道路|機場|中捷|航港局|船艇|駕照/.test(text)) {
     return "交通與生活";
   }
@@ -184,7 +188,7 @@ function inferTaiwanCategory(textValue: string, fallback: string) {
     return "科技與產業";
   }
 
-  if (/金管會|保險|強制險|金融|銀行|atm|虛擬資產|關稅|貿易|經濟|產業/.test(text)) {
+  if (/產業/.test(text)) {
     return "政策與財經";
   }
 
