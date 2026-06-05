@@ -106,6 +106,10 @@ function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
     }
   }
 
+  if (selected.length >= Math.min(4, targetCount)) {
+    return selected;
+  }
+
   for (const topic of strongTopics) {
     addTopic(topic, 2, 1);
 

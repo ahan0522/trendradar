@@ -46,6 +46,9 @@ type SyncedTopic = {
   linkedArticleCount: number;
 };
 
+const SYNC_SOURCE_POOL_LIMIT = 1000;
+const SYNC_BALANCED_ARTICLE_LIMIT = 320;
+
 function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
@@ -98,6 +101,99 @@ function getLatestPublishedAt(articles: NewsArticle[]) {
   }
 
   return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function getArticleTimestamp(article: NewsArticle) {
+  const timestamp = article.publishedAt
+    ? new Date(article.publishedAt).getTime()
+    : 0;
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function incrementCount(map: Map<string, number>, key: string) {
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function getCountSnapshot(map: Map<string, number>) {
+  return Object.fromEntries(
+    [...map.entries()].sort((a, b) => b[1] - a[1])
+  );
+}
+
+function selectBalancedArticlesForSync(
+  articles: NewsArticle[],
+  limit = SYNC_BALANCED_ARTICLE_LIMIT
+) {
+  const selected: NewsArticle[] = [];
+  const selectedLinks = new Set<string>();
+  const categoryCounts = new Map<string, number>();
+  const sourceCounts = new Map<string, number>();
+  const poolCounts = new Map<string, number>();
+  const sortedArticles = [...articles].sort(
+    (a, b) => getArticleTimestamp(b) - getArticleTimestamp(a)
+  );
+  const categoryCap = Math.max(24, Math.ceil(limit * 0.22));
+  const sourceCap = Math.max(12, Math.ceil(limit * 0.14));
+  const officialSourceCap = Math.max(8, Math.ceil(limit * 0.12));
+
+  function canSelect(article: NewsArticle, relaxed = false) {
+    if (!article.link || selectedLinks.has(article.link)) {
+      return false;
+    }
+
+    const category = article.category || "未分類";
+    const sourceName = article.sourceName || "未知來源";
+    const sourcePool = article.sourcePool || "news_media";
+
+    if (!relaxed && (categoryCounts.get(category) ?? 0) >= categoryCap) {
+      return false;
+    }
+
+    if ((sourceCounts.get(sourceName) ?? 0) >= sourceCap) {
+      return false;
+    }
+
+    if (
+      sourcePool === "official_source" &&
+      (poolCounts.get(sourcePool) ?? 0) >= officialSourceCap
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function addArticle(article: NewsArticle) {
+    const category = article.category || "未分類";
+    const sourceName = article.sourceName || "未知來源";
+    const sourcePool = article.sourcePool || "news_media";
+
+    selected.push(article);
+    selectedLinks.add(article.link ?? article.id);
+    incrementCount(categoryCounts, category);
+    incrementCount(sourceCounts, sourceName);
+    incrementCount(poolCounts, sourcePool);
+  }
+
+  for (const article of sortedArticles) {
+    if (selected.length >= limit) break;
+    if (canSelect(article)) addArticle(article);
+  }
+
+  for (const article of sortedArticles) {
+    if (selected.length >= limit) break;
+    if (canSelect(article, true)) addArticle(article);
+  }
+
+  return {
+    articles: selected,
+    categorySampleCounts: getCountSnapshot(categoryCounts),
+    sourcePoolSampleCounts: getCountSnapshot(poolCounts),
+    sourceSampleCounts: Object.fromEntries(
+      Object.entries(getCountSnapshot(sourceCounts)).slice(0, 12)
+    ),
+  };
 }
 
 function isAuthorized(request: Request) {
@@ -232,10 +328,10 @@ async function handleSyncGrouped(request: Request) {
     const newsItems = await getNewsItems({
       category: "全部",
       q: "",
-      limit: 320,
+      limit: SYNC_SOURCE_POOL_LIMIT,
     });
 
-    const articles: NewsArticle[] = newsItems
+    const sourceArticles: NewsArticle[] = newsItems
       .map((item) => ({
         id: item.id,
         title: item.title,
@@ -252,6 +348,12 @@ async function handleSyncGrouped(request: Request) {
         publishedAt: item.publishedAt,
       }))
       .filter((item) => item.link);
+    const {
+      articles,
+      categorySampleCounts,
+      sourcePoolSampleCounts,
+      sourceSampleCounts,
+    } = selectBalancedArticlesForSync(sourceArticles);
 
     // 1. 先寫入 articles，直接拿回 DB 真正的 id
     const articleRows = articles.map((article) => ({
@@ -680,7 +782,11 @@ async function handleSyncGrouped(request: Request) {
       triggeredBy: getTriggerSource(request),
       syncedAt: new Date().toISOString(),
       durationMs: Date.now() - startedAt,
+      sourcePoolArticleCount: sourceArticles.length,
       articleCount: articles.length,
+      categorySampleCounts,
+      sourcePoolSampleCounts,
+      sourceSampleCounts,
       persistedArticleCount: persistedArticles?.length ?? 0,
       groupedTopicCount: groupedTopics.length,
       candidateTopicCount: candidateTopics.length,
