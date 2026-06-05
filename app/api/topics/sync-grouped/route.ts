@@ -118,6 +118,57 @@ function getTriggerSource(request: Request) {
     : "manual";
 }
 
+function getCandidateFamily(candidate: {
+  title: string;
+  slug: string;
+  category: string;
+  keywords?: string[];
+}) {
+  const text = `${candidate.title} ${candidate.slug} ${candidate.category} ${
+    candidate.keywords?.join(" ") ?? ""
+  }`.toLowerCase();
+
+  if (/0050|etf|成分股|換股|換血/.test(text)) return "etf-rebalance";
+  if (/股價|投信|外資|買超|營收|eps|概念股|台股|美股/.test(text)) return "stock-market";
+  if (/輝達|黃仁勳|nvidia|台積電|晶片|半導體|gpu|ai\s*晶片/.test(text)) return "ai-chips";
+  if (/openai|anthropic|模型|ai模型|人工智慧|ai熱潮|ai發展/.test(text)) return "ai-policy-market";
+  if (/伊朗|美軍|中東|以色列|黎巴嫩|真主黨|停火/.test(text)) return "middle-east";
+  if (/台海|東海|中國海警|兩岸|國防|軍演/.test(text)) return "taiwan-security";
+  if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
+  if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
+
+  return candidate.category || "general";
+}
+
+function hasEnoughCandidateDepth(input: {
+  category: string;
+  title: string;
+  representativeArticleCount: number;
+  effectiveSourceCount: number;
+  qualityScore: number;
+}) {
+  const text = `${input.category} ${input.title}`.toLowerCase();
+
+  if (/股價|投信|外資|買超|賣超|營收|eps|概念股|台股|美股/.test(text)) {
+    return false;
+  }
+
+  if (input.representativeArticleCount >= 2 && input.effectiveSourceCount >= 2) {
+    return true;
+  }
+
+  if (
+    input.representativeArticleCount >= 1 &&
+    input.effectiveSourceCount >= 3 &&
+    input.qualityScore >= 88 &&
+    !/財經|0050|etf|成分股/.test(text)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 async function handleSyncGrouped(request: Request) {
   const startedAt = Date.now();
   const runId =
@@ -211,7 +262,7 @@ async function handleSyncGrouped(request: Request) {
     // 2. 再做主題分群
     const groupedTopics = groupArticlesToHomepageTopics(articles);
     const candidateTopics = discoverCandidateTopics(articles, {
-      maxTopics: 12,
+      maxTopics: 24,
       minArticles: 2,
     }).filter((topic) => topic.publishable);
 
@@ -409,9 +460,24 @@ async function handleSyncGrouped(request: Request) {
     const syncedRuleTitles = new Set(
       syncedTopics.map((topic) => normalizeText(topic.title))
     );
+    const candidateCategoryCounts = new Map<string, number>();
+    const candidateFamilyCounts = new Map<string, number>();
+    let skippedCandidateTopicsForDiversity = 0;
+    let skippedCandidateTopicsTooThin = 0;
 
     for (const candidate of candidateTopics) {
       if (syncedRuleTitles.has(normalizeText(candidate.title))) {
+        continue;
+      }
+
+      const candidateFamily = getCandidateFamily(candidate);
+      const candidateCategoryCount =
+        candidateCategoryCounts.get(candidate.category) ?? 0;
+      const candidateFamilyCount =
+        candidateFamilyCounts.get(candidateFamily) ?? 0;
+
+      if (candidateCategoryCount >= 2 || candidateFamilyCount >= 1) {
+        skippedCandidateTopicsForDiversity += 1;
         continue;
       }
 
@@ -444,6 +510,19 @@ async function handleSyncGrouped(request: Request) {
         getEffectiveSourceCount(matchedArticles),
         candidate.sourceCount
       );
+
+      if (
+        !hasEnoughCandidateDepth({
+          category: candidate.category,
+          title: candidate.title,
+          representativeArticleCount: representativeArticles.length,
+          effectiveSourceCount,
+          qualityScore: candidate.qualityScore,
+        })
+      ) {
+        skippedCandidateTopicsTooThin += 1;
+        continue;
+      }
 
       const aiResult = await generateTopicAiSummary({
         topicTitle: candidate.title,
@@ -561,6 +640,8 @@ async function handleSyncGrouped(request: Request) {
         heatScore: candidate.heatScore,
         linkedArticleCount: topicArticleRows.length,
       });
+      candidateCategoryCounts.set(candidate.category, candidateCategoryCount + 1);
+      candidateFamilyCounts.set(candidateFamily, candidateFamilyCount + 1);
     }
 
     const summary = {
@@ -579,6 +660,8 @@ async function handleSyncGrouped(request: Request) {
       skippedTopicsWithoutRule,
       skippedTopicsWithoutArticles,
       skippedCandidateTopicsCoveredByRules,
+      skippedCandidateTopicsForDiversity,
+      skippedCandidateTopicsTooThin,
       topics: syncedTopics,
     };
 
