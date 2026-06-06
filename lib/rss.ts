@@ -1,4 +1,5 @@
 import { rssSources } from "@/data/rss-sources";
+import { getCanonicalSourceName, isPlatformSourceName } from "@/lib/source-scoring";
 import type { NewsItem, NewsSource } from "@/types/news";
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
@@ -27,6 +28,39 @@ function getTagValue(xml: string, tagName: string): string {
   const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "i");
   const match = xml.match(regex);
   return match ? cleanRssText(match[1]) : "";
+}
+
+function getNamespacedTagValue(xml: string, tagName: string): string {
+  const escapedTagName = tagName.replace(/:/g, "\\:");
+  const regex = new RegExp(`<${escapedTagName}[^>]*>([\\s\\S]*?)<\\/${escapedTagName}>`, "i");
+  const match = xml.match(regex);
+  return match ? cleanRssText(match[1]) : "";
+}
+
+function getDescriptionValue(block: string): string {
+  return (
+    getTagValue(block, "description") ||
+    getTagValue(block, "summary") ||
+    getNamespacedTagValue(block, "content:encoded") ||
+    getNamespacedTagValue(block, "media:description") ||
+    getNamespacedTagValue(block, "media:summary") ||
+    getTagValue(block, "content")
+  );
+}
+
+function getDisplaySourceName(source: NewsSource, title: string, description: string) {
+  const inferredSourceName = getCanonicalSourceName({
+    sourceName: source.name,
+    sourceKind: source.sourceKind,
+    title,
+    description,
+  });
+
+  if (!isPlatformSourceName(inferredSourceName)) {
+    return inferredSourceName;
+  }
+
+  return source.name;
 }
 
 function getAtomLink(entry: string): string {
@@ -63,10 +97,7 @@ function parseRssItems(xml: string, source: NewsSource): NewsItem[] {
     .map((block): NewsItem | null => {
       const title = getTagValue(block, "title");
       const link = itemBlocks.length ? getTagValue(block, "link") : getAtomLink(block);
-      const description =
-        getTagValue(block, "description") ||
-        getTagValue(block, "summary") ||
-        getTagValue(block, "content");
+      const description = getDescriptionValue(block);
       const dateValue =
         getTagValue(block, "pubDate") ||
         getTagValue(block, "published") ||
@@ -79,7 +110,7 @@ function parseRssItems(xml: string, source: NewsSource): NewsItem[] {
         title,
         link,
         sourceId: source.id,
-        sourceName: source.name,
+        sourceName: getDisplaySourceName(source, title, description),
         category: source.category,
         region: source.region,
         sourcePool: source.sourcePool,
