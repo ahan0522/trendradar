@@ -207,8 +207,30 @@ function getTopicRelevanceTokens(topic: DbTopicRow) {
   return [...tokens];
 }
 
+function getCoreTitleTokens(topic: DbTopicRow) {
+  const rawText = [topic.title, topic.long_title ?? ""].join(" ");
+  const tokens = new Set<string>();
+
+  rawText.match(/[\u4e00-\u9fff]{2,}/g)?.forEach((chunk) => {
+    if (chunk.length === 2) {
+      tokens.add(chunk);
+      return;
+    }
+
+    for (let index = 0; index < chunk.length - 1; index += 1) {
+      const bigram = chunk.slice(index, index + 2);
+      if (!/^(新聞|焦點|今日|熱門|國際|體育|政治|生活|科技|財經|台灣|全球)$/.test(bigram)) {
+        tokens.add(bigram);
+      }
+    }
+  });
+
+  return [...tokens];
+}
+
 function filterRelevantArticles(topic: DbTopicRow, articles: ResponseArticle[]) {
   const relevanceTokens = getTopicRelevanceTokens(topic);
+  const coreTitleTokens = getCoreTitleTokens(topic);
 
   if (relevanceTokens.length === 0) return articles;
 
@@ -216,10 +238,19 @@ function filterRelevantArticles(topic: DbTopicRow, articles: ResponseArticle[]) 
     const text = normalizeComparableText(
       `${article.title} ${article.description} ${article.quickSummary} ${article.category} ${article.region}`
     );
+    const matchedCoreCount = coreTitleTokens.filter((token) => text.includes(token)).length;
     const matchedCount = relevanceTokens.filter((token) => text.includes(token)).length;
+
+    if (coreTitleTokens.length > 0) {
+      return matchedCoreCount >= 1;
+    }
 
     return matchedCount >= 1;
   });
+
+  if (coreTitleTokens.length > 0) {
+    return filtered;
+  }
 
   return filtered.length > 0 ? filtered : articles;
 }
@@ -435,7 +466,8 @@ export async function GET(
     const relevantArticles = filterRelevantArticles(topic, responseArticles);
     const dedupedArticles = dedupeSimilarArticles(relevantArticles);
     const relevantSourceCount = getCanonicalSourceNames(relevantArticles).length;
-    const effectiveSourceCount = relevantSourceCount || topic.source_count || 0;
+    const effectiveSourceCount =
+      relevantArticles.length > 0 ? relevantSourceCount || topic.source_count || 0 : 0;
 
     const responseBullets = buildReadableBullets(topic.bullets, dedupedArticles);
     const responseSummary = buildEventLevelSummary(
