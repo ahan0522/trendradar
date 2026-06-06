@@ -125,8 +125,8 @@ export function TrendDashboard() {
           <StatCard label="資料來源" value="8" caption="新聞 / 社群 / 搜尋 / RSS" />
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <main className="space-y-4">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <main className="min-w-0 space-y-4">
             <div className="rounded-3xl bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <div className="relative flex-1">
@@ -173,19 +173,19 @@ export function TrendDashboard() {
             </div>
           </main>
 
-          <aside className="space-y-4">
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
+            <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white">
                     <SelectedIcon className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm text-slate-500">話題詳情</div>
-                    <h2 className="text-2xl font-bold">{selectedTopic.title}</h2>
+                    <h2 className="break-words text-2xl font-black leading-tight">{selectedTopic.title}</h2>
                   </div>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${scoreBadgeClass(selectedTopic.score)}`}>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${scoreBadgeClass(selectedTopic.score)}`}>
                   {selectedTopic.score}
                 </span>
               </div>

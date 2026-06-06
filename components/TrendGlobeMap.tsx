@@ -409,6 +409,7 @@ export default function TrendGlobeMap() {
   const [rotation, setRotation] = useState(0);
   const [rotationTarget, setRotationTarget] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
+  const [globeScale, setGlobeScale] = useState(1);
   const [dragState, setDragState] = useState<{
     startX: number;
     startRotation: number;
@@ -712,6 +713,7 @@ export default function TrendGlobeMap() {
     ...topics.map((topic) => topic.heatScore),
     maxHeatScore
   );
+  const visualScale = globeScale * (focusMode ? 1.16 : 1);
 
   if (loading) {
     return (
@@ -721,17 +723,11 @@ export default function TrendGlobeMap() {
 
   return (
     <div
-      className={`grid gap-5 transition-all duration-500 ${
-        focusMode ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_340px]"
-      }`}
+      className="grid gap-5 transition-all duration-500 lg:grid-cols-[minmax(0,1fr)_360px]"
     >
       <section className="overflow-hidden rounded-[36px] border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/30">
         <div
-          className={`flex flex-wrap items-center justify-between gap-3 overflow-hidden border-b border-white/10 px-5 transition-all duration-500 ${
-            focusMode
-              ? "max-h-0 py-0 opacity-0"
-              : "max-h-40 py-4 opacity-100"
-          }`}
+          className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4 transition-all duration-500"
         >
           <div>
             <div className="text-sm font-semibold text-sky-300">
@@ -742,7 +738,23 @@ export default function TrendGlobeMap() {
               航線代表主題、共同脈絡與子訊號之間的連結；拖曳地球可旋轉，點熱門節點會放大並顯示主題快讀。
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex min-w-[190px] items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-semibold text-slate-200 ring-1 ring-white/15">
+              <span className="whitespace-nowrap">球體大小</span>
+              <input
+                type="range"
+                min="85"
+                max="120"
+                value={Math.round(globeScale * 100)}
+                onChange={(event) =>
+                  setGlobeScale(Number(event.target.value) / 100)
+                }
+                className="h-1.5 flex-1 accent-cyan-300"
+              />
+              <span className="w-9 text-right text-slate-400">
+                {Math.round(globeScale * 100)}%
+              </span>
+            </label>
             {focusMode && (
               <button
                 type="button"
@@ -769,10 +781,14 @@ export default function TrendGlobeMap() {
             role="img"
             aria-label="旋轉地球村主題圖"
             className={`h-[620px] w-full touch-none select-none transition-transform duration-500 ${
-              focusMode ? "scale-[1.2] sm:h-[720px] sm:scale-[1.14]" : "scale-100"
+              focusMode ? "sm:h-[720px]" : ""
             } ${
               dragState ? "cursor-grabbing" : "cursor-grab"
             }`}
+            style={{
+              transform: `scale(${visualScale})`,
+              transformOrigin: "50% 50%",
+            }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -1101,7 +1117,7 @@ export default function TrendGlobeMap() {
                 y={focusMode ? 152 : clamp(selectedPoint.y - 92, 56, 478)}
                 width={focusMode ? "382" : "250"}
                 height={focusMode ? "438" : "158"}
-                className="pointer-events-none hidden sm:block"
+                className="pointer-events-none hidden"
               >
                 <div
                   className={`border border-cyan-200/20 bg-slate-950/72 text-white shadow-2xl shadow-cyan-950/40 backdrop-blur-xl ring-1 ring-white/10 ${
@@ -1277,7 +1293,7 @@ export default function TrendGlobeMap() {
           )}
 
           {focusMode && selectedTopic && (
-            <div className="absolute bottom-5 left-1/2 hidden w-[min(92%,620px)] -translate-x-1/2 items-center justify-between gap-3 rounded-full border border-white/10 bg-slate-950/80 px-4 py-3 text-sm text-white shadow-2xl shadow-black/30 backdrop-blur sm:flex">
+            <div className="hidden">
               <span className="truncate text-slate-300">
                 正在聚焦：<span className="font-semibold text-white">{selectedTopic.title}</span>
               </span>
@@ -1293,9 +1309,7 @@ export default function TrendGlobeMap() {
       </section>
 
       <aside
-        className={`space-y-4 transition-all duration-500 ${
-          focusMode ? "hidden lg:hidden" : "block"
-        }`}
+        className="space-y-4 transition-all duration-500"
       >
         <section className="rounded-[30px] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20">
           <div className="text-sm font-semibold text-sky-300">目前選取</div>

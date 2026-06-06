@@ -12,7 +12,6 @@ import {
   RefreshCw,
   Search,
   Sparkles,
-  TrendingUp,
 } from "lucide-react";
 import { categories } from "@/data/mock-topics";
 import { useTrendSettings } from "@/components/useTrendSettings";
@@ -203,8 +202,8 @@ export function LiveTopicsDashboard({
           </div>
         )}
 
-        <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <main className="space-y-4">
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+          <main className="min-w-0 space-y-4">
             <div className="rounded-3xl bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 md:flex-row md:items-center">
                 <div className="relative flex-1">
@@ -274,25 +273,38 @@ export function LiveTopicsDashboard({
             </div>
           </main>
 
-          <aside className="space-y-4">
-            <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <aside className="min-w-0 space-y-4 xl:sticky xl:top-24 xl:self-start">
+            <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-100">
               {selectedTopic ? (
                 <>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm text-slate-500">話題詳情</div>
-                      <h2 className="mt-1 text-2xl font-bold">{selectedTopic.title}</h2>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-slate-500">話題詳情</div>
+                      <h2 className="mt-2 break-words text-2xl font-black leading-tight tracking-tight text-slate-950">
+                        {selectedTopic.title}
+                      </h2>
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-sm font-semibold ${scoreBadgeClass(selectedTopic.score)}`}>{selectedTopic.score}</span>
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-semibold ${scoreBadgeClass(selectedTopic.score)}`}>
+                      {selectedTopic.score}
+                    </span>
                   </div>
 
-                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <div className="mt-4 rounded-3xl bg-slate-950 p-4 text-white">
+                    <div className="mb-2 flex items-center gap-2 text-sm text-slate-300">
+                      <Sparkles className="h-4 w-4" /> 快速摘要
+                    </div>
+                    <p className="text-sm leading-7 text-slate-100">
+                      {selectedTopic.summary}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2">
                     <MiniInfo label="分類" value={selectedTopic.category} />
                     <MiniInfo label="地區" value={selectedTopic.region} />
                     <MiniInfo label="情緒" value={selectedTopic.sentiment} />
                   </div>
 
-                  <div className="mt-6">
+                  <div className="mt-5">
                     <div className="mb-2 flex items-center justify-between text-sm">
                       <span className="font-medium">趨勢分數</span>
                       <span>{selectedTopic.score}/100</span>
@@ -300,26 +312,27 @@ export function LiveTopicsDashboard({
                     <TrendBar value={selectedTopic.score} />
                   </div>
 
-                  <div className="mt-6 rounded-3xl bg-slate-950 p-5 text-white">
-                    <div className="mb-2 flex items-center gap-2 text-sm text-slate-300"><Sparkles className="h-4 w-4" /> 自動摘要</div>
-                    <p className="leading-7 text-slate-100">{selectedTopic.summary}</p>
-                  </div>
-
-                  <div className="mt-6">
+                  <div className="mt-5">
                     <h3 className="font-semibold">判斷依據</h3>
                     <div className="mt-3 space-y-2">
-                      {selectedTopic.bullets.map((bullet) => (
-                        <div key={bullet} className="flex items-center gap-2 rounded-2xl bg-slate-50 px-4 py-3 text-sm">
-                          <TrendingUp className="h-4 w-4 text-slate-500" /> {bullet}
+                      {selectedTopic.bullets.slice(0, 4).map((bullet, index) => (
+                        <div
+                          key={bullet}
+                          className="flex gap-3 rounded-2xl bg-slate-50 px-3 py-3 text-sm leading-6 text-slate-700"
+                        >
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-950 text-xs font-black text-white">
+                            {index + 1}
+                          </span>
+                          <span className="min-w-0 break-words">{bullet}</span>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="mt-6">
+                  <div className="mt-5">
                     <h3 className="font-semibold">來源</h3>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {selectedTopic.sources.map((sourceName) => (
+                      {selectedTopic.sources.slice(0, 8).map((sourceName) => (
                         <span key={sourceName} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-700">
                           {sourceName} <ExternalLink className="h-3 w-3" />
                         </span>
@@ -327,8 +340,8 @@ export function LiveTopicsDashboard({
                     </div>
                   </div>
 
-                  <div className="mt-6">
-                    <Link href={`/topics/${selectedTopic.id}`} className="inline-flex items-center rounded-2xl bg-slate-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-slate-800">
+                  <div className="mt-5">
+                    <Link href={`/topics/${selectedTopic.id}`} className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-slate-800">
                       查看完整詳情
                     </Link>
                   </div>
@@ -381,9 +394,9 @@ function StatCard({ label, value, caption }: { label: string; value: string; cap
 
 function MiniInfo({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 p-4">
+    <div className="min-w-0 rounded-2xl bg-slate-50 p-3">
       <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 font-semibold">{value}</div>
+      <div className="mt-1 break-words text-sm font-bold leading-5">{value}</div>
     </div>
   );
 }
