@@ -389,6 +389,10 @@ function hasEnoughCandidateDepth(input: {
     return false;
   }
 
+  if (/財經/.test(input.category) && /ai\s*伺服器零件與供應鏈/i.test(text)) {
+    return false;
+  }
+
   if (input.representativeArticleCount >= 2 && input.effectiveSourceCount >= 2) {
     return true;
   }

@@ -796,6 +796,10 @@ function isLowValueTopic(title: string, keywords: string[]) {
     return true;
   }
 
+  if (/AI 伺服器零件與供應鏈/i.test(text)) {
+    return true;
+  }
+
   if (/韓職|王彥程|明星賽票選|中華職棒|mvp/i.test(text)) {
     return true;
   }
