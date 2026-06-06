@@ -151,10 +151,6 @@ function inferQuickSummaryFromSignals(value: string) {
     return "鴻海與輝達合作推進 AI 基礎建設與超算應用，焦點在台灣 AI 基建、代理 AI 與資料中心需求。";
   }
 
-  if (/無人機|anduril|自主系統|國防科技|非紅供應鏈|關鍵技術研發/i.test(value)) {
-    return "台美無人機與自主系統合作升溫，焦點在 AI 自主技術、國防科技合作與非紅供應鏈建構。";
-  }
-
   if (/大賣空|看空|網路泡沫|點名輝達.*泡沫|輝達.*泡沫/i.test(value)) {
     return "市場出現對輝達估值與 AI 題材過熱的疑慮，部分投資人把焦點放在是否重演科技泡沫風險。";
   }
@@ -232,6 +228,10 @@ function inferQuickSummaryFromSignals(value: string) {
 
   if (/伊朗|美軍|革命衛隊|德黑蘭|美伊|科威特|軍事設施/.test(value)) {
     return "伊朗與美軍相關衝突升溫，報導焦點放在軍事行動、反擊說法，以及中東安全局勢是否進一步擴大。";
+  }
+
+  if (/(台美|anduril|非紅供應鏈|關鍵技術研發|國防科技).*(無人機|自主系統)|(無人機|自主系統).*(台美|anduril|非紅供應鏈|關鍵技術研發|國防科技)/i.test(value)) {
+    return "台美無人機與自主系統合作升溫，焦點在 AI 自主技術、國防科技合作與非紅供應鏈建構。";
   }
 
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判|russia|ukraine/i.test(value)) {
