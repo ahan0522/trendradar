@@ -270,9 +270,11 @@ function getCandidateFamily(candidate: {
   if (/openai|anthropic|模型|ai模型|人工智慧|ai熱潮|ai發展/.test(text)) return "ai-policy-market";
   if (/台海|美中台海|東海|中國海警|兩岸|國防|軍演|美防長|印太|對台/.test(text)) return "taiwan-security";
   if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/.test(text)) return "taiwan-incident";
+  if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/.test(text)) return "russia-ukraine";
   if (/伊朗|美軍|中東|以色列|黎巴嫩|真主黨|停火/.test(text)) return "middle-east";
   if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
+  if (/電競|playstation|ps5|state of play|遊戲|gameplay/.test(text)) return "games";
   if (/豪雨|強降雨|暴雨|颱風|熱帶低壓|地震|淹水|防災|氣象|地方/.test(text)) return "life-safety";
   if (/故宮|文化|影展|金曲|金馬|展覽|博物館|文學|藝術|劇場/.test(text)) return "culture";
 
@@ -291,10 +293,12 @@ function getCandidateCategory(candidate: {
   if (family === "ai-policy-market") return "AI";
   if (family === "taiwan-security") return "台海";
   if (family === "taiwan-incident") return "新聞";
+  if (family === "russia-ukraine") return "國際";
   if (family === "election-politics") return "政治";
   if (family === "middle-east") return "國際";
   if (family === "trade-policy") return "國際";
   if (family === "sports") return "體育";
+  if (family === "games") return "遊戲";
   if (family === "etf-rebalance") return "財經";
   if (family === "life-safety") return "生活";
   if (family === "culture") return "文化";

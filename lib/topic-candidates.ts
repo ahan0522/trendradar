@@ -153,6 +153,10 @@ const SIGNAL_KEYWORDS = [
   "影展",
   "外交部",
   "國防部",
+  "普丁",
+  "澤倫斯基",
+  "俄烏",
+  "電競",
 ];
 
 const EMBEDDED_MEDIA_NAMES = [
@@ -319,7 +323,7 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "遊戲";
   }
 
-  if (/俄羅斯|烏克蘭|基輔|空襲|襲擊|russia|ukraine|kyiv/i.test(value)) {
+  if (/俄羅斯|烏克蘭|基輔|空襲|襲擊|普丁|澤倫斯基|停火談判|russia|ukraine|kyiv/i.test(value)) {
     return "國際";
   }
 
@@ -497,6 +501,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "台灣強降雨與防災提醒";
   }
 
+  if (/普丁|澤倫斯基|俄羅斯|烏克蘭|俄烏|停火談判|和平談判/.test(value)) {
+    return "俄烏戰爭與和平談判";
+  }
+
   if (/南韓地方選舉|韓國地方選舉|尹錫悅|李在明|執政黨/.test(value)) {
     return "南韓地方選舉與政局變化";
   }
@@ -515,6 +523,10 @@ function inferTopicTitleFromSignals(value: string) {
 
   if (/playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(value)) {
     return "PlayStation 遊戲發表動態";
+  }
+
+  if (/電競選手|電競|後輩|浪費時間|職業選手|職涯/i.test(value)) {
+    return "電競選手職涯現實討論";
   }
 
   if (/trump|executive order|ai models?|review|released|white house/i.test(value)) {
@@ -670,6 +682,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
     return /playstation|ps5|state of play|god of war|laufey|atlantis|trailer|gameplay/i.test(sourceText);
   }
 
+  if (title === "電競選手職涯現實討論") {
+    return /電競選手|電競|後輩|浪費時間|職業選手|職涯/i.test(sourceText);
+  }
+
   if (title === "美國 AI 模型發布審查政策") {
     return /trump|executive order|ai models?|review|released|white house/i.test(sourceText);
   }
@@ -680,6 +696,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "俄烏戰爭新一輪空襲") {
     return /俄羅斯|烏克蘭|基輔|空襲|大規模襲擊|多人遇難|russia|ukraine|kyiv/i.test(sourceText);
+  }
+
+  if (title === "俄烏戰爭與和平談判") {
+    return /普丁|澤倫斯基|俄羅斯|烏克蘭|俄烏|停火談判|和平談判|russia|ukraine/i.test(sourceText);
   }
 
   if (title === "T-34 教練機墜毀事故") {
@@ -729,7 +749,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|電競|遊戲|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
     text
   );
 }

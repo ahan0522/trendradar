@@ -187,6 +187,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "PlayStation 發表活動帶出多款遊戲消息，焦點在新作預告、上市時程與玩家社群反應。";
   }
 
+  if (/電競選手|電競|後輩|浪費時間|職業選手|職涯/i.test(value)) {
+    return "這則來源討論電競選手的職涯現實，焦點在職業門檻、收入與訓練壓力，以及年輕玩家投入職業賽道前需要理解的風險。";
+  }
+
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(value)) {
     return "新漢與高通展示具身 AI 機器人平台，焦點在機器人量產、邊緣運算與實體 AI 應用落地。";
   }
@@ -197,6 +201,10 @@ function inferQuickSummaryFromSignals(value: string) {
 
   if (/伊朗|美軍|革命衛隊|德黑蘭|美伊|科威特|軍事設施/.test(value)) {
     return "伊朗與美軍相關衝突升溫，報導焦點放在軍事行動、反擊說法，以及中東安全局勢是否進一步擴大。";
+  }
+
+  if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判|russia|ukraine/i.test(value)) {
+    return "俄烏戰爭談判議題再受關注，焦點在俄方軍事推進、雙方會談條件與和平進程是否有實質進展。";
   }
 
   if (/遼寧艦|艦載機|航空母艦|起降|日本防衛省|小泉進次郎/i.test(value)) {
@@ -264,6 +272,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `PlayStation 遊戲發表活動帶出多款新作與預告消息，報導聚焦 State of Play 發表內容、重點遊戲、上市時程與玩家期待${sourceText}。`;
   }
 
+  if (/電競選手|電競|後輩|浪費時間|職業選手|職涯/i.test(text)) {
+    return `電競選手職涯現實引發討論，報導焦點在職業門檻、訓練成本、收入不確定性，以及年輕玩家投入前需要理解的風險${sourceText}。`;
+  }
+
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
     return `具身 AI 機器人平台成為 Computex 期間的產業焦點，報導聚焦人型機器人量產瓶頸、邊緣 AI 運算、硬體整合與實際應用落地${sourceText}。`;
   }
@@ -274,6 +286,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
 
   if (/伊朗|美軍|革命衛隊|德黑蘭|中東/.test(text)) {
     return `伊朗與美軍相關衝突升溫，多家媒體聚焦軍事行動、反擊說法與中東安全情勢後續變化${sourceText}。`;
+  }
+
+  if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判|russia|ukraine/i.test(text)) {
+    return `俄烏戰爭與和平談判重新成為國際焦點，報導集中在俄軍推進、雙方會談條件、停火可能性與外交斡旋進度${sourceText}。`;
   }
 
   if (/東海|台灣以東|中國海警|日菲|執法巡查|海域/.test(text)) {
@@ -323,8 +339,16 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
     return ["發表活動", "新作預告", "上市時程", "玩家反應"];
   }
 
+  if (/電競選手|電競|後輩|浪費時間|職業選手|職涯/i.test(text)) {
+    return ["職業門檻", "訓練成本", "收入風險", "年輕玩家選擇"];
+  }
+
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
     return ["人型機器人", "邊緣 AI", "硬體平台", "量產瓶頸"];
+  }
+
+  if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/i.test(text)) {
+    return ["前線戰況", "會談條件", "停火可能", "國際斡旋"];
   }
 
   if (/台海|印太|美防長|對台|美中/i.test(text)) {
