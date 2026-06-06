@@ -1312,35 +1312,107 @@ export default function TrendGlobeMap() {
         className="space-y-4 transition-all duration-500"
       >
         <section className="rounded-[30px] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/20">
-          <div className="text-sm font-semibold text-sky-300">目前選取</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-sky-300">主題快讀</div>
+            {selectedTopic && (
+              <span className="rounded-full bg-rose-400/20 px-3 py-1 text-xs font-black text-rose-100">
+                熱度 {selectedTopic.heatScore}
+              </span>
+            )}
+          </div>
           {selectedTopic ? (
             <>
-              <h2 className="mt-2 text-2xl font-black leading-tight">
+              <h2 className="mt-3 text-2xl font-black leading-tight">
                 {selectedTopic.title}
               </h2>
-              {selectedDetail?.summary && (
-                <p className="mt-3 text-sm leading-6 text-slate-300">
-                  {selectedDetail.summary}
-                </p>
-              )}
+              <p className="mt-3 rounded-3xl border border-cyan-100/10 bg-slate-950/35 p-4 text-sm leading-7 text-slate-200">
+                {selectedSummary}
+              </p>
               <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
                 <div className="rounded-2xl bg-red-500/15 p-3 text-red-100">
                   <div className="text-xs text-red-200/75">熱度</div>
                   <div className="mt-1 font-black">{selectedTopic.heatScore}</div>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-3 text-slate-100">
-                  <div className="text-xs text-slate-300">媒體</div>
+                  <div className="text-xs text-slate-300">來源</div>
                   <div className="mt-1 font-black">
-                    {selectedTopic.sourceCount}
+                    {selectedSourceNames.length || selectedTopic.sourceCount}
                   </div>
                 </div>
                 <div className="rounded-2xl bg-sky-500/15 p-3 text-sky-100">
-                  <div className="text-xs text-sky-200/75">文章</div>
+                  <div className="text-xs text-sky-200/75">事件</div>
                   <div className="mt-1 font-black">
                     {selectedTopic.articleCount}
                   </div>
                 </div>
               </div>
+              {selectedInsightChips.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {selectedInsightChips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-full bg-sky-400/15 px-2.5 py-1 text-[11px] font-semibold text-sky-100"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {selectedBriefItems.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <div className="text-xs font-bold text-slate-400">
+                    可以先看的重點
+                  </div>
+                  {selectedBriefItems.map((item, index) => (
+                    <div
+                      key={`${item}-side-${index}`}
+                      className="flex gap-2 rounded-2xl bg-white/[0.08] px-3 py-2 text-sm leading-6 text-slate-200"
+                    >
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-300/20 text-[10px] font-black text-cyan-100">
+                        {index + 1}
+                      </span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedEvents.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <div className="text-xs font-bold text-slate-400">
+                    代表事件
+                  </div>
+                  {selectedEvents.map((event) => (
+                    <div
+                      key={`${event.id}-side-event`}
+                      className="rounded-2xl border border-white/10 bg-slate-950/35 px-3 py-2 text-xs leading-5 text-slate-200"
+                    >
+                      {event.text}
+                      {event.sourceName && (
+                        <span className="ml-2 text-cyan-200/80">
+                          {event.sourceName}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedSourceNames.length > 0 && (
+                <div className="mt-4">
+                  <div className="text-xs font-bold text-slate-400">
+                    去重後來源
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {selectedSourceNames.slice(0, 6).map((sourceName) => (
+                      <span
+                        key={sourceName}
+                        className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-slate-200"
+                      >
+                        {sourceName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Link
                 href={selectedDetailHref}
                 className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-slate-200"

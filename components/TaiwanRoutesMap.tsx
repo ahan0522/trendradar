@@ -118,6 +118,7 @@ export default function TaiwanRoutesMap() {
   const [topics, setTopics] = useState<TaiwanTopic[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [taiwanScale, setTaiwanScale] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,6 +155,7 @@ export default function TaiwanRoutesMap() {
     positionedTopics[0];
   const maxHeat = Math.max(1, ...topics.map((topic) => topic.heatScore));
   const hub = { x: 380, y: 322 };
+  const taiwanVisualTransform = `translate(${hub.x} ${hub.y}) scale(${taiwanScale}) translate(${-hub.x} ${-hub.y})`;
 
   if (loading) {
     return (
@@ -167,6 +169,24 @@ export default function TaiwanRoutesMap() {
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <section className="relative overflow-hidden rounded-[34px] border border-white/10 bg-slate-950 p-3 shadow-2xl shadow-sky-950/30">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(56,189,248,0.22),transparent_32%),radial-gradient(circle_at_72%_18%,rgba(251,113,133,0.14),transparent_24%),radial-gradient(circle_at_18%_78%,rgba(34,197,94,0.14),transparent_26%)]" />
+        <div className="absolute right-4 top-4 z-20 rounded-2xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs font-semibold text-slate-200 shadow-xl shadow-black/20 backdrop-blur-xl">
+          <label className="flex min-w-[190px] items-center gap-2">
+            <span className="whitespace-nowrap">台灣大小</span>
+            <input
+              type="range"
+              min="85"
+              max="125"
+              value={Math.round(taiwanScale * 100)}
+              onChange={(event) =>
+                setTaiwanScale(Number(event.target.value) / 100)
+              }
+              className="h-1.5 flex-1 accent-cyan-300"
+            />
+            <span className="w-9 text-right text-slate-400">
+              {Math.round(taiwanScale * 100)}%
+            </span>
+          </label>
+        </div>
         <svg
           viewBox="0 0 760 640"
           role="img"
@@ -247,7 +267,7 @@ export default function TaiwanRoutesMap() {
             );
           })}
 
-          <g filter="url(#taiwan-network-glow)">
+          <g filter="url(#taiwan-network-glow)" transform={taiwanVisualTransform}>
             <ellipse
               cx={hub.x}
               cy={hub.y + 4}
@@ -299,35 +319,36 @@ export default function TaiwanRoutesMap() {
               <circle cx="323" cy="171" r="3.5" fill="#e0f2fe" opacity="0.26" />
               <circle cx="453" cy="515" r="4.5" fill="#38bdf8" opacity="0.32" />
             </g>
-            <g>
-              <rect
-                x="432"
-                y="282"
-                width="96"
-                height="54"
-                rx="18"
-                fill="#020617"
-                fillOpacity="0.66"
-                stroke="#bae6fd"
-                strokeOpacity="0.42"
-              />
-              <text
-                x="480"
-                y="304"
-                textAnchor="middle"
-                className="fill-white text-[15px] font-black"
-              >
-                台灣今日
-              </text>
-              <text
-                x="480"
-                y="324"
-                textAnchor="middle"
-                className="fill-sky-100 text-[12px] font-bold"
-              >
-                主題雷達
-              </text>
-            </g>
+          </g>
+
+          <g>
+            <rect
+              x="432"
+              y="282"
+              width="96"
+              height="54"
+              rx="18"
+              fill="#020617"
+              fillOpacity="0.66"
+              stroke="#bae6fd"
+              strokeOpacity="0.42"
+            />
+            <text
+              x="480"
+              y="304"
+              textAnchor="middle"
+              className="fill-white text-[15px] font-black"
+            >
+              台灣今日
+            </text>
+            <text
+              x="480"
+              y="324"
+              textAnchor="middle"
+              className="fill-sky-100 text-[12px] font-bold"
+            >
+              主題雷達
+            </text>
           </g>
 
           {positionedTopics.map((topic) => {
