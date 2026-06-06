@@ -340,7 +340,7 @@ function buildEventLevelSummary(
 
   const sourceText = sourceNames.length
     ? `主要由 ${sourceNames.join("、")} 等來源交叉報導`
-    : "目前先依去重後事件整理";
+    : "已先依去重後事件整理";
 
   const eventText = articleSummaries.join("；");
 
@@ -479,8 +479,7 @@ export async function GET(
     const relevantArticles = filterRelevantArticles(topic, responseArticles);
     const dedupedArticles = dedupeSimilarArticles(relevantArticles);
     const relevantSourceCount = getCanonicalSourceNames(relevantArticles).length;
-    const effectiveSourceCount =
-      relevantArticles.length > 0 ? relevantSourceCount || topic.source_count || 0 : 0;
+    const effectiveSourceCount = relevantSourceCount;
 
     const responseBullets = buildReadableBullets(topic.bullets, dedupedArticles);
     const responseSummary = buildEventLevelSummary(
