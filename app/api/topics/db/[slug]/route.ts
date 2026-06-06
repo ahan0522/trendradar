@@ -170,7 +170,7 @@ function getCanonicalSourceNames(articles: ResponseArticle[]) {
   return uniqueStrings(
     articles
       .map((article) => getCanonicalSourceName({ sourceName: article.sourceName }))
-      .filter((sourceName) => !/^(Google News|Yahoo新聞|Yahoo奇摩新聞)$/i.test(sourceName))
+      .filter((sourceName) => !/^(Google News|Yahoo新聞|Yahoo奇摩新聞)\b/i.test(sourceName))
   );
 }
 
@@ -272,7 +272,7 @@ function isWeakTopicSummary(summary: string) {
   return (
     isGenericTopicSummary(summary) ||
     summary.length < 44 ||
-    /這是目前|焦點之一|重點包括|來源文章追蹤細節/.test(summary)
+    /這是目前|焦點之一|重點包括|來源文章追蹤細節|Google News|Yahoo新聞/.test(summary)
   );
 }
 
@@ -340,7 +340,7 @@ function buildEventLevelSummary(
 
   const sourceText = sourceNames.length
     ? `主要由 ${sourceNames.join("、")} 等來源交叉報導`
-    : "已有多個來源交叉報導";
+    : "目前先依去重後事件整理";
 
   const eventText = articleSummaries.join("；");
 
