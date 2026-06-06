@@ -263,6 +263,7 @@ function getCandidateFamily(candidate: {
     candidate.keywords?.join(" ") ?? ""
   }`.toLowerCase();
 
+  if (/伊朗|美軍|中東|以色列|黎巴嫩|真主黨|停火/.test(text)) return "middle-east";
   if (/0050|etf|成分股|換股|換血/.test(text)) return "etf-rebalance";
   if (/關稅|301調查|貿易談判|重建關稅壁壘|對台徵/.test(text)) return "trade-policy";
   if (/股價|投信|外資|買超|營收|eps|概念股|台股|美股/.test(text)) return "stock-market";
@@ -271,7 +272,6 @@ function getCandidateFamily(candidate: {
   if (/台海|美中台海|東海|中國海警|兩岸|國防|軍演|美防長|印太|對台/.test(text)) return "taiwan-security";
   if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/.test(text)) return "taiwan-incident";
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/.test(text)) return "russia-ukraine";
-  if (/伊朗|美軍|中東|以色列|黎巴嫩|真主黨|停火/.test(text)) return "middle-east";
   if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
   if (/電競|playstation|ps5|state of play|遊戲|gameplay/.test(text)) return "games";

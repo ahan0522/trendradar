@@ -303,6 +303,10 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|伊朗|革命衛隊|德黑蘭|中東/.test(value)) {
+    return "國際";
+  }
+
   if (/中國海警|海警|台海|東海|日菲|美防長|印太|國防|軍演|外交部|國防部|兩岸|共軍|解放軍|台灣海峽/.test(value)) {
     return "台海";
   }
@@ -324,10 +328,6 @@ function inferCategoryFromSignals(value: string, fallback: string) {
   }
 
   if (/俄羅斯|烏克蘭|基輔|空襲|襲擊|普丁|澤倫斯基|停火談判|russia|ukraine|kyiv/i.test(value)) {
-    return "國際";
-  }
-
-  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|中東/.test(value)) {
     return "國際";
   }
 
@@ -501,6 +501,14 @@ function inferTopicTitleFromSignals(value: string) {
     return "台灣強降雨與防災提醒";
   }
 
+  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
+    return "中東停火與美伊談判";
+  }
+
+  if (/伊朗|美軍基地|革命衛隊|中東|襲擊美軍|以色列/.test(value)) {
+    return "伊朗與美軍基地衝突";
+  }
+
   if (/普丁|澤倫斯基|俄羅斯|烏克蘭|俄烏|停火談判|和平談判/.test(value)) {
     return "俄烏戰爭與和平談判";
   }
@@ -579,14 +587,6 @@ function inferTopicTitleFromSignals(value: string) {
 
   if (/美防長|台灣|習近平|彭博|印太|國防|對台/.test(value)) {
     return "美中台海安全論述";
-  }
-
-  if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(value)) {
-    return "中東停火與美伊談判";
-  }
-
-  if (/伊朗|美軍基地|革命衛隊|中東|襲擊美軍|以色列/.test(value)) {
-    return "伊朗與美軍基地衝突";
   }
 
   if (/流星|火流星|nasa|tnt|麻州/.test(value)) {
@@ -723,6 +723,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
   }
 
   if (title === "美中台海安全論述") {
+    if (hasMiddleEastConflictSignal(sourceText)) return false;
     return /美國|美防長|台灣|台海|香格里拉|印太/.test(sourceText);
   }
 
