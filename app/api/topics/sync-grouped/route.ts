@@ -4,6 +4,7 @@ import { topicRules } from "@/data/topic-rules";
 import { groupArticlesToHomepageTopics } from "@/lib/topic-grouping";
 import { getHeroImageForCategory } from "@/lib/topic-home";
 import { discoverCandidateTopics } from "@/lib/topic-candidates";
+import type { CandidateTopic } from "@/lib/topic-candidates";
 import { generateTopicAiSummary } from "@/lib/topic-ai";
 import { dedupeArticlesByEvent } from "@/lib/article-dedupe";
 import { getEffectiveSourceCount } from "@/lib/source-scoring";
@@ -51,6 +52,19 @@ const SYNC_BALANCED_ARTICLE_LIMIT = 320;
 const SYNC_CANDIDATE_DISCOVERY_LIMIT = 640;
 const SYNC_CATEGORY_SEED_LIMIT = 8;
 const SYNC_OFFICIAL_SEED_LIMIT = 8;
+const CANDIDATE_DISCOVERY_CATEGORIES = [
+  "國際",
+  "台海",
+  "新聞",
+  "體育",
+  "生活",
+  "科技",
+  "3C",
+  "遊戲",
+  "AI",
+  "文化",
+  "娛樂",
+];
 
 function normalizeText(value: string) {
   return value.toLowerCase().trim();
@@ -133,6 +147,48 @@ function uniqueArticlesByLink(articles: NewsArticle[]) {
   });
 
   return [...articleByLink.values()];
+}
+
+function uniqueCandidateTopicsBySlug(candidates: CandidateTopic[]) {
+  const candidateBySlug = new Map<string, CandidateTopic>();
+
+  candidates.forEach((candidate) => {
+    const current = candidateBySlug.get(candidate.slug);
+    if (!current || candidate.qualityScore > current.qualityScore) {
+      candidateBySlug.set(candidate.slug, candidate);
+    }
+  });
+
+  return [...candidateBySlug.values()];
+}
+
+function discoverDiverseCandidateTopics(articles: NewsArticle[]) {
+  const globalCandidates = discoverCandidateTopics(articles, {
+    maxTopics: 32,
+    minArticles: 2,
+  });
+  const categoryCandidates = CANDIDATE_DISCOVERY_CATEGORIES.flatMap((category) =>
+    discoverCandidateTopics(
+      articles.filter((article) => article.category === category),
+      {
+        maxTopics: 6,
+        minArticles: 2,
+      }
+    )
+  );
+
+  return uniqueCandidateTopicsBySlug([
+    ...globalCandidates,
+    ...categoryCandidates,
+  ])
+    .filter((topic) => topic.publishable)
+    .sort((a, b) => {
+      if (a.qualityScore !== b.qualityScore) {
+        return b.qualityScore - a.qualityScore;
+      }
+
+      return b.heatScore - a.heatScore;
+    });
 }
 
 function selectBalancedArticlesForSync(
@@ -414,10 +470,7 @@ async function handleSyncGrouped(request: Request) {
       articles: candidateDiscoveryArticles,
       categorySampleCounts: candidateDiscoveryCategoryCounts,
     } = selectBalancedArticlesForSync(sourceArticles, SYNC_CANDIDATE_DISCOVERY_LIMIT);
-    const candidateTopics = discoverCandidateTopics(candidateDiscoveryArticles, {
-      maxTopics: 32,
-      minArticles: 2,
-    }).filter((topic) => topic.publishable);
+    const candidateTopics = discoverDiverseCandidateTopics(candidateDiscoveryArticles);
     const candidateTopicArticleLinks = new Set(
       candidateTopics.flatMap((topic) =>
         topic.articles.map((article) => article.link).filter(Boolean)
@@ -677,7 +730,12 @@ async function handleSyncGrouped(request: Request) {
       const candidateFamilyCount =
         candidateFamilyCounts.get(candidateFamily) ?? 0;
 
-      if (candidateCategoryCount >= 2 || candidateFamilyCount >= 1) {
+      const candidateCategoryLimit = candidateCategory === "財經" ? 1 : 2;
+
+      if (
+        candidateCategoryCount >= candidateCategoryLimit ||
+        candidateFamilyCount >= 1
+      ) {
         skippedCandidateTopicsForDiversity += 1;
         continue;
       }
