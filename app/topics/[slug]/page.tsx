@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import AiMindMap from "@/components/AiMindMap";
+import { isPlatformSourceName } from "@/lib/source-scoring";
 
 type TopicArticle = {
   id: string;
@@ -61,6 +62,7 @@ function getTopSources(articles: TopicArticle[]) {
 
   articles.forEach((article) => {
     const sourceName = article.sourceName || "未知來源";
+    if (isPlatformSourceName(sourceName)) return;
     sourceCounts.set(sourceName, (sourceCounts.get(sourceName) ?? 0) + 1);
   });
 
@@ -131,11 +133,66 @@ function getWhyItMatters(topic: TopicDetail, article: TopicArticle) {
 }
 
 function getTopicTopLine(topic: TopicDetail) {
-  if (topic.summary) return topic.summary;
+  if (
+    topic.summary &&
+    !/^已先依去重後事件整理|目前已暫時隱藏/.test(topic.summary)
+  ) {
+    return topic.summary;
+  }
   if (topic.bullets[0]) return topic.bullets[0];
   if (topic.articles[0]?.quickSummary) return topic.articles[0].quickSummary;
 
   return "這個主題正在整理中，系統會在下一次同步時補上完整快讀。";
+}
+
+function getTopicStatus(topic: TopicDetail) {
+  if (topic.articleCount === 0) {
+    return "目前系統已先擋下與主題不匹配的來源，這張卡暫時不展開細節，等待下一輪同步補上更可靠的報導。";
+  }
+
+  if (topic.articleCount === 1) {
+    return topic.sourceCount > 0
+      ? `目前只有 1 個去重後事件，已確認 ${topic.sourceCount} 個有效來源；先把它當成單一焦點追蹤，不過度放大。`
+      : "目前只有 1 個去重後事件，而且來源仍偏平台聚合；先看事件本身，等後續同步補更多原始媒體。";
+  }
+
+  if (topic.sourceCount === 0) {
+    return `目前已合併 ${topic.articleCount} 個去重後事件，但有效來源名稱仍不足；摘要會先以事件內容為主，不把平台聚合當成媒體聲量。`;
+  }
+
+  return `目前已合併 ${topic.articleCount} 個去重後事件、${topic.sourceCount} 個有效來源；相似轉載已盡量合併，避免同一件事重複出現。`;
+}
+
+function getSummaryConfidence(topic: TopicDetail) {
+  if (topic.articleCount === 0) {
+    return {
+      label: "待補來源",
+      tone: "bg-amber-50 text-amber-800",
+      text: "相關性不足，暫時不產生強結論。",
+    };
+  }
+
+  if (topic.sourceCount >= 3 && topic.articleCount >= 2) {
+    return {
+      label: "交叉確認",
+      tone: "bg-emerald-50 text-emerald-800",
+      text: "已有多個有效來源與事件支撐，可先作為今日焦點閱讀。",
+    };
+  }
+
+  if (topic.articleCount >= 1) {
+    return {
+      label: "單點追蹤",
+      tone: "bg-blue-50 text-blue-800",
+      text: "目前先整理成單一事件，後續需看是否有更多來源跟進。",
+    };
+  }
+
+  return {
+    label: "整理中",
+    tone: "bg-slate-100 text-slate-700",
+    text: "等待下一輪同步補強。",
+  };
 }
 
 function getTopicWhyItMatters(topic: TopicDetail) {
@@ -251,6 +308,8 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
   const topLine = getTopicTopLine(topic);
   const whyItMatters = getTopicWhyItMatters(topic);
   const whatToWatch = getWhatToWatch(topic);
+  const topicStatus = getTopicStatus(topic);
+  const confidence = getSummaryConfidence(topic);
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -317,46 +376,63 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
-                Briefing
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-sm font-semibold text-blue-700">
+                  主題快讀
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${confidence.tone}`}>
+                  {confidence.label}
+                </span>
               </div>
               <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                先看這三件事
+                先看這幾件事
               </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                {confidence.text}
+              </p>
 
               <div className="mt-5 grid gap-4">
                 <div className="rounded-2xl bg-slate-950 p-5 text-white">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">
-                    Top line
+                  <div className="text-xs font-semibold tracking-[0.16em] text-sky-300">
+                    發生什麼事
                   </div>
                   <p className="mt-2 text-lg font-semibold leading-8">
                     {topLine}
                   </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-                      Why it matters
+                    <div className="text-xs font-semibold tracking-[0.16em] text-blue-700">
+                      目前狀態
+                    </div>
+                    <p className="mt-2 leading-7 text-slate-700">
+                      {topicStatus}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                    <div className="text-xs font-semibold tracking-[0.16em] text-blue-700">
+                      為什麼重要
                     </div>
                     <p className="mt-2 leading-7 text-slate-700">
                       {whyItMatters}
                     </p>
                   </div>
+                </div>
 
-                  <div className="rounded-2xl border border-slate-100 bg-blue-50/60 p-5">
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-                      What to watch
-                    </div>
-                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-700">
-                      {whatToWatch.map((item) => (
-                        <li key={item} className="flex gap-2">
-                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-5">
+                  <div className="text-xs font-semibold tracking-[0.16em] text-blue-700">
+                    接下來看什麼
                   </div>
+                  <ul className="mt-3 grid gap-2 text-sm leading-6 text-slate-700 md:grid-cols-3">
+                    {whatToWatch.map((item) => (
+                      <li key={item} className="flex gap-2 rounded-xl bg-white/70 px-3 py-2">
+                        <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
 
@@ -384,9 +460,9 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-6">
-              <div className="text-sm font-semibold text-blue-700">重點整理</div>
+              <div className="text-sm font-semibold text-blue-700">關鍵脈絡</div>
               <h2 className="mt-1 text-2xl font-bold text-slate-950">
-                可以先看的幾個重點
+                摘要拆成可掃讀的重點
               </h2>
 
               {topic.bullets.length > 0 ? (
@@ -399,7 +475,12 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
                         {index + 1}
                       </div>
-                      <p className="leading-7 text-slate-700">{item}</p>
+                      <div>
+                        <div className="text-xs font-semibold text-slate-500">
+                          事件 {index + 1}
+                        </div>
+                        <p className="mt-1 leading-7 text-slate-700">{item}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -513,6 +594,16 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                     </div>
                   </a>
                 ))}
+                {topic.articles.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6">
+                    <div className="text-lg font-semibold text-slate-800">
+                      暫時沒有可放心展開的來源
+                    </div>
+                    <p className="mt-2 leading-7 text-slate-600">
+                      系統有偵測到這個主題，但目前抓到的文章與主題核心不夠匹配，所以先不把它們放進摘要。下一次同步如果出現更相關的原始報導，這裡會自動補上。
+                    </p>
+                  </div>
+                )}
               </div>
             </section>
           </div>

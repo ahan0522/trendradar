@@ -8,6 +8,8 @@ import type {
 
 type SourceSignal = {
   sourceName: string;
+  title?: string;
+  description?: string;
   sourcePool?: SourcePool;
   sourceKind?: SourceKind;
   sourceTier?: SourceTier;
@@ -19,6 +21,78 @@ type SourceSignal = {
 
 const DEFAULT_SOURCE_WEIGHT = 1;
 const DEFAULT_CREDIBILITY_WEIGHT = 1;
+
+const PLATFORM_SOURCE_PATTERN = /^(Google News|Yahoo新聞|Yahoo奇摩新聞|LINE TODAY|MSN)\b/i;
+
+const SOURCE_ALIASES: Array<{ canonical: string; patterns: RegExp[] }> = [
+  { canonical: "中央社", patterns: [/中央社/] },
+  { canonical: "聯合新聞網", patterns: [/聯合新聞網|UDN/i] },
+  { canonical: "自由時報", patterns: [/自由時報|自由健康網/] },
+  { canonical: "自由體育", patterns: [/自由體育/] },
+  { canonical: "中時新聞網", patterns: [/中時新聞網|中時/] },
+  { canonical: "工商時報", patterns: [/工商時報/] },
+  { canonical: "三立新聞網", patterns: [/三立新聞網|SETN/i] },
+  { canonical: "ETtoday新聞雲", patterns: [/ETtoday|ettoday/i] },
+  { canonical: "TVBS", patterns: [/TVBS/i] },
+  { canonical: "民視新聞網", patterns: [/民視/] },
+  { canonical: "東森新聞", patterns: [/東森/] },
+  { canonical: "公視新聞網", patterns: [/公視|PNN/i] },
+  { canonical: "鏡新聞", patterns: [/鏡新聞/] },
+  { canonical: "上報", patterns: [/上報/] },
+  { canonical: "風傳媒", patterns: [/風傳媒/] },
+  { canonical: "鉅亨網", patterns: [/鉅亨/] },
+  { canonical: "MoneyDJ", patterns: [/MoneyDJ/i] },
+  { canonical: "TechNews", patterns: [/TechNews|科技新報/i] },
+  { canonical: "The Verge", patterns: [/The Verge/i] },
+  { canonical: "Engadget", patterns: [/Engadget/i] },
+  { canonical: "TechCrunch", patterns: [/TechCrunch/i] },
+  { canonical: "外交部", patterns: [/外交部/] },
+  { canonical: "國防部", patterns: [/國防部/] },
+  { canonical: "中央氣象署", patterns: [/中央氣象署|氣象署/] },
+];
+
+function normalizeSourceText(value: string) {
+  return value.replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function matchKnownSourceName(value: string) {
+  const text = normalizeSourceText(value);
+  const matched = SOURCE_ALIASES.find((source) =>
+    source.patterns.some((pattern) => pattern.test(text))
+  );
+
+  return matched?.canonical ?? "";
+}
+
+function extractTrailingSourceName(title?: string) {
+  if (!title) return "";
+
+  const cleanedTitle = normalizeSourceText(title);
+  const trailingMatch = cleanedTitle.match(/\s[-–—|｜]\s([^|｜\-–—]{2,42})$/);
+  const trailingText = trailingMatch?.[1]?.trim() ?? "";
+
+  return trailingText ? matchKnownSourceName(trailingText) : "";
+}
+
+export function isPlatformSourceName(sourceName?: string) {
+  return PLATFORM_SOURCE_PATTERN.test(sourceName?.trim() ?? "");
+}
+
+export function inferOriginalSourceName(source: {
+  sourceName?: string;
+  title?: string;
+  description?: string;
+}) {
+  const trailingSource = extractTrailingSourceName(source.title);
+  if (trailingSource) return trailingSource;
+
+  const embeddedSource = matchKnownSourceName(
+    `${source.title ?? ""} ${source.description ?? ""}`
+  );
+  if (embeddedSource) return embeddedSource;
+
+  return "";
+}
 
 export function getSourceWeight(source: {
   sourceWeight?: number;
@@ -77,13 +151,20 @@ export function getWeightedSourceScore(articles: SourceSignal[]) {
 
 export function getCanonicalSourceName(source: {
   sourceName?: string;
+  title?: string;
+  description?: string;
   sourceKind?: SourceKind;
 }) {
   const sourceName = source.sourceName?.trim() || "unknown";
 
-  if (sourceName.startsWith("Google News")) {
+  if (isPlatformSourceName(sourceName) || source.sourceKind === "aggregator") {
+    const inferredSourceName = inferOriginalSourceName(source);
+    if (inferredSourceName) return inferredSourceName;
     return "Google News";
   }
+
+  const knownSourceName = matchKnownSourceName(sourceName);
+  if (knownSourceName) return knownSourceName;
 
   if (sourceName.startsWith("中央社")) {
     return "中央社";
@@ -92,8 +173,14 @@ export function getCanonicalSourceName(source: {
   return sourceName;
 }
 
-export function getEffectiveSourceCount(articles: Pick<SourceSignal, "sourceName" | "sourceKind">[]) {
-  return new Set(articles.map(getCanonicalSourceName)).size;
+export function getEffectiveSourceCount(
+  articles: Pick<SourceSignal, "sourceName" | "sourceKind" | "title" | "description">[]
+) {
+  return new Set(
+    articles
+      .map(getCanonicalSourceName)
+      .filter((sourceName) => !isPlatformSourceName(sourceName))
+  ).size;
 }
 
 export function getRawSourceCount(articles: Pick<SourceSignal, "sourceName">[]) {

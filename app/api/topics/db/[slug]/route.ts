@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cleanRssText } from "@/lib/rss";
-import { getCanonicalSourceName } from "@/lib/source-scoring";
+import { getCanonicalSourceName, isPlatformSourceName } from "@/lib/source-scoring";
 import { generateArticleQuickSummary } from "@/lib/topic-ai";
 import { createServiceRoleClient } from "../../../../../utils/supabase/server";
 
@@ -84,6 +84,7 @@ function mergeSourceNames(sourceNames: string[]) {
     sourceNames
       .filter(Boolean)
       .map((sourceName) => getCanonicalSourceName({ sourceName }))
+      .filter((sourceName) => !isPlatformSourceName(sourceName))
   )].join("、") || "未知來源";
 }
 
@@ -105,8 +106,8 @@ function getTextSimilarity(a: string, b: string) {
 
 function areLikelySameStory(a: ResponseArticle, b: ResponseArticle) {
   const sameCanonicalSource =
-    getCanonicalSourceName({ sourceName: a.sourceName }) ===
-    getCanonicalSourceName({ sourceName: b.sourceName });
+    getCanonicalSourceName(a) ===
+    getCanonicalSourceName(b);
   const summarySimilarity = getTextSimilarity(a.quickSummary, b.quickSummary);
   const titleSimilarity = getTextSimilarity(a.title, b.title);
 
@@ -169,8 +170,8 @@ function uniqueStrings(values: string[]) {
 function getCanonicalSourceNames(articles: ResponseArticle[]) {
   return uniqueStrings(
     articles
-      .map((article) => getCanonicalSourceName({ sourceName: article.sourceName }))
-      .filter((sourceName) => !/^(Google News|Yahoo新聞|Yahoo奇摩新聞)\b/i.test(sourceName))
+      .map((article) => getCanonicalSourceName(article))
+      .filter((sourceName) => !isPlatformSourceName(sourceName))
   );
 }
 
@@ -344,7 +345,7 @@ function buildEventLevelSummary(
 
   const eventText = articleSummaries.join("；");
 
-  return `${sourceText}。目前可先抓住 ${articles.length} 個去重後事件：${eventText}`;
+  return `${sourceText}，可先抓住 ${articles.length} 個去重後事件：${eventText}`;
 }
 
 export async function GET(
@@ -468,7 +469,11 @@ export async function GET(
         category: article.category ?? "",
         region: article.region ?? "",
         sourceId: article.source_id ?? "",
-        sourceName,
+        sourceName: getCanonicalSourceName({
+          sourceName,
+          title: article.title,
+          description,
+        }),
         link: article.link ?? "#",
         publishedAt: article.published_at,
         createdAt: article.created_at,
