@@ -293,6 +293,10 @@ function buildReadableBullets(
   topicBullets: string[] | null,
   articles: ResponseArticle[]
 ) {
+  if (articles.length === 0) {
+    return [];
+  }
+
   const articleSummaries: string[] = [];
 
   articles.forEach((article) => {
@@ -314,6 +318,11 @@ function buildEventLevelSummary(
   articles: ResponseArticle[]
 ) {
   const existingSummary = storedSummary ?? "";
+
+  if (articles.length === 0) {
+    return "目前已暫時隱藏與主題不匹配的來源，等待下一次同步補上更可靠的相關報導。";
+  }
+
   const sourceNames = getCanonicalSourceNames(articles).slice(0, 4);
   const articleSummaries = buildReadableBullets(null, articles).slice(0, 3);
 
@@ -483,7 +492,7 @@ export async function GET(
       category: topic.category ?? "",
       heroImageUrl: topic.hero_image_url ?? "",
       heatScore: topic.heat_score ?? 0,
-      sourceCount: effectiveSourceCount || topic.source_count || 0,
+      sourceCount: effectiveSourceCount,
       articleCount: dedupedArticles.length,
       updatedAt:
         topic.last_article_published_at ??
