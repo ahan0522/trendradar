@@ -170,7 +170,16 @@ function uniqueStrings(values: string[]) {
 function getCanonicalSourceNames(articles: ResponseArticle[]) {
   return uniqueStrings(
     articles
-      .map((article) => getCanonicalSourceName(article))
+      .flatMap((article) =>
+        article.sourceName
+          .split(/[、,，/]/)
+          .map((sourceName) =>
+            getCanonicalSourceName({
+              ...article,
+              sourceName: sourceName.trim(),
+            })
+          )
+      )
       .filter((sourceName) => !isPlatformSourceName(sourceName))
   );
 }
