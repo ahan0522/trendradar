@@ -397,15 +397,6 @@ function hasEnoughCandidateDepth(input: {
     return true;
   }
 
-  if (
-    input.representativeArticleCount >= 1 &&
-    input.effectiveSourceCount >= 3 &&
-    input.qualityScore >= 88 &&
-    !/財經|0050|etf|成分股/.test(text)
-  ) {
-    return true;
-  }
-
   return false;
 }
 
