@@ -167,6 +167,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "法網女雙賽事傳出台灣選手進展，焦點在梁恩碩組合晉級表現與後續賽程。";
   }
 
+  if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/i.test(value)) {
+    return "中職賽事受雨勢影響出現延賽與先發調整，焦點在賽程安排、投手調度與球隊排名競爭。";
+  }
+
   if (/強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象/i.test(value)) {
     return "台灣降雨型態轉趨不穩，焦點在強降雨時程、中南部豪雨風險與防災準備。";
   }
@@ -252,6 +256,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `法網女雙賽事出現台灣選手焦點，報導集中在梁恩碩組合晉級表現、台將紀錄與後續賽程安排${sourceText}。`;
   }
 
+  if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/i.test(text)) {
+    return `中職賽事受到雨勢影響，報導集中在比賽延賽、先發投手調整、台鋼與味全排名競爭，以及後續補賽安排${sourceText}。`;
+  }
+
   if (/強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象/i.test(text)) {
     return `台灣天氣轉趨不穩，報導聚焦強降雨時程、中南部豪雨風險、低壓帶與西南風變化，以及民眾防災準備${sourceText}。`;
   }
@@ -329,6 +337,10 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/0050|成分股|換股|換血/i.test(text)) {
     return ["成分股變動", "ETF 資金配置", "受影響產業", "後續觀察"];
+  }
+
+  if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/i.test(text)) {
+    return ["雨勢延賽", "先發調整", "補賽安排", "排名競爭"];
   }
 
   if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {

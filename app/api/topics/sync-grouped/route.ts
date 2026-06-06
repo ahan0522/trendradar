@@ -341,6 +341,7 @@ function getCandidateFamily(candidate: {
   if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/.test(text)) return "taiwan-incident";
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/.test(text)) return "russia-ukraine";
   if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
+  if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(text)) return "baseball";
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
   if (/電競|playstation|ps5|state of play|遊戲|gameplay/.test(text)) return "games";
   if (/豪雨|強降雨|暴雨|颱風|熱帶低壓|地震|淹水|防災|氣象|地方/.test(text)) return "life-safety";
@@ -365,6 +366,7 @@ function getCandidateCategory(candidate: {
   if (family === "election-politics") return "政治";
   if (family === "middle-east") return "國際";
   if (family === "trade-policy") return "國際";
+  if (family === "baseball") return "體育";
   if (family === "sports") return "體育";
   if (family === "games") return "遊戲";
   if (family === "etf-rebalance") return "財經";

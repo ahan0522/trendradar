@@ -303,6 +303,10 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
+    return "體育";
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判|伊朗|革命衛隊|德黑蘭|中東/.test(value)) {
     return "國際";
   }
@@ -497,6 +501,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "美國對台關稅與貿易談判";
   }
 
+  if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
+    return "中職雨勢延賽與先發調整";
+  }
+
   if (/強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(value)) {
     return "台灣強降雨與防災提醒";
   }
@@ -659,7 +667,15 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
   }
 
   if (title === "台灣強降雨與防災提醒") {
+    if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(sourceText)) {
+      return false;
+    }
+
     return /強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(sourceText);
+  }
+
+  if (title === "中職雨勢延賽與先發調整") {
+    return /中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(sourceText);
   }
 
   if (title === "南韓地方選舉與政局變化") {
