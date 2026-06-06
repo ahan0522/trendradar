@@ -48,12 +48,20 @@ function removeSourceSuffix(value: string) {
 function neutralizeNewsText(value: string) {
   return compactText(
     value
+      .replace(/&nbsp;/g, " ")
+      .replace(/<[^>]+>/g, " ")
       .replace(/眼紅了？?/g, "")
       .replace(/買爆/g, "大量採購")
       .replace(/狂飆/g, "上升")
+      .replace(/暴衝/g, "快速上升")
+      .replace(/炸鍋/g, "引發討論")
+      .replace(/嚇壞/g, "引發關注")
+      .replace(/超猛/g, "表現突出")
       .replace(/搶下/g, "取得")
       .replace(/爆玄機/g, "引發關注")
       .replace(/嗆/g, "批評")
+      .replace(/怒轟/g, "批評")
+      .replace(/慘了/g, "受到影響")
       .replace(/驚：/g, "表示：")
       .replace(/！+/g, "。")
       .replace(/？+/g, "。")
@@ -63,6 +71,8 @@ function neutralizeNewsText(value: string) {
 function removeMediaNoise(value: string) {
   return compactText(
     value
+      .replace(/<ol>|<\/ol>|<li>|<\/li>|<a\b[^>]*>|<\/a>/gi, " ")
+      .replace(/href="[^"]+"/gi, " ")
       .replace(/[（(]?\s*(中央社)?記者[^）)]{2,24}[）)]?/g, "")
       .replace(/[（(][^）)]{1,16}綜合外電報導[）)]/g, "")
       .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)\d*日電[）)]?/g, "")
@@ -70,9 +80,26 @@ function removeMediaNoise(value: string) {
       .replace(/^[^，。]{2,20}(台北|新北|桃園|高雄|台中|華盛頓|東京|北京|上海|首爾|紐約)[報導電]+/g, "")
       .replace(/\b(Yahoo|Google News|UDN|MSN|LINE TODAY|MoneyDJ)\b/gi, "")
       .replace(/\b(cnyes|Newtalk|PNN|Up Media)\b/gi, "")
-      .replace(/Yahoo新聞|Yahoo股市|工商時報|自由財經|自由時報|中時新聞網|三立新聞網|鉅亨網|聯合新聞網|鏡新聞|中央社|公視新聞網|上報/g, "")
+      .replace(/Yahoo新聞|Yahoo股市|工商時報|自由財經|自由時報|中時新聞網|三立新聞網|鉅亨網|聯合新聞網|鏡新聞|中央社|公視新聞網|上報|TVBS新聞網|壹蘋新聞網|民視新聞網|ETtoday新聞雲/g, "")
       .replace(/\s+/g, " ")
   );
+}
+
+function stripHeadlinePrefix(value: string) {
+  return compactText(
+    value
+      .replace(/^[【\[][^】\]]{1,18}[】\]]\s*/g, "")
+      .replace(/^快訊[／/｜|:：-]?\s*/g, "")
+      .replace(/^獨家[／/｜|:：-]?\s*/g, "")
+      .replace(/^影[／/｜|:：-]?\s*/g, "")
+      .replace(/^圖[／/｜|:：-]?\s*/g, "")
+      .replace(/^新聞[／/｜|:：-]?\s*/g, "")
+      .replace(/^[^:：]{1,10}[：:]\s*/g, "")
+  );
+}
+
+function normalizeSummaryText(value: string) {
+  return removeMediaNoise(neutralizeNewsText(stripHeadlinePrefix(removeSourceSuffix(value))));
 }
 
 function isMostlyDuplicateText(value: string, reference: string) {
@@ -392,9 +419,25 @@ function summarizeEnglishSource(title: string) {
   return "這篇英文來源補充了本主題的國際背景，系統目前先保留為延伸閱讀來源。";
 }
 
+function summarizeTitleAsEvent(title: string) {
+  const cleanedTitle = normalizeSummaryText(title);
+
+  if (!cleanedTitle) return "";
+  if (!hasCjkText(cleanedTitle)) return summarizeEnglishSource(cleanedTitle);
+
+  const eventText = cleanedTitle
+    .replace(/^\W+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (eventText.length < 10) return "";
+
+  return trimToSentence(`${eventText}。`, 96);
+}
+
 export function generateArticleQuickSummary(article: TopicAiInputArticle) {
-  const title = removeMediaNoise(neutralizeNewsText(removeSourceSuffix(article.title)));
-  const description = removeMediaNoise(compactText(article.description ?? ""));
+  const title = normalizeSummaryText(article.title);
+  const description = normalizeSummaryText(article.description ?? "");
   const inferredSummary = inferQuickSummaryFromSignals(`${title} ${description}`);
 
   if (inferredSummary) {
@@ -405,7 +448,7 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
     const withoutDuplicateTitle = description.startsWith(title)
       ? compactText(description.slice(title.length))
       : description;
-    const cleanedDescription = neutralizeNewsText(removeSourceSuffix(withoutDuplicateTitle));
+    const cleanedDescription = normalizeSummaryText(withoutDuplicateTitle);
 
     if (cleanedDescription && cleanedDescription.length > 16) {
       if (!hasCjkText(cleanedDescription)) {
@@ -416,8 +459,9 @@ export function generateArticleQuickSummary(article: TopicAiInputArticle) {
     }
   }
 
-  if (hasCjkText(title)) {
-    return trimToSentence(`這則來源補充了「${title}」的相關進展，適合用來回看事件細節與原始脈絡。`, 120);
+  const titleSummary = summarizeTitleAsEvent(title);
+  if (titleSummary) {
+    return titleSummary;
   }
 
   return summarizeEnglishSource(title);
@@ -444,7 +488,7 @@ export async function generateTopicAiSummary(
   const inferredSummary = inferTopicSummaryFromSignals(input, sourceNames);
   const summary =
     inferredSummary ||
-    `近期與「${input.topicTitle}」相關的熱門新聞共有 ${input.articles.length} 篇，主要來自 ${sourceNames.join("、")} 等媒體，焦點集中在最新發展、事件結果與延伸影響。`;
+    `目前「${input.topicTitle}」相關報導已整合 ${input.articles.length} 則來源，系統先以去重後事件整理重點；後續同步會依新增來源更新脈絡。`;
 
   const articleSummaries = uniqueStrings(
     input.articles

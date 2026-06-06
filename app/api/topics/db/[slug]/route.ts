@@ -177,10 +177,29 @@ function getCanonicalSourceNames(articles: ResponseArticle[]) {
 function isGenericTopicSummary(summary: string) {
   return (
     !summary ||
-    /熱門新聞共有|焦點集中在最新發展|事件結果與延伸影響|目前尚未產生摘要/.test(
+    /熱門新聞共有|焦點集中在最新發展|事件結果與延伸影響|目前尚未產生摘要|系統先以去重後事件整理重點/.test(
       summary
     )
   );
+}
+
+function isWeakTopicSummary(summary: string) {
+  return (
+    isGenericTopicSummary(summary) ||
+    summary.length < 44 ||
+    /這是目前|焦點之一|重點包括|來源文章追蹤細節/.test(summary)
+  );
+}
+
+function stripSummaryNoise(value: string) {
+  return value
+    .replace(/&nbsp;/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/Google News|Yahoo新聞|Yahoo奇摩新聞|UDN|聯合新聞網/g, " ")
+    .replace(/！+/g, "。")
+    .replace(/？+/g, "。")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function shouldSkipSimilarSummary(summary: string, acceptedSummaries: string[]) {
@@ -196,7 +215,7 @@ function buildReadableBullets(
   const articleSummaries: string[] = [];
 
   articles.forEach((article) => {
-    const summary = article.quickSummary;
+    const summary = stripSummaryNoise(article.quickSummary);
     if (summary.length < 12) return;
     if (shouldSkipSimilarSummary(summary, articleSummaries)) return;
     articleSummaries.push(summary);
@@ -214,23 +233,24 @@ function buildEventLevelSummary(
   articles: ResponseArticle[]
 ) {
   const existingSummary = storedSummary ?? "";
-
-  if (!isGenericTopicSummary(existingSummary)) {
-    return existingSummary;
-  }
-
   const sourceNames = getCanonicalSourceNames(articles).slice(0, 4);
-  const articleSummaries = buildReadableBullets(null, articles).slice(0, 2);
+  const articleSummaries = buildReadableBullets(null, articles).slice(0, 3);
 
   if (articleSummaries.length === 0) {
     return existingSummary;
   }
 
-  const sourceText = sourceNames.length
-    ? `主要來源包括 ${sourceNames.join("、")}`
-    : "目前已有多個來源追蹤";
+  if (!isWeakTopicSummary(existingSummary) && articleSummaries.length < 2) {
+    return existingSummary;
+  }
 
-  return `這個主題目前可整理為 ${articles.length} 個去重後事件，${sourceText}。重點是：${articleSummaries.join("；")}`;
+  const sourceText = sourceNames.length
+    ? `主要由 ${sourceNames.join("、")} 等來源交叉報導`
+    : "已有多個來源交叉報導";
+
+  const eventText = articleSummaries.join("；");
+
+  return `${sourceText}。目前可先抓住 ${articles.length} 個去重後事件：${eventText}`;
 }
 
 export async function GET(

@@ -116,11 +116,14 @@ export async function generateTopicAiSummaryWithOpenAi(
       "使用繁體中文。",
       "不要複製新聞標題。",
       "不要使用聳動語氣。",
+      "不要使用股市標題常見的博眼球字眼，例如買爆、狂飆、眼紅、慘了、炸鍋。",
       "不要自行補不存在的事實。",
-      "summary 用 2-3 句說明主題目前發生什麼事。",
-      "bullets 應該是不重複、可直接給使用者看的重點。",
+      "summary 用 2-3 句回答：誰做了什麼、目前結果是什麼、為什麼值得注意。",
+      "bullets 應該是不重複、可直接給使用者看的事件重點，不要只是改寫標題。",
       "subtopics 和 tags 要短，像主題脈絡標籤。",
       "若來源是人物背景、市場反應或待確認資訊，要在重點文字中保留這個區分。",
+      "若多篇文章其實是同一事件或同一通訊社來源，只整理一次，並在文字中用『多家轉載』或『同一來源延伸』概括。",
+      "除非主題本身就是重大財經政策，避免把投信、外資買賣超、EPS、合併營收、股價漲跌寫成主要重點。",
     ],
   };
 
@@ -133,7 +136,7 @@ export async function generateTopicAiSummaryWithOpenAi(
     body: JSON.stringify({
       model,
       instructions:
-        "你是 TrendRadar 的新聞整理助手，負責把多篇來源文章整理成快速理解的主題摘要。",
+        "你是 TrendRadar 的新聞整理助手，像冷靜的新聞編輯一樣，把多篇來源文章整理成快速理解的主題摘要。你的目標是降低使用者閱讀成本，而不是吸引點擊。",
       input: JSON.stringify(prompt),
       text: {
         format: {
