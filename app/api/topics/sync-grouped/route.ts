@@ -48,6 +48,7 @@ type SyncedTopic = {
 
 const SYNC_SOURCE_POOL_LIMIT = 2000;
 const SYNC_BALANCED_ARTICLE_LIMIT = 320;
+const SYNC_CANDIDATE_DISCOVERY_LIMIT = 640;
 const SYNC_CATEGORY_SEED_LIMIT = 8;
 const SYNC_OFFICIAL_SEED_LIMIT = 8;
 
@@ -121,6 +122,17 @@ function getCountSnapshot(map: Map<string, number>) {
   return Object.fromEntries(
     [...map.entries()].sort((a, b) => b[1] - a[1])
   );
+}
+
+function uniqueArticlesByLink(articles: NewsArticle[]) {
+  const articleByLink = new Map<string, NewsArticle>();
+
+  articles.forEach((article) => {
+    if (!article.link || articleByLink.has(article.link)) return;
+    articleByLink.set(article.link, article);
+  });
+
+  return [...articleByLink.values()];
 }
 
 function selectBalancedArticlesForSync(
@@ -398,9 +410,28 @@ async function handleSyncGrouped(request: Request) {
       sourcePoolSampleCounts,
       sourceSampleCounts,
     } = selectBalancedArticlesForSync(sourceArticles);
+    const {
+      articles: candidateDiscoveryArticles,
+      categorySampleCounts: candidateDiscoveryCategoryCounts,
+    } = selectBalancedArticlesForSync(sourceArticles, SYNC_CANDIDATE_DISCOVERY_LIMIT);
+    const candidateTopics = discoverCandidateTopics(candidateDiscoveryArticles, {
+      maxTopics: 32,
+      minArticles: 2,
+    }).filter((topic) => topic.publishable);
+    const candidateTopicArticleLinks = new Set(
+      candidateTopics.flatMap((topic) =>
+        topic.articles.map((article) => article.link).filter(Boolean)
+      )
+    );
+    const articlesToPersist = uniqueArticlesByLink([
+      ...articles,
+      ...candidateDiscoveryArticles.filter((article) =>
+        article.link ? candidateTopicArticleLinks.has(article.link) : false
+      ),
+    ]);
 
     // 1. 先寫入 articles，直接拿回 DB 真正的 id
-    const articleRows = articles.map((article) => ({
+    const articleRows = articlesToPersist.map((article) => ({
       title: article.title,
       link: article.link ?? "",
       source_id: null,
@@ -433,10 +464,6 @@ async function handleSyncGrouped(request: Request) {
 
     // 2. 再做主題分群
     const groupedTopics = groupArticlesToHomepageTopics(articles);
-    const candidateTopics = discoverCandidateTopics(articles, {
-      maxTopics: 24,
-      minArticles: 2,
-    }).filter((topic) => topic.publishable);
 
     const syncedTopics: SyncedTopic[] = [];
     let linkedArticleCount = 0;
@@ -657,7 +684,9 @@ async function handleSyncGrouped(request: Request) {
 
       const matchedArticles = candidate.articles
         .map((candidateArticle) =>
-          articles.find((article) => article.link === candidateArticle.link)
+          candidateDiscoveryArticles.find(
+            (article) => article.link === candidateArticle.link
+          )
         )
         .filter((article): article is NewsArticle => Boolean(article));
 
@@ -828,7 +857,10 @@ async function handleSyncGrouped(request: Request) {
       durationMs: Date.now() - startedAt,
       sourcePoolArticleCount: sourceArticles.length,
       articleCount: articles.length,
+      candidateDiscoveryArticleCount: candidateDiscoveryArticles.length,
+      persistedArticleInputCount: articlesToPersist.length,
       categorySampleCounts,
+      candidateDiscoveryCategoryCounts,
       sourcePoolSampleCounts,
       sourceSampleCounts,
       persistedArticleCount: persistedArticles?.length ?? 0,
