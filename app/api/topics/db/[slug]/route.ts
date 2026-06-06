@@ -235,14 +235,18 @@ function filterRelevantArticles(topic: DbTopicRow, articles: ResponseArticle[]) 
   if (relevanceTokens.length === 0) return articles;
 
   const filtered = articles.filter((article) => {
-    const text = normalizeComparableText(
-      `${article.title} ${article.description} ${article.quickSummary} ${article.category} ${article.region}`
+    const titleText = normalizeComparableText(article.title);
+    const bodyText = normalizeComparableText(
+      `${article.description} ${article.quickSummary} ${article.category} ${article.region}`
     );
-    const matchedCoreCount = coreTitleTokens.filter((token) => text.includes(token)).length;
+    const text = `${titleText} ${bodyText}`;
+    const titleCoreCount = coreTitleTokens.filter((token) => titleText.includes(token)).length;
+    const bodyCoreCount = coreTitleTokens.filter((token) => bodyText.includes(token)).length;
     const matchedCount = relevanceTokens.filter((token) => text.includes(token)).length;
+    const isShortOrGenericTitle = titleText.length < 14 || /重大預告|最新消息|快訊|一次看/.test(article.title);
 
     if (coreTitleTokens.length > 0) {
-      return matchedCoreCount >= 1;
+      return titleCoreCount >= 1 || (isShortOrGenericTitle && bodyCoreCount >= 1);
     }
 
     return matchedCount >= 1;
