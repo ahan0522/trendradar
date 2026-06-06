@@ -168,10 +168,60 @@ function uniqueStrings(values: string[]) {
 
 function getCanonicalSourceNames(articles: ResponseArticle[]) {
   return uniqueStrings(
-    articles.map((article) =>
-      getCanonicalSourceName({ sourceName: article.sourceName })
-    )
+    articles
+      .map((article) => getCanonicalSourceName({ sourceName: article.sourceName }))
+      .filter((sourceName) => !/^(Google News|Yahoo新聞|Yahoo奇摩新聞)$/i.test(sourceName))
   );
+}
+
+function getTopicRelevanceTokens(topic: DbTopicRow) {
+  const rawText = [
+    topic.title,
+    topic.long_title ?? "",
+    topic.category ?? "",
+    ...(topic.subtopics ?? []),
+    ...(topic.tags ?? []),
+    ...(topic.keywords ?? []),
+  ].join(" ");
+  const normalized = normalizeComparableText(rawText);
+  const tokens = new Set(
+    normalized
+      .split(" ")
+      .filter((token) => token.length >= 2 && !/^(新聞|焦點|今日|熱門|國際|體育|政治|生活|科技|財經)$/.test(token))
+  );
+
+  rawText.match(/[\u4e00-\u9fff]{2,}/g)?.forEach((chunk) => {
+    if (chunk.length === 2) {
+      tokens.add(chunk);
+      return;
+    }
+
+    for (let index = 0; index < chunk.length - 1; index += 1) {
+      const bigram = chunk.slice(index, index + 2);
+      if (!/^(新聞|焦點|今日|熱門|國際|體育|政治|生活|科技|財經)$/.test(bigram)) {
+        tokens.add(bigram);
+      }
+    }
+  });
+
+  return [...tokens];
+}
+
+function filterRelevantArticles(topic: DbTopicRow, articles: ResponseArticle[]) {
+  const relevanceTokens = getTopicRelevanceTokens(topic);
+
+  if (relevanceTokens.length === 0) return articles;
+
+  const filtered = articles.filter((article) => {
+    const text = normalizeComparableText(
+      `${article.title} ${article.description} ${article.quickSummary} ${article.category} ${article.region}`
+    );
+    const matchedCount = relevanceTokens.filter((token) => text.includes(token)).length;
+
+    return matchedCount >= 1;
+  });
+
+  return filtered.length > 0 ? filtered : articles;
 }
 
 function isGenericTopicSummary(summary: string) {
@@ -382,11 +432,10 @@ export async function GET(
       };
     });
 
-    const dedupedArticles = dedupeSimilarArticles(responseArticles);
-    const effectiveSourceCount = Math.max(
-      getCanonicalSourceNames(responseArticles).length,
-      topic.source_count ?? 0
-    );
+    const relevantArticles = filterRelevantArticles(topic, responseArticles);
+    const dedupedArticles = dedupeSimilarArticles(relevantArticles);
+    const relevantSourceCount = getCanonicalSourceNames(relevantArticles).length;
+    const effectiveSourceCount = relevantSourceCount || topic.source_count || 0;
 
     const responseBullets = buildReadableBullets(topic.bullets, dedupedArticles);
     const responseSummary = buildEventLevelSummary(
