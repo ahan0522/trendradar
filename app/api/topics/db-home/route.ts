@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getHeroImageForCategory } from "@/lib/topic-home";
 import { createServiceRoleClient } from "../../../../utils/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ type HomeTopic = {
 
 function getTopicFamily(topic: HomeTopic) {
   const text = `${topic.title} ${topic.slug} ${topic.category}`.toLowerCase();
+
+  if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判|russia|ukraine/.test(text)) {
+    return "russia-ukraine";
+  }
 
   if (/伊朗|美軍|美伊|中東|以色列|黎巴嫩|真主黨|停火|iran|israel/.test(text)) {
     return "middle-east";
@@ -50,6 +55,28 @@ function getTopicFamily(topic: HomeTopic) {
   }
 
   return topic.category || "general";
+}
+
+function getReliableCategory(topic: Pick<HomeTopic, "title" | "slug" | "category">) {
+  const text = `${topic.title} ${topic.slug} ${topic.category}`.toLowerCase();
+
+  if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判|russia|ukraine/.test(text)) {
+    return "國際";
+  }
+
+  if (/伊朗|美軍|美伊|中東|以色列|黎巴嫩|真主黨|iran|israel/.test(text)) {
+    return "國際";
+  }
+
+  if (/台海|東海|中國海警|兩岸|國防|軍演|taiwan-security/.test(text)) {
+    return "台海";
+  }
+
+  if (/法網|網球|女雙|大滿貫|tennis|nba|籃球|棒球|中職/.test(text)) {
+    return "體育";
+  }
+
+  return topic.category || "新聞";
 }
 
 function isBroadFallbackTopic(topic: HomeTopic) {
@@ -173,21 +200,33 @@ export async function GET(request: NextRequest) {
     }
 
     const topics = selectDiverseHomeTopics((data ?? [])
-      .map((topic) => ({
-        id: topic.id,
-        slug: topic.slug,
-        title: topic.title,
-        category: topic.category ?? "",
-        heroImageUrl: topic.hero_image_url ?? "",
-        heatScore: topic.heat_score ?? 0,
-        sourceCount: topic.source_count ?? 0,
-        articleCount: topic.article_count ?? 0,
-        updatedAt:
-          topic.last_article_published_at ??
-          topic.last_synced_at ??
-          new Date().toISOString(),
-        discoveryMode: topic.discovery_mode ?? "rule_based",
-      }))
+      .map((topic) => {
+        const category = getReliableCategory({
+          title: topic.title,
+          slug: topic.slug,
+          category: topic.category ?? "",
+        });
+        const originalCategory = topic.category ?? "";
+
+        return {
+          id: topic.id,
+          slug: topic.slug,
+          title: topic.title,
+          category,
+          heroImageUrl:
+            originalCategory === category && topic.hero_image_url
+              ? topic.hero_image_url
+              : getHeroImageForCategory(category),
+          heatScore: topic.heat_score ?? 0,
+          sourceCount: topic.source_count ?? 0,
+          articleCount: topic.article_count ?? 0,
+          updatedAt:
+            topic.last_article_published_at ??
+            topic.last_synced_at ??
+            new Date().toISOString(),
+          discoveryMode: topic.discovery_mode ?? "rule_based",
+        };
+      })
       .sort((a, b) => {
         if (a.discoveryMode !== b.discoveryMode) {
           return a.discoveryMode === "candidate_cluster" ? -1 : 1;
