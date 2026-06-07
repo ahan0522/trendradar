@@ -565,6 +565,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "南韓地方選舉與政局變化";
   }
 
+  if (/赴日旅遊|日本旅遊|男大生|失蹤|遺體|與母吵架/.test(value)) {
+    return "日本旅遊失蹤事件";
+  }
+
   if (/法網|梁恩碩|女雙|大滿貫|謝淑薇/.test(value)) {
     return "法網台將女雙賽事";
   }
@@ -743,6 +747,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "南韓政局與新內閣人事") {
     return /南韓|韓國|李在明|韓成淑|女總理|內閣|總理|就職周年/.test(sourceText);
+  }
+
+  if (title === "日本旅遊失蹤事件") {
+    return /赴日旅遊|日本旅遊|男大生|失蹤|遺體|與母吵架/.test(sourceText);
   }
 
   if (title === "雷雨與航班起降影響") {

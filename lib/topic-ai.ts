@@ -143,6 +143,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "NBA 討論聚焦林書豪回紐約觀戰與馬刺奪冠預測，重點在球迷記憶、球隊戰力判斷與後續賽季期待。";
   }
 
+  if (/赴日旅遊|日本旅遊|男大生|失蹤|遺體|與母吵架/.test(value)) {
+    return "日本旅遊失蹤事件受到關注，重點在失蹤經過、遺體尋獲與跨國旅遊安全提醒。";
+  }
+
   if (/黃敏珊|madison huang|黃仁勳女兒|女兒|廚藝學校|教育理念|追尋所愛/i.test(value)) {
     return "這則來源聚焦黃仁勳家人的職涯選擇與教育觀，補充人物背景與外界對其家庭教育理念的討論。";
   }
@@ -319,6 +323,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `NBA 討論聚焦林書豪回紐約觀戰與馬刺奪冠預測，報導集中在球迷記憶、球隊戰力判斷與後續賽季期待${sourceText}。`;
   }
 
+  if (/赴日旅遊|日本旅遊|男大生|失蹤|遺體|與母吵架/.test(text)) {
+    return `日本旅遊失蹤事件受到關注，報導集中在失蹤經過、遺體尋獲、家屬說法與跨國旅遊安全提醒${sourceText}。`;
+  }
+
   if (/法網|梁恩碩|女雙|大滿貫|謝淑薇/i.test(text)) {
     return `法網女雙賽事出現台灣選手焦點，報導集中在梁恩碩組合晉級表現、台將紀錄與後續賽程安排${sourceText}。`;
   }
@@ -424,6 +432,10 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/nba|林來瘋|林書豪|馬刺|紐約觀戰|總冠軍|籃球/i.test(text)) {
     return ["球迷記憶", "馬刺戰力", "賽季預測", "NBA 討論"];
+  }
+
+  if (/赴日旅遊|日本旅遊|男大生|失蹤|遺體|與母吵架/.test(text)) {
+    return ["失蹤經過", "遺體尋獲", "家屬說法", "旅遊安全"];
   }
 
   if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {
