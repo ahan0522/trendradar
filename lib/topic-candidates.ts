@@ -311,6 +311,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "旅遊";
   }
 
+  if (/火星|隕石坑|宜居|古環境|太空|天文|行星|nasa|space|mars/i.test(value)) {
+    return "科技";
+  }
+
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
     return "體育";
   }
