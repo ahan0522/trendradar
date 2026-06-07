@@ -363,6 +363,22 @@ function getCandidateCategory(candidate: {
   category: string;
   keywords?: string[];
 }) {
+  const text = `${candidate.title} ${candidate.slug} ${candidate.category} ${
+    candidate.keywords?.join(" ") ?? ""
+  }`.toLowerCase();
+
+  if (/伊波拉|cdc|who|疫情|確診|疫苗|冠狀病毒|廣效疫苗|公衛/.test(text)) {
+    return "生活";
+  }
+
+  if (/雷雨|豪雨|強降雨|暴雨|颱風|熱帶低壓|淹水|防災|氣象|航班|機場|地面作業/.test(text)) {
+    return "生活";
+  }
+
+  if (/南韓|韓國|尹錫悅|李在明|韓成淑|女總理|內閣|總理提名|選舉/.test(text)) {
+    return "政治";
+  }
+
   const family = getCandidateFamily(candidate);
 
   if (family === "ai-chips") return "科技";
