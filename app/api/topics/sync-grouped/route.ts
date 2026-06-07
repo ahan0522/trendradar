@@ -342,12 +342,16 @@ function getCandidateFamily(candidate: {
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/.test(text)) return "russia-ukraine";
   if (/火星|隕石坑|宜居|古環境|太空|天文|行星|nasa|space|mars/.test(text)) return "space-science";
   if (/伊波拉|cdc|who|疫情|確診|疫苗|冠狀病毒|廣效疫苗|公衛/.test(text)) return "public-health";
-  if (/選舉|南韓|尹錫悅|李在明|無票可投/.test(text)) return "election-politics";
+  if (/選舉|南韓|韓國|尹錫悅|李在明|韓成淑|女總理|內閣|總理提名|無票可投/.test(text)) {
+    return "election-politics";
+  }
   if (/mlb|大谷翔平|山本由伸|道奇|塞揚|misiorowski|火球/.test(text)) return "mlb";
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(text)) return "baseball";
   if (/nba|mlb|中職|棒球|籃球|法網|網球/.test(text)) return "sports";
   if (/電競|playstation|ps5|state of play|遊戲|gameplay/.test(text)) return "games";
-  if (/豪雨|強降雨|暴雨|颱風|熱帶低壓|地震|淹水|防災|氣象|地方/.test(text)) return "life-safety";
+  if (/豪雨|強降雨|暴雨|雷雨|颱風|熱帶低壓|地震|淹水|防災|氣象|航班|機場|地面作業|地方/.test(text)) {
+    return "life-safety";
+  }
   if (/故宮|文化|影展|金曲|金馬|展覽|博物館|文學|藝術|劇場/.test(text)) return "culture";
 
   return candidate.category || "general";

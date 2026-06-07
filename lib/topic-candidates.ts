@@ -319,6 +319,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "生活";
   }
 
+  if (/南韓|韓國|李在明|韓成淑|女總理|內閣|總理提名|就職周年|地方選舉|尹錫悅/.test(value)) {
+    return "政治";
+  }
+
   if (/mlb|大谷翔平|山本由伸|道奇|塞揚|misiorowski|火球/i.test(value)) {
     return "體育";
   }
@@ -545,7 +549,11 @@ function inferTopicTitleFromSignals(value: string) {
     return "俄烏戰爭與和平談判";
   }
 
-  if (/南韓地方選舉|韓國地方選舉|尹錫悅|李在明|執政黨/.test(value)) {
+  if (/南韓|韓國|李在明|韓成淑|女總理|內閣|總理提名|就職周年/.test(value)) {
+    if (/內閣|總理|韓成淑|就職周年/.test(value)) {
+      return "南韓政局與新內閣人事";
+    }
+
     return "南韓地方選舉與政局變化";
   }
 
@@ -617,7 +625,14 @@ function inferTopicTitleFromSignals(value: string) {
     return "東海與台海周邊執法爭議";
   }
 
-  if (/美防長|台灣|習近平|彭博|印太|國防|對台/.test(value)) {
+  if (/雷雨|松山機場|航班|地面作業|航班起降|機場暫停/.test(value)) {
+    return "雷雨與航班起降影響";
+  }
+
+  if (
+    /台灣|台海|對台|印太/.test(value) &&
+    /美防長|習近平|彭博|印太|國防|軍演|台海|對台|安全|戰略/.test(value)
+  ) {
     return "美中台海安全論述";
   }
 
@@ -708,6 +723,14 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "南韓地方選舉與政局變化") {
     return /南韓地方選舉|韓國地方選舉|尹錫悅|李在明|執政黨/.test(sourceText);
+  }
+
+  if (title === "南韓政局與新內閣人事") {
+    return /南韓|韓國|李在明|韓成淑|女總理|內閣|總理|就職周年/.test(sourceText);
+  }
+
+  if (title === "雷雨與航班起降影響") {
+    return /雷雨|松山機場|航班|地面作業|航班起降|機場暫停/.test(sourceText);
   }
 
   if (title === "法網台將女雙賽事") {
