@@ -127,6 +127,22 @@ function isMostlyDuplicateText(value: string, reference: string) {
 }
 
 function inferQuickSummaryFromSignals(value: string) {
+  if (/伊波拉|中非|疫情|確診|疫苗|cdc|who|廣效疫苗|公衛/i.test(value)) {
+    return "中非伊波拉疫情與疫苗研發受到關注，重點在感染是否擴大、國際公衛單位如何示警，以及新疫苗能否降低後續風險。";
+  }
+
+  if (/南韓|韓國|投票|選舉|示威|李在明|尹錫悅|韓成淑|女總理|內閣|總理|制度|票/.test(value)) {
+    return "南韓選舉與政局變化引發討論，焦點在投票制度、政黨力量變化，以及新政府人事與後續施政走向。";
+  }
+
+  if (/red bull|bc one|b-boy|b-girl|breaking|霹靂舞|許馥雅|舞者|台灣大賽/i.test(value)) {
+    return "台灣霹靂舞賽事出現新焦點，重點在 BC One 台灣大賽結果、選手表現，以及街舞賽事能否延續討論熱度。";
+  }
+
+  if (/nba|林來瘋|林書豪|馬刺|紐約觀戰|總冠軍|籃球/i.test(value)) {
+    return "NBA 討論聚焦林書豪回紐約觀戰與馬刺奪冠預測，重點在球迷記憶、球隊戰力判斷與後續賽季期待。";
+  }
+
   if (/黃敏珊|madison huang|黃仁勳女兒|女兒|廚藝學校|教育理念|追尋所愛/i.test(value)) {
     return "這則來源聚焦黃仁勳家人的職涯選擇與教育觀，補充人物背景與外界對其家庭教育理念的討論。";
   }
@@ -174,7 +190,7 @@ function inferQuickSummaryFromSignals(value: string) {
     return "黃仁勳相關消息帶動台股與 AI 供應鏈討論，市場焦點集中在概念股、供應鏈名單與資金熱度。";
   }
 
-  if (/韓版|韓國|夥伴之夜|韓方|投資韓國/.test(value)) {
+  if (/(黃仁勳|輝達|nvidia).*(韓版|韓國|夥伴之夜|韓方|投資韓國)|(韓版|韓國|夥伴之夜|韓方|投資韓國).*(黃仁勳|輝達|nvidia)/i.test(value)) {
     return "黃仁勳韓國行程引發關注，報導聚焦 NVIDIA 與韓國科技供應鏈、投資合作和產業關係。";
   }
 
@@ -287,6 +303,22 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `南韓地方選舉牽動政局變化，報導焦點在執政黨選情、在野陣營動員，以及選後對政府施政與國會互動的影響${sourceText}。`;
   }
 
+  if (/南韓|韓國|投票|選舉|示威|李在明|尹錫悅|韓成淑|女總理|內閣|總理/i.test(text)) {
+    return `南韓政治與選舉消息成為今日焦點，報導集中在投票制度、政黨力量變化、新政府人事與後續政策走向${sourceText}。`;
+  }
+
+  if (/伊波拉|中非|疫情|確診|疫苗|cdc|who|廣效疫苗|公衛/i.test(text)) {
+    return `公衛疫情與疫苗研發受到關注，報導集中在中非伊波拉疫情是否擴大、國際公衛單位示警，以及疫苗研發能否降低後續風險${sourceText}。`;
+  }
+
+  if (/red bull|bc one|b-boy|b-girl|breaking|霹靂舞|許馥雅|舞者|台灣大賽/i.test(text)) {
+    return `台灣霹靂舞賽事成為體育與街舞圈焦點，報導集中在 BC One 台灣大賽結果、選手表現與後續國際賽事機會${sourceText}。`;
+  }
+
+  if (/nba|林來瘋|林書豪|馬刺|紐約觀戰|總冠軍|籃球/i.test(text)) {
+    return `NBA 討論聚焦林書豪回紐約觀戰與馬刺奪冠預測，報導集中在球迷記憶、球隊戰力判斷與後續賽季期待${sourceText}。`;
+  }
+
   if (/法網|梁恩碩|女雙|大滿貫|謝淑薇/i.test(text)) {
     return `法網女雙賽事出現台灣選手焦點，報導集中在梁恩碩組合晉級表現、台將紀錄與後續賽程安排${sourceText}。`;
   }
@@ -376,6 +408,22 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/i.test(text)) {
     return ["雨勢延賽", "先發調整", "補賽安排", "排名競爭"];
+  }
+
+  if (/伊波拉|中非|疫情|確診|疫苗|cdc|who|公衛/i.test(text)) {
+    return ["疫情擴散", "國際示警", "疫苗研發", "防疫觀察"];
+  }
+
+  if (/南韓|韓國|投票|選舉|李在明|尹錫悅|韓成淑|內閣|總理/i.test(text)) {
+    return ["選舉制度", "政黨變化", "新政府人事", "政策走向"];
+  }
+
+  if (/red bull|bc one|b-boy|b-girl|breaking|霹靂舞|許馥雅|台灣大賽/i.test(text)) {
+    return ["台灣大賽", "選手表現", "街舞賽事", "國際舞台"];
+  }
+
+  if (/nba|林來瘋|林書豪|馬刺|紐約觀戰|總冠軍|籃球/i.test(text)) {
+    return ["球迷記憶", "馬刺戰力", "賽季預測", "NBA 討論"];
   }
 
   if (/trump|executive order|ai models?|review|released|white house/i.test(text)) {
