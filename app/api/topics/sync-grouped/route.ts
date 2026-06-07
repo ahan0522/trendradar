@@ -56,11 +56,13 @@ const CANDIDATE_DISCOVERY_CATEGORIES = [
   "國際",
   "台海",
   "新聞",
+  "政治",
   "體育",
   "生活",
   "科技",
   "3C",
   "遊戲",
+  "旅遊",
   "AI",
   "文化",
   "娛樂",
@@ -475,6 +477,7 @@ async function handleSyncGrouped(request: Request) {
       category: "全部",
       q: "",
       limit: SYNC_SOURCE_POOL_LIMIT,
+      refresh: true,
     });
 
     const sourceArticles: NewsArticle[] = newsItems
