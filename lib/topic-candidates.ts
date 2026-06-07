@@ -315,6 +315,14 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "科技";
   }
 
+  if (/伊波拉|cdc|who|疫情|確診|疫苗|冠狀病毒|廣效疫苗|公衛/i.test(value)) {
+    return "生活";
+  }
+
+  if (/mlb|大谷翔平|山本由伸|道奇|塞揚|misiorowski|火球/i.test(value)) {
+    return "體育";
+  }
+
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
     return "體育";
   }
@@ -501,19 +509,27 @@ function makeCandidateTitle(articles: NewsArticle[], keywords: string[]) {
 function inferTopicTitleFromSignals(value: string) {
   const text = value.toLowerCase();
 
-  if (/0050|成分股|換股|換血/.test(value)) {
-    return "0050 成分股調整";
-  }
-
   if (/關稅|301調查|美擬對台徵|貿易談判|重建關稅壁壘/.test(value)) {
     return "美國對台關稅與貿易談判";
+  }
+
+  if (/大雷雨|國家警報|暴雨|梅雨|東琉線|豪雨|強降雨/.test(value)) {
+    return "台灣強降雨與防災提醒";
+  }
+
+  if (/伊波拉|cdc|who|疫情|確診|疫苗|冠狀病毒|廣效疫苗|公衛/i.test(value)) {
+    return "公衛疫情與疫苗研發";
+  }
+
+  if (/mlb|大谷翔平|山本由伸|道奇|塞揚|misiorowski|火球/i.test(value)) {
+    return "MLB 大谷翔平與投手戰況";
   }
 
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
     return "中職雨勢延賽與先發調整";
   }
 
-  if (/強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(value)) {
+  if (/西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(value)) {
     return "台灣強降雨與防災提醒";
   }
 
@@ -666,10 +682,6 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
     return /ai|高盛|mlcc|零件|記憶體|伺服器/i.test(sourceText);
   }
 
-  if (title === "0050 成分股調整") {
-    return /0050|成分股|換股|換血/.test(sourceText);
-  }
-
   if (title === "美國對台關稅與貿易談判") {
     return /關稅|301調查|美擬對台徵|貿易談判|重建關稅壁壘/.test(sourceText);
   }
@@ -679,7 +691,15 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
       return false;
     }
 
-    return /強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神/.test(sourceText);
+    return /強降雨|豪雨|西南風|熱帶低壓|降雨熱區|旱象|雨神|大雷雨|國家警報|暴雨|梅雨|東琉線/.test(sourceText);
+  }
+
+  if (title === "公衛疫情與疫苗研發") {
+    return /伊波拉|cdc|who|疫情|確診|疫苗|冠狀病毒|廣效疫苗|公衛/i.test(sourceText);
+  }
+
+  if (title === "MLB 大谷翔平與投手戰況") {
+    return /mlb|大谷翔平|山本由伸|道奇|塞揚|misiorowski|火球/i.test(sourceText);
   }
 
   if (title === "中職雨勢延賽與先發調整") {
@@ -774,7 +794,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /0050|etf|伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|電競|遊戲|財報|營收|併購|ai|輝達|黃仁勳|高盛|mlcc|openai|spacex|nba|iphone/.test(
+  return /伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|大雷雨|國家警報|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|電競|遊戲|伊波拉|疫情|疫苗|公衛|ai|輝達|黃仁勳|openai|spacex|mlb|nba|iphone/.test(
     text
   );
 }
@@ -813,8 +833,7 @@ function isLowValueTopic(title: string, keywords: string[]) {
   }
 
   if (
-    /股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|營收\d|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停|買這\d+檔|現在就買|買進|個股|股票|概念股|報價|調漲價格|華新科|mlcc|道瓊|sox|adr|美股盤後|美股收盤|台股輪動|股市|獲利了結|財報/i.test(text) &&
-    !/0050|etf|成分股|換股|換血/i.test(text)
+    /0050|etf|成分股|換股|換血|股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|營收\d|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停|買這\d+檔|現在就買|買進|個股|股票|概念股|報價|調漲價格|華新科|mlcc|道瓊|sox|adr|美股盤後|美股收盤|台股輪動|股市|獲利了結|財報/i.test(text)
   ) {
     return true;
   }
