@@ -50,6 +50,7 @@ type SyncedTopic = {
 const SYNC_SOURCE_POOL_LIMIT = 2000;
 const SYNC_BALANCED_ARTICLE_LIMIT = 320;
 const SYNC_CANDIDATE_DISCOVERY_LIMIT = 640;
+const SYNC_CANDIDATE_DISCOVERY_MERGED_LIMIT = 900;
 const SYNC_CATEGORY_SEED_LIMIT = 8;
 const SYNC_OFFICIAL_SEED_LIMIT = 8;
 const CANDIDATE_DISCOVERY_CATEGORIES = [
@@ -504,9 +505,13 @@ async function handleSyncGrouped(request: Request) {
       sourceSampleCounts,
     } = selectBalancedArticlesForSync(sourceArticles);
     const {
-      articles: candidateDiscoveryArticles,
+      articles: balancedCandidateDiscoveryArticles,
       categorySampleCounts: candidateDiscoveryCategoryCounts,
     } = selectBalancedArticlesForSync(sourceArticles, SYNC_CANDIDATE_DISCOVERY_LIMIT);
+    const candidateDiscoveryArticles = uniqueArticlesByLink([
+      ...sourceArticles.slice(0, SYNC_CANDIDATE_DISCOVERY_LIMIT),
+      ...balancedCandidateDiscoveryArticles,
+    ]).slice(0, SYNC_CANDIDATE_DISCOVERY_MERGED_LIMIT);
     const candidateTopics = discoverDiverseCandidateTopics(candidateDiscoveryArticles);
     const candidateTopicArticleLinks = new Set(
       candidateTopics.flatMap((topic) =>
