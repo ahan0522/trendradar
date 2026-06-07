@@ -529,6 +529,14 @@ function inferTopicTitleFromSignals(value: string) {
     return "MLB 大谷翔平與投手戰況";
   }
 
+  if (/nba|林來瘋|馬刺|紐約觀戰|總冠軍|籃球/i.test(value)) {
+    return "NBA 林書豪與馬刺奪冠討論";
+  }
+
+  if (/red bull|bc one|b-boy|b-girl|breaking|霹靂舞|許馥雅|台灣大賽/i.test(value)) {
+    return "台灣霹靂舞與 BC One 賽事";
+  }
+
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
     return "中職雨勢延賽與先發調整";
   }
@@ -715,6 +723,14 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "MLB 大谷翔平與投手戰況") {
     return /mlb|大谷翔平|山本由伸|道奇|塞揚|misiorowski|火球/i.test(sourceText);
+  }
+
+  if (title === "NBA 林書豪與馬刺奪冠討論") {
+    return /nba|林來瘋|林書豪|馬刺|紐約觀戰|總冠軍|籃球/i.test(sourceText);
+  }
+
+  if (title === "台灣霹靂舞與 BC One 賽事") {
+    return /red bull|bc one|b-boy|b-girl|breaking|霹靂舞|許馥雅|台灣大賽/i.test(sourceText);
   }
 
   if (title === "中職雨勢延賽與先發調整") {
