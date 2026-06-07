@@ -247,7 +247,7 @@ function filterRelevantArticles(topic: DbTopicRow, articles: ResponseArticle[]) 
   const filtered = articles.filter((article) => {
     const titleText = normalizeComparableText(article.title);
     const bodyText = normalizeComparableText(
-      `${article.description} ${article.quickSummary} ${article.category} ${article.region}`
+      `${article.description} ${article.category} ${article.region}`
     );
     const text = `${titleText} ${bodyText}`;
     const titleCoreCount = coreTitleTokens.filter((token) => titleText.includes(token)).length;
