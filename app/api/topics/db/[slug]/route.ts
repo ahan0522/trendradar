@@ -256,7 +256,12 @@ function filterRelevantArticles(topic: DbTopicRow, articles: ResponseArticle[]) 
     const isShortOrGenericTitle = titleText.length < 14 || /重大預告|最新消息|快訊|一次看/.test(article.title);
 
     if (coreTitleTokens.length > 0) {
-      return titleCoreCount >= 1 || (isShortOrGenericTitle && bodyCoreCount >= 1);
+      const bodyCoreThreshold = Math.min(2, coreTitleTokens.length);
+      return (
+        titleCoreCount >= 1 ||
+        bodyCoreCount >= bodyCoreThreshold ||
+        (isShortOrGenericTitle && bodyCoreCount >= 1)
+      );
     }
 
     return matchedCount >= 1;
