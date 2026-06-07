@@ -356,6 +356,12 @@ function buildEventLevelSummary(
     return existingSummary;
   }
 
+  if (articleSummaries.length === 1) {
+    const sourceLabel =
+      sourceNames.length > 0 ? `，目前保留來源為 ${sourceNames.join("、")}` : "";
+    return `目前只保留 1 個與主題高度相關的去重後事件${sourceLabel}。重點是：${articleSummaries[0]}`;
+  }
+
   if (!isWeakTopicSummary(existingSummary) && articleSummaries.length < 2) {
     return existingSummary;
   }
