@@ -385,6 +385,7 @@ function getCandidateCategory(candidate: {
 function hasEnoughCandidateDepth(input: {
   category: string;
   title: string;
+  candidateArticleCount: number;
   representativeArticleCount: number;
   effectiveSourceCount: number;
   qualityScore: number;
@@ -400,6 +401,16 @@ function hasEnoughCandidateDepth(input: {
   }
 
   if (input.representativeArticleCount >= 2 && input.effectiveSourceCount >= 2) {
+    return true;
+  }
+
+  const hasStrongBackedEvent =
+    input.candidateArticleCount >= 2 &&
+    input.effectiveSourceCount >= 3 &&
+    input.qualityScore >= 90 &&
+    !/財經/.test(input.category);
+
+  if (input.representativeArticleCount >= 1 && hasStrongBackedEvent) {
     return true;
   }
 
@@ -720,6 +731,16 @@ async function handleSyncGrouped(request: Request) {
     const candidateFamilyCounts = new Map<string, number>();
     let skippedCandidateTopicsForDiversity = 0;
     let skippedCandidateTopicsTooThin = 0;
+    const skippedCandidateTopicSamples: Array<{
+      title: string;
+      reason: string;
+      category: string;
+      family: string;
+      candidateArticleCount: number;
+      representativeArticleCount?: number;
+      sourceCount: number;
+      qualityScore: number;
+    }> = [];
 
     for (const candidate of candidateTopics) {
       if (syncedRuleTitles.has(normalizeText(candidate.title))) {
@@ -740,6 +761,17 @@ async function handleSyncGrouped(request: Request) {
         candidateFamilyCount >= 1
       ) {
         skippedCandidateTopicsForDiversity += 1;
+        if (skippedCandidateTopicSamples.length < 8) {
+          skippedCandidateTopicSamples.push({
+            title: candidate.title,
+            reason: "diversity_limit",
+            category: candidateCategory,
+            family: candidateFamily,
+            candidateArticleCount: candidate.articleCount,
+            sourceCount: candidate.sourceCount,
+            qualityScore: candidate.qualityScore,
+          });
+        }
         continue;
       }
 
@@ -779,12 +811,25 @@ async function handleSyncGrouped(request: Request) {
         !hasEnoughCandidateDepth({
           category: candidateCategory,
           title: candidate.title,
+          candidateArticleCount: candidate.articleCount,
           representativeArticleCount: representativeArticles.length,
           effectiveSourceCount,
           qualityScore: candidate.qualityScore,
         })
       ) {
         skippedCandidateTopicsTooThin += 1;
+        if (skippedCandidateTopicSamples.length < 8) {
+          skippedCandidateTopicSamples.push({
+            title: candidate.title,
+            reason: "too_thin_after_event_dedupe",
+            category: candidateCategory,
+            family: candidateFamily,
+            candidateArticleCount: candidate.articleCount,
+            representativeArticleCount: representativeArticles.length,
+            sourceCount: effectiveSourceCount,
+            qualityScore: candidate.qualityScore,
+          });
+        }
         continue;
       }
 
@@ -934,6 +979,7 @@ async function handleSyncGrouped(request: Request) {
       skippedCandidateTopicsCoveredByRules,
       skippedCandidateTopicsForDiversity,
       skippedCandidateTopicsTooThin,
+      skippedCandidateTopicSamples,
       topics: syncedTopics,
     };
 
