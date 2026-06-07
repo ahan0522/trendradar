@@ -303,6 +303,14 @@ function getDominantCategory(articles: NewsArticle[]) {
 }
 
 function inferCategoryFromSignals(value: string, fallback: string) {
+  if (/俄羅斯|烏克蘭|基輔|空襲|襲擊|普丁|澤倫斯基|俄烏|停火談判|russia|ukraine|kyiv/i.test(value)) {
+    return "國際";
+  }
+
+  if (/函館|觀光客|旅遊|觀光|限日令|入境旅客|旅客人次/.test(value)) {
+    return "旅遊";
+  }
+
   if (/中職|棒球|台鋼|味全|王維中|先發|延賽|澄清湖|龍鷹戰/.test(value)) {
     return "體育";
   }
@@ -329,10 +337,6 @@ function inferCategoryFromSignals(value: string, fallback: string) {
 
   if (/playstation|ps5|state of play|god of war|atlantis|trailer|gameplay|nintendo|xbox|steam|遊戲/i.test(value)) {
     return "遊戲";
-  }
-
-  if (/俄羅斯|烏克蘭|基輔|空襲|襲擊|普丁|澤倫斯基|停火談判|russia|ukraine|kyiv/i.test(value)) {
-    return "國際";
   }
 
   if (/股價|投信|外資|買超|賣超|三大法人|合併營收|月營收|eps|每股盈餘|殖利率|本益比|除息|除權|法說|目標價|漲停|跌停|買這\d+檔|買進|個股|股票|概念股|報價|調漲價格|華新科|mlcc/.test(value.toLowerCase())) {
