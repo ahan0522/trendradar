@@ -51,6 +51,11 @@ function neutralizeNewsText(value: string) {
       .replace(/&nbsp;/g, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/眼紅了？?/g, "")
+      .replace(/震撼|驚人|驚爆|驚傳|嚇人/g, "引發關注")
+      .replace(/狂！?|太狂了？?/g, "")
+      .replace(/懶人包|一次看|一文看懂/g, "重點整理")
+      .replace(/網喊|網友炸鍋|網全看傻/g, "引發網路討論")
+      .replace(/掀熱議|引爆熱議/g, "引發討論")
       .replace(/買爆/g, "大量採購")
       .replace(/狂飆/g, "上升")
       .replace(/暴衝/g, "快速上升")
@@ -94,6 +99,9 @@ function stripHeadlinePrefix(value: string) {
       .replace(/^影[／/｜|:：-]?\s*/g, "")
       .replace(/^圖[／/｜|:：-]?\s*/g, "")
       .replace(/^新聞[／/｜|:：-]?\s*/g, "")
+      .replace(/^重磅[／/｜|:：-]?\s*/g, "")
+      .replace(/^獨／\s*/g, "")
+      .replace(/^直擊[／/｜|:：-]?\s*/g, "")
       .replace(/^[^:：]{1,10}[：:]\s*/g, "")
   );
 }

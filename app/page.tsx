@@ -15,6 +15,24 @@ type HomepageTopicCard = {
   updatedAt: string;
 };
 
+type HomeQualityStatus = {
+  level: "healthy" | "limited" | "empty";
+  label: string;
+  description: string;
+};
+
+type HomeTopicResponse = {
+  topics?: HomepageTopicCard[];
+  targetCount?: number;
+  activeTopicCount?: number;
+  newestUpdatedAt?: string;
+  qualityStatus?: HomeQualityStatus;
+  categorySummary?: Array<{
+    category: string;
+    count: number;
+  }>;
+};
+
 function formatRelativeTime(dateString: string) {
   const date = new Date(dateString);
   const now = new Date();
@@ -34,15 +52,23 @@ function formatRelativeTime(dateString: string) {
 
 export default function HomePage() {
   const [topics, setTopics] = useState<HomepageTopicCard[]>([]);
+  const [metadata, setMetadata] = useState<HomeTopicResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/topics/db-home")
       .then((res) => res.json())
-      .then((data) => setTopics(data.topics ?? []))
+      .then((data: HomeTopicResponse) => {
+        setTopics(data.topics ?? []);
+        setMetadata(data);
+      })
       .catch((err) => console.error("Failed to load topics:", err))
       .finally(() => setLoading(false));
   }, []);
+
+  const qualityStatus = metadata?.qualityStatus;
+  const targetCount = metadata?.targetCount ?? 6;
+  const categorySummary = metadata?.categorySummary ?? [];
 
   return (
     <main className="min-h-screen bg-white px-5 py-5 md:px-8 md:py-6">
@@ -73,11 +99,47 @@ export default function HomePage() {
             </Link>
             {!loading && (
               <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-500">
-                顯示 {topics.length} 個主題，最多 6 個
+                顯示 {topics.length} 個主題，目標 {targetCount} 個
               </div>
             )}
           </div>
         </div>
+
+        {!loading && (
+          <section className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm">
+                    {qualityStatus?.label ?? "整理狀態"}
+                  </span>
+                  {metadata?.newestUpdatedAt && (
+                    <span className="text-xs font-medium text-slate-500">
+                      最新整理 {formatRelativeTime(metadata.newestUpdatedAt)}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {qualityStatus?.description ??
+                    "系統正在整理今天的熱門新聞焦點。"}
+                </p>
+              </div>
+
+              {categorySummary.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {categorySummary.map((item) => (
+                    <span
+                      key={item.category}
+                      className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm"
+                    >
+                      {item.category} {item.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {loading ? (
           <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">

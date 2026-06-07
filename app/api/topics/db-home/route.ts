@@ -160,6 +160,43 @@ function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
   return selected.slice(0, targetCount);
 }
 
+function summarizeCategories(topics: HomeTopic[]) {
+  const counts = new Map<string, number>();
+
+  topics.forEach((topic) => {
+    const category = topic.category || "未分類";
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([category, count]) => ({ category, count }));
+}
+
+function getHomeQualityStatus(topics: HomeTopic[], targetCount: number) {
+  if (topics.length === 0) {
+    return {
+      level: "empty",
+      label: "整理中",
+      description: "目前沒有通過品質門檻的大主題，系統會在下一輪同步後重新整理。",
+    };
+  }
+
+  if (topics.length < Math.min(4, targetCount)) {
+    return {
+      level: "limited",
+      label: "精選不足",
+      description: "系統只顯示來源與去重後事件都夠穩的主題，因此目前數量較少。",
+    };
+  }
+
+  return {
+    level: "healthy",
+    label: "品質穩定",
+    description: "目前主題已通過來源、去重與分類多元檢查。",
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const requestedLimit = Number(request.nextUrl.searchParams.get("limit") ?? 6);
@@ -199,7 +236,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const topics = selectDiverseHomeTopics((data ?? [])
+    const activeTopics = (data ?? [])
       .map((topic) => {
         const category = getReliableCategory({
           title: topic.title,
@@ -239,14 +276,26 @@ export async function GET(request: NextRequest) {
         }
 
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      }), topicLimit);
+      });
+    const topics = selectDiverseHomeTopics(activeTopics, topicLimit);
+    const generatedAt = new Date().toISOString();
+    const newestUpdatedAt =
+      topics
+        .map((topic) => topic.updatedAt)
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ??
+      generatedAt;
 
     return NextResponse.json(
       {
         ok: true,
-        selectionMode: "diverse-category-family-v2",
-        generatedAt: new Date().toISOString(),
+        selectionMode: "diverse-category-family-v3",
+        generatedAt,
         count: topics.length,
+        targetCount: topicLimit,
+        activeTopicCount: activeTopics.length,
+        newestUpdatedAt,
+        qualityStatus: getHomeQualityStatus(topics, topicLimit),
+        categorySummary: summarizeCategories(topics),
         topics,
       },
       {
