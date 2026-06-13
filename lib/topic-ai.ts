@@ -151,6 +151,10 @@ function inferQuickSummaryFromSignals(value: string) {
     return "這則來源聚焦黃仁勳家人的職涯選擇與教育觀，補充人物背景與外界對其家庭教育理念的討論。";
   }
 
+  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(value) && /反殺|衝擊|競爭|晶圓廠|製程|合作/i.test(value)) {
+    return "市場討論英特爾若與特斯拉晶圓廠合作，是否會影響台積電與先進製程競爭；目前仍多屬產業分析與情境推估。";
+  }
+
   if (/英特爾|陳立武|台積電|張忠謀|魏哲家|合作關係|信賴的合作/i.test(value)) {
     return "英特爾表示將維持與台積電的合作關係，報導焦點在雙方供應鏈互動與先進製程合作是否延續。";
   }
@@ -363,6 +367,10 @@ function inferTopicSummaryFromSignals(input: TopicAiInput, sourceNames: string[]
     return `具身 AI 機器人平台成為 Computex 期間的產業焦點，報導聚焦人型機器人量產瓶頸、邊緣 AI 運算、硬體整合與實際應用落地${sourceText}。`;
   }
 
+  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(text) && /反殺|衝擊|競爭|晶圓廠|製程|合作/i.test(text)) {
+    return `英特爾、特斯拉與台積電競爭討論受到科技媒體關注，重點在晶圓廠合作想像、先進製程能力與台積電競爭位置是否會受影響${sourceText}。`;
+  }
+
   if (/黎巴嫩|以色列|真主黨|停火|美伊和談|美伊談判/.test(text)) {
     return `中東停火與美伊談判相關消息升溫，報導焦點集中在以色列、黎巴嫩、伊朗與美方斡旋之間的互動，以及局勢是否會進一步擴大${sourceText}。`;
   }
@@ -452,6 +460,10 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
 
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
     return ["人型機器人", "邊緣 AI", "硬體平台", "量產瓶頸"];
+  }
+
+  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(text)) {
+    return ["晶圓廠合作", "先進製程", "台積電競爭", "產業分析"];
   }
 
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/i.test(text)) {

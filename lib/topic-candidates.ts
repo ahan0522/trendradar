@@ -609,6 +609,10 @@ function inferTopicTitleFromSignals(value: string) {
     return "具身 AI 機器人平台發表";
   }
 
+  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(value) && /反殺|衝擊|競爭|晶圓廠|製程|合作/i.test(value)) {
+    return "英特爾、特斯拉與台積電競爭討論";
+  }
+
   if (/俄羅斯|烏克蘭|基輔|空襲|大規模襲擊|多人遇難|russia|ukraine|kyiv/i.test(value)) {
     return "俄烏戰爭新一輪空襲";
   }
@@ -803,6 +807,10 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 
   if (title === "具身 AI 機器人平台發表") {
     return /人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(sourceText);
+  }
+
+  if (title === "英特爾、特斯拉與台積電競爭討論") {
+    return /英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc|晶圓廠|製程/i.test(sourceText);
   }
 
   if (title === "俄烏戰爭新一輪空襲") {

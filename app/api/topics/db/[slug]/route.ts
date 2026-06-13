@@ -80,12 +80,17 @@ function getArticleSimilarityKey(article: ResponseArticle) {
 }
 
 function mergeSourceNames(sourceNames: string[]) {
-  return [...new Set(
+  const canonicalSources = [...new Set(
     sourceNames
       .filter(Boolean)
       .map((sourceName) => getCanonicalSourceName({ sourceName }))
-      .filter((sourceName) => !isPlatformSourceName(sourceName))
-  )].join("、") || "未知來源";
+      .filter((sourceName) => sourceName && sourceName !== "unknown")
+  )];
+  const originalSources = canonicalSources.filter(
+    (sourceName) => !isPlatformSourceName(sourceName)
+  );
+
+  return (originalSources.length ? originalSources : canonicalSources).join("、") || "Google News";
 }
 
 function tokenizeComparableText(value: string) {
@@ -168,7 +173,7 @@ function uniqueStrings(values: string[]) {
 }
 
 function getCanonicalSourceNames(articles: ResponseArticle[]) {
-  return uniqueStrings(
+  const canonicalSources = uniqueStrings(
     articles
       .flatMap((article) =>
         article.sourceName
@@ -180,8 +185,13 @@ function getCanonicalSourceNames(articles: ResponseArticle[]) {
             })
           )
       )
-      .filter((sourceName) => !isPlatformSourceName(sourceName))
+      .filter((sourceName) => sourceName && sourceName !== "unknown")
   );
+  const originalSources = canonicalSources.filter(
+    (sourceName) => !isPlatformSourceName(sourceName)
+  );
+
+  return originalSources.length ? originalSources : canonicalSources;
 }
 
 function getTopicRelevanceTokens(topic: DbTopicRow) {
