@@ -461,6 +461,16 @@ function hasEnoughCandidateDepth(input: {
     return true;
   }
 
+  const hasHighConfidenceDigestEvent =
+    input.candidateArticleCount >= 1 &&
+    input.effectiveSourceCount >= 3 &&
+    input.qualityScore >= 93 &&
+    !/財經|科技/.test(input.category);
+
+  if (input.representativeArticleCount >= 1 && hasHighConfidenceDigestEvent) {
+    return true;
+  }
+
   return false;
 }
 
