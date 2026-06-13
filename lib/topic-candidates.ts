@@ -157,6 +157,10 @@ const SIGNAL_KEYWORDS = [
   "澤倫斯基",
   "俄烏",
   "電競",
+  "英特爾",
+  "特斯拉",
+  "Terafab",
+  "TSMC",
 ];
 
 const EMBEDDED_MEDIA_NAMES = [
@@ -425,9 +429,35 @@ function getTopKeywords(articles: NewsArticle[], limit: number) {
 
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .filter(([token]) => !SIGNAL_KEYWORDS.some((keyword) => keyword !== token && keyword.includes(token)))
+    .filter(([token, count]) => isUsefulKeyword(token, count))
     .slice(0, limit)
     .map(([token]) => token);
+}
+
+function isUsefulKeyword(token: string, count: number) {
+  const normalized = token.toLowerCase();
+
+  if (SIGNAL_KEYWORDS.some((keyword) => keyword.toLowerCase() === normalized)) {
+    return true;
+  }
+
+  if (SIGNAL_KEYWORDS.some((keyword) => keyword !== token && keyword.includes(token))) {
+    return false;
+  }
+
+  if (/曝|驚傳|反殺|中槍|死更快|行事作風|剛開打|挨轟|惹眾怒|網|遭斷|能靠|到時/.test(token)) {
+    return false;
+  }
+
+  if (/[\u4e00-\u9fff]/.test(token) && token.length > 4 && count < 3) {
+    return false;
+  }
+
+  if (/^(斯拉|作風|時死|更快|聯能|靠特|馬斯|陸行|網友|新聞)$/.test(token)) {
+    return false;
+  }
+
+  return true;
 }
 
 function getClusterText(articles: NewsArticle[]) {
