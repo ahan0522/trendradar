@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { ExternalLink, Newspaper, RefreshCw, Search } from "lucide-react";
-import { categories } from "@/data/mock-topics";
 import type { NewsItem } from "@/types/news";
 
 function formatDate(value: string | null) {
@@ -17,10 +16,13 @@ function formatDate(value: string | null) {
 
 export function NewsDashboard() {
   const [items, setItems] = useState<NewsItem[]>([]);
-  const [category, setCategory] = useState<(typeof categories)[number]>("全部");
+  const [category, setCategory] = useState("全部");
+  const [availableCategories, setAvailableCategories] = useState<string[]>(["全部"]);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [lastCount, setLastCount] = useState(0);
 
   const endpoint = useMemo(() => {
     const params = new URLSearchParams({ category, limit: "80" });
@@ -36,10 +38,26 @@ export function NewsDashboard() {
       const response = await fetch(url);
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "新聞載入失敗");
-      setItems(data.items ?? []);
+      const nextItems = data.items ?? [];
+      setItems(nextItems);
+      setGeneratedAt(data.generatedAt ?? new Date().toISOString());
+      setLastCount(data.count ?? nextItems.length);
+
+      if (category === "全部" && nextItems.length > 0) {
+        const nextCategories: string[] = Array.from(
+          new Set<string>(
+            nextItems
+              .map((item: NewsItem) => item.category)
+              .filter((value: string | null | undefined): value is string => Boolean(value))
+          )
+        );
+
+        setAvailableCategories(["全部", ...nextCategories]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "新聞載入失敗");
       setItems([]);
+      setLastCount(0);
     } finally {
       setLoading(false);
     }
@@ -62,6 +80,29 @@ export function NewsDashboard() {
           </p>
         </header>
 
+        <section className="grid gap-3 md:grid-cols-4">
+          <StatusCard
+            label="目前顯示"
+            value={loading ? "讀取中" : `${items.length} 篇`}
+            caption={category === "全部" ? "全部分類" : `分類：${category}`}
+          />
+          <StatusCard
+            label="API 回傳"
+            value={`${lastCount} 篇`}
+            caption={query.trim() ? `搜尋：${query.trim()}` : "未套用搜尋"}
+          />
+          <StatusCard
+            label="最後抓取"
+            value={formatDate(generatedAt)}
+            caption={loading ? "正在更新資料" : "RSS / 新聞來源"}
+          />
+          <StatusCard
+            label="分類數"
+            value={`${Math.max(0, availableCategories.length - 1)} 類`}
+            caption="只顯示目前抓到資料的分類"
+          />
+        </section>
+
         <section className="rounded-3xl bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <div className="relative flex-1">
@@ -83,7 +124,7 @@ export function NewsDashboard() {
           </div>
 
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-            {categories.map((item) => (
+            {availableCategories.map((item) => (
               <button
                 key={item}
                 onClick={() => setCategory(item)}
@@ -103,7 +144,14 @@ export function NewsDashboard() {
           {loading && items.length === 0 && <div className="rounded-3xl bg-white p-8 text-center text-slate-500 shadow-sm">正在讀取 RSS 新聞...</div>}
 
           {!loading && items.length === 0 && !error && (
-            <div className="rounded-3xl bg-white p-8 text-center text-slate-500 shadow-sm">目前沒有符合條件的新聞。</div>
+            <div className="rounded-3xl bg-white p-8 text-center shadow-sm">
+              <div className="text-lg font-semibold text-slate-800">
+                目前沒有符合條件的新聞
+              </div>
+              <p className="mt-2 text-sm leading-6 text-slate-500">
+                這通常是分類或搜尋條件太窄，不代表 RSS 沒有資料。可以切回「全部」、清空搜尋，或按「重新抓取」確認最新來源。
+              </p>
+            </div>
           )}
 
           {items.map((item) => (
@@ -127,6 +175,26 @@ export function NewsDashboard() {
             </article>
           ))}
         </section>
+      </div>
+    </div>
+  );
+}
+
+function StatusCard({
+  label,
+  value,
+  caption,
+}: {
+  label: string;
+  value: string;
+  caption: string;
+}) {
+  return (
+    <div className="rounded-3xl bg-white p-4 shadow-sm">
+      <div className="text-sm text-slate-500">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-slate-950">{value}</div>
+      <div className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">
+        {caption}
       </div>
     </div>
   );
