@@ -432,6 +432,15 @@ function hasEnoughCandidateDepth(input: {
     return true;
   }
 
+  if (
+    /社會/.test(input.category) &&
+    input.candidateArticleCount >= 2 &&
+    input.effectiveSourceCount >= 2 &&
+    input.qualityScore >= 90
+  ) {
+    return true;
+  }
+
   const hasStrongBackedEvent =
     input.candidateArticleCount >= 2 &&
     input.effectiveSourceCount >= 3 &&
@@ -439,6 +448,16 @@ function hasEnoughCandidateDepth(input: {
     !/財經/.test(input.category);
 
   if (input.representativeArticleCount >= 1 && hasStrongBackedEvent) {
+    return true;
+  }
+
+  const hasBackedDigestEvent =
+    input.candidateArticleCount >= 1 &&
+    input.effectiveSourceCount >= 4 &&
+    input.qualityScore >= 90 &&
+    !/財經/.test(input.category);
+
+  if (input.representativeArticleCount >= 1 && hasBackedDigestEvent) {
     return true;
   }
 
