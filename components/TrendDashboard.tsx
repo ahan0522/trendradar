@@ -34,6 +34,7 @@ const categoryIcon: Record<TrendCategory, React.ComponentType<{ className?: stri
   國際: Globe2,
   台海: ShieldAlert,
   新聞: Newspaper,
+  社會: Bell,
   政治: MessageCircle,
   生活: HeartPulse,
   體育: Trophy,

@@ -57,6 +57,7 @@ const CANDIDATE_DISCOVERY_CATEGORIES = [
   "國際",
   "台海",
   "新聞",
+  "社會",
   "政治",
   "體育",
   "生活",
@@ -342,6 +343,9 @@ function getCandidateFamily(candidate: {
   if (/openai|anthropic|模型|ai模型|人工智慧|ai熱潮|ai發展/.test(text)) return "ai-policy-market";
   if (/台海|美中台海|東海|中國海警|兩岸|國防|軍演|美防長|印太|對台/.test(text)) return "taiwan-security";
   if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/.test(text)) return "taiwan-incident";
+  if (/槍擊|槍手|開槍|槍殺|死傷|命危|車禍|自撞|撞擊|受困|送醫|搶救|刑案|詐騙|詐欺|殺人|縱火|爆炸|火災|公共安全/.test(text)) {
+    return "social-incident";
+  }
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/.test(text)) return "russia-ukraine";
   if (/火星|隕石坑|宜居|古環境|太空|天文|行星|nasa|space|mars/.test(text)) return "space-science";
   if (/伊波拉|cdc|who|疫情|確診|疫苗|冠狀病毒|廣效疫苗|公衛/.test(text)) return "public-health";
@@ -387,7 +391,8 @@ function getCandidateCategory(candidate: {
   if (family === "ai-chips") return "科技";
   if (family === "ai-policy-market") return "AI";
   if (family === "taiwan-security") return "台海";
-  if (family === "taiwan-incident") return "新聞";
+  if (family === "taiwan-incident") return "社會";
+  if (family === "social-incident") return "社會";
   if (family === "russia-ukraine") return "國際";
   if (family === "space-science") return "科技";
   if (family === "public-health") return "生活";

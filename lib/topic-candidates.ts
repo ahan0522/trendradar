@@ -319,6 +319,10 @@ function inferCategoryFromSignals(value: string, fallback: string) {
     return "生活";
   }
 
+  if (/槍擊|槍手|開槍|槍殺|死傷|命危|車禍|自撞|撞擊|受困|送醫|搶救|墜落|墜毀|失聯|刑案|詐騙|詐欺|殺人|縱火|爆炸|火災|意外事故/.test(value)) {
+    return "社會";
+  }
+
   if (/南韓|韓國|李在明|韓成淑|女總理|內閣|總理提名|就職周年|地方選舉|尹錫悅/.test(value)) {
     return "政治";
   }
@@ -348,7 +352,7 @@ function inferCategoryFromSignals(value: string, fallback: string) {
   }
 
   if (/t-34|教練機|飛官|軍機|墜毀|殉職|相驗/i.test(value)) {
-    return "新聞";
+    return "社會";
   }
 
   if (/playstation|ps5|state of play|god of war|atlantis|trailer|gameplay|nintendo|xbox|steam|遊戲/i.test(value)) {
@@ -577,6 +581,14 @@ function inferTopicTitleFromSignals(value: string) {
     return "軍機墜落事故";
   }
 
+  if (/德州|槍擊|槍手|開槍|槍殺|死傷/.test(value)) {
+    return "槍擊與公共安全事件";
+  }
+
+  if (/車禍|自撞|撞擊|受困|送醫|搶救|命危/.test(value)) {
+    return "交通事故與救援";
+  }
+
   if (/捲款|潛逃|詐欺|檢警介入|受害者/.test(value)) {
     return "台中火鍋店捲款案";
   }
@@ -765,6 +777,14 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
     return /直升機|墜機|墜落|海軍.*喪生|軍機.*事故/.test(sourceText);
   }
 
+  if (title === "槍擊與公共安全事件") {
+    return /槍擊|槍手|開槍|槍殺|死傷|公共安全/.test(sourceText);
+  }
+
+  if (title === "交通事故與救援") {
+    return /車禍|自撞|撞擊|受困|送醫|搶救|命危/.test(sourceText);
+  }
+
   if (title === "台中火鍋店捲款案") {
     return /捲款|潛逃|詐欺|檢警介入|受害者/.test(sourceText);
   }
@@ -841,7 +861,7 @@ function titleHasSourceEvidence(title: string, articles: NewsArticle[]) {
 function hasStrongEventSignal(title: string, keywords: string[]) {
   const text = `${title} ${keywords.join(" ")}`.toLowerCase();
 
-  return /伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|大雷雨|國家警報|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|電競|遊戲|伊波拉|疫情|疫苗|公衛|ai|輝達|黃仁勳|openai|spacex|mlb|nba|iphone/.test(
+  return /伊朗|美軍|黎巴嫩|以色列|停火|台海|東海|中國海警|槍擊|槍手|車禍|自撞|救援|墜毀|殉職|事故|地震|颱風|豪雨|強降雨|熱帶低壓|大雷雨|國家警報|關稅|貿易談判|罷免|選舉|法網|梁恩碩|羽球|周天成|印尼賽|普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|電競|遊戲|伊波拉|疫情|疫苗|公衛|ai|輝達|黃仁勳|openai|spacex|mlb|nba|iphone/.test(
     text
   );
 }

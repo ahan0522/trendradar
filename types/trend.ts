@@ -2,6 +2,7 @@ export type TrendCategory =
   | "國際"
   | "台海"
   | "新聞"
+  | "社會"
   | "政治"
   | "生活"
   | "體育"

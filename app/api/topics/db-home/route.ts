@@ -34,6 +34,10 @@ function getTopicFamily(topic: HomeTopic) {
     return "taiwan-security";
   }
 
+  if (/槍擊|槍手|開槍|槍殺|死傷|命危|車禍|自撞|撞擊|受困|送醫|搶救|刑案|詐騙|詐欺|殺人|縱火|爆炸|火災|公共安全/.test(text)) {
+    return "social-incident";
+  }
+
   if (/機器人|具身|robot|robotics|自動化/.test(text)) {
     return "ai-robotics";
   }
@@ -82,6 +86,10 @@ function getReliableCategory(topic: Pick<HomeTopic, "title" | "slug" | "category
 
   if (/台海|東海|中國海警|兩岸|國防|軍演|taiwan-security/.test(text)) {
     return "台海";
+  }
+
+  if (/槍擊|槍手|開槍|槍殺|死傷|命危|車禍|自撞|撞擊|受困|送醫|搶救|刑案|詐騙|詐欺|殺人|縱火|爆炸|火災|公共安全|social-incident/.test(text)) {
+    return "社會";
   }
 
   if (/法網|網球|女雙|大滿貫|tennis|nba|籃球|棒球|中職/.test(text)) {
