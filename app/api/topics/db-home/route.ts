@@ -153,7 +153,7 @@ function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
     }
   }
 
-  if (selected.length >= Math.min(4, targetCount)) {
+  if (selected.length >= targetCount) {
     return selected;
   }
 
@@ -165,7 +165,7 @@ function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
     }
   }
 
-  if (selected.length >= 3) {
+  if (selected.length >= targetCount) {
     return selected;
   }
 
