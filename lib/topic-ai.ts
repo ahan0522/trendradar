@@ -454,16 +454,16 @@ function inferSubtopicsFromSignals(input: TopicAiInput) {
     return ["發表活動", "新作預告", "上市時程", "玩家反應"];
   }
 
+  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(text)) {
+    return ["晶圓廠合作", "先進製程", "台積電競爭", "產業分析"];
+  }
+
   if (/電競選手|電競|後輩|浪費時間|職業選手|職涯/i.test(text)) {
     return ["職業門檻", "訓練成本", "收入風險", "年輕玩家選擇"];
   }
 
   if (/人型機器人|具身\s*ai|機器人平台|新漢|高通|computex/i.test(text)) {
     return ["人型機器人", "邊緣 AI", "硬體平台", "量產瓶頸"];
-  }
-
-  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(text)) {
-    return ["晶圓廠合作", "先進製程", "台積電競爭", "產業分析"];
   }
 
   if (/普丁|澤倫斯基|俄烏|烏克蘭|俄羅斯|停火談判|和平談判/i.test(text)) {

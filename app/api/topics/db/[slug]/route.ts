@@ -385,6 +385,24 @@ function buildEventLevelSummary(
   return `${sourceText}，可先抓住 ${articles.length} 個去重後事件：${eventText}`;
 }
 
+function normalizeSubtopicsForTopic(topic: DbTopicRow) {
+  const text = `${topic.title} ${topic.long_title ?? ""} ${(topic.keywords ?? []).join(" ")}`;
+
+  if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(text)) {
+    return ["晶圓廠合作", "先進製程", "台積電競爭", "產業分析"];
+  }
+
+  if (/槍擊|槍手|公共安全/.test(text)) {
+    return ["事件經過", "人員傷亡", "公共安全", "後續調查"];
+  }
+
+  if (/t-34|教練機|飛官|墜毀|殉職/i.test(text)) {
+    return ["事故經過", "人員傷亡", "調查進度", "飛安檢討"];
+  }
+
+  return Array.isArray(topic.subtopics) ? topic.subtopics : [];
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
@@ -545,7 +563,7 @@ export async function GET(
         new Date().toISOString(),
       summary: responseSummary,
       bullets: responseBullets,
-      subtopics: Array.isArray(topic.subtopics) ? topic.subtopics : [],
+      subtopics: normalizeSubtopicsForTopic(topic),
       tags: Array.isArray(topic.tags) ? topic.tags : [],
       ruleKey: topic.rule_key ?? "",
       keywords: Array.isArray(topic.keywords) ? topic.keywords : [],
