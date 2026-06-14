@@ -150,6 +150,24 @@ function shortenText(value: string, maxLength = 92) {
   return `${value.slice(0, maxLength - 1).trim()}…`;
 }
 
+function getTitleSignals(title: string) {
+  return title
+    .split(/[、，,／/｜|：:；;（）()\s與和及]+/u)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2)
+    .filter((item) => !/^(討論|戰況|事故|議題|焦點|新聞|整理|周邊|競爭|研發)$/u.test(item));
+}
+
+function isSummaryAlignedWithTitle(title: string, value: string) {
+  const signals = getTitleSignals(title);
+
+  if (signals.length === 0) {
+    return true;
+  }
+
+  return signals.some((signal) => value.toLowerCase().includes(signal.toLowerCase()));
+}
+
 function getHomeQuickSummary(topic: {
   title: string;
   category: string;
@@ -162,6 +180,7 @@ function getHomeQuickSummary(topic: {
 
   if (
     summary &&
+    isSummaryAlignedWithTitle(topic.title, summary) &&
     !/近期與「.+」相關的熱門新聞共有/u.test(summary) &&
     !/焦點集中在最新發展、事件結果與延伸影響/u.test(summary)
   ) {
@@ -170,11 +189,13 @@ function getHomeQuickSummary(topic: {
 
   const bullet = toTextList(topic.bullets)[0];
 
-  if (bullet) {
+  if (bullet && isSummaryAlignedWithTitle(topic.title, bullet)) {
     return shortenText(cleanHomeSummary(bullet));
   }
 
-  return `系統已把 ${topic.articleCount} 篇相關新聞整理成「${topic.title}」，方便快速掌握 ${topic.category} 焦點。`;
+  return shortenText(
+    `系統已把 ${topic.articleCount} 篇相關新聞整理成「${topic.title}」，方便快速掌握 ${topic.category} 焦點。`
+  );
 }
 
 function getHomeSourceQuality(topic: Pick<HomeTopic, "sourceCount" | "articleCount">) {
