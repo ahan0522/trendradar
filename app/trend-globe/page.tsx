@@ -3,9 +3,10 @@ import TrendGlobeMap from "@/components/TrendGlobeMap";
 
 export default function TrendGlobePage() {
   return (
-    <main className="min-h-screen bg-slate-950 px-3 py-3 text-white md:px-8 md:py-6">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#0f3b5f_0,_#020617_42%,_#000_100%)] px-3 py-3 text-white md:px-8 md:py-6">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-full border border-white/10 bg-white/[0.04] px-4 py-3 backdrop-blur">
+        <div className="mb-4 overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-cyan-950/20 backdrop-blur md:p-7">
+          <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <Link
               href="/"
@@ -13,11 +14,14 @@ export default function TrendGlobePage() {
             >
               返回首頁
             </Link>
-            <h1 className="mt-1 text-xl font-black tracking-tight md:text-3xl">
-              今日議題地球村
+            <div className="mt-4 text-xs font-black uppercase tracking-[0.26em] text-cyan-300">
+              Trend Globe
+            </div>
+            <h1 className="mt-2 text-3xl font-black tracking-tight md:text-5xl">
+              把今天的新聞放到同一顆星球上
             </h1>
-            <p className="hidden max-w-2xl text-sm leading-6 text-slate-400 md:mt-1 md:block">
-              把熱門主題放到可旋轉的全球視角：熱點是大主題，亮點是共通脈絡，藍點是子訊號。
+            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">
+              拖曳旋轉、點紅色主題聚焦。右側會顯示快讀、代表事件與來源，讓探索感保留，但資訊不要擋住地球。
             </p>
           </div>
 
@@ -34,6 +38,19 @@ export default function TrendGlobePage() {
             >
               回主題分子圖
             </Link>
+          </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 text-sm md:grid-cols-3">
+            <div className="rounded-2xl border border-cyan-200/10 bg-white/[0.06] px-4 py-3 text-slate-300">
+              <span className="font-black text-rose-200">紅色節點</span> 是熱門大主題
+            </div>
+            <div className="rounded-2xl border border-cyan-200/10 bg-white/[0.06] px-4 py-3 text-slate-300">
+              <span className="font-black text-cyan-200">藍色節點</span> 是主題分支訊號
+            </div>
+            <div className="rounded-2xl border border-cyan-200/10 bg-white/[0.06] px-4 py-3 text-slate-300">
+              <span className="font-black text-white">右側面板</span> 顯示重點與來源
+            </div>
           </div>
         </div>
 
