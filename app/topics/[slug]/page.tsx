@@ -138,11 +138,37 @@ function cleanArticleTitle(title: string) {
     .trim();
 }
 
-function getEventHeadline(article: TopicArticle) {
-  const summary = article.quickSummary || article.description;
-  if (summary && summary.length <= 42) return summary;
+function compactText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
 
-  return cleanArticleTitle(article.title);
+function truncateText(value: string, maxLength: number) {
+  const text = compactText(value);
+
+  if (text.length <= maxLength) return text;
+
+  return `${text.slice(0, maxLength - 1).replace(/[，,；;：:\s]+$/g, "")}…`;
+}
+
+function getArticleMainPoint(article: TopicArticle) {
+  const summary = compactText(article.quickSummary || article.description);
+
+  if (summary) {
+    return truncateText(summary, 76);
+  }
+
+  return truncateText(cleanArticleTitle(article.title), 76);
+}
+
+function getArticleContextLine(article: TopicArticle) {
+  const title = cleanArticleTitle(article.title);
+  const summary = compactText(article.quickSummary || article.description);
+
+  if (!title || summary.includes(title) || title.includes(summary.slice(0, 24))) {
+    return "原文可補充事件細節與完整脈絡。";
+  }
+
+  return `原文標題：${truncateText(title, 54)}`;
 }
 
 function getWhyItMatters(topic: TopicDetail, article: TopicArticle) {
@@ -587,12 +613,10 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                           發生什麼事
                         </div>
                         <h3 className="mt-1 text-lg font-bold leading-7 text-slate-950">
-                          {getEventHeadline(article)}
+                          {getArticleMainPoint(article)}
                         </h3>
-                        <p className="mt-2 text-base leading-7 text-slate-700">
-                          {article.quickSummary ||
-                            article.description ||
-                            "目前只有原始來源，系統會在下一次同步時補上重點整理。"}
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                          {getArticleContextLine(article)}
                         </p>
                       </div>
 

@@ -388,6 +388,10 @@ function buildEventLevelSummary(
 function normalizeSubtopicsForTopic(topic: DbTopicRow) {
   const text = `${topic.title} ${topic.long_title ?? ""} ${(topic.keywords ?? []).join(" ")}`;
 
+  if (topic.slug === "ai" || topic.rule_key === "ai" || topic.title.trim().toLowerCase() === "ai") {
+    return ["模型與產品", "晶片與基礎建設", "機器人與應用", "監管與安全"];
+  }
+
   if (/英特爾|intel|特斯拉|tesla|terafab|台積電|tsmc/i.test(text)) {
     return ["晶圓廠合作", "先進製程", "台積電競爭", "產業分析"];
   }

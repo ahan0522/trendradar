@@ -168,6 +168,32 @@ function isSummaryAlignedWithTitle(title: string, value: string) {
   return signals.some((signal) => value.toLowerCase().includes(signal.toLowerCase()));
 }
 
+function isStockMarketNoise(value: string) {
+  return /股價|台股|美股|投信|外資|買超|賣超|eps|營收|合併營收|月營收|殖利率|本益比|kospi|指數|開盤|收盤/i.test(
+    value
+  );
+}
+
+function isBroadAiTopic(title: string, category: string) {
+  return title.trim().toLowerCase() === "ai" || category.trim().toLowerCase() === "ai";
+}
+
+function shouldDeferBroadAiTopic(topic: {
+  title: string;
+  category: string;
+  summary?: string | null;
+  bullets?: unknown;
+}) {
+  if (!isBroadAiTopic(topic.title, topic.category)) {
+    return false;
+  }
+
+  const summary = cleanHomeSummary(topic.summary ?? "");
+  const bullets = toTextList(topic.bullets).join(" ");
+
+  return isStockMarketNoise(`${summary} ${bullets}`);
+}
+
 function getHomeQuickSummary(topic: {
   title: string;
   category: string;
@@ -177,9 +203,12 @@ function getHomeQuickSummary(topic: {
   articleCount: number;
 }) {
   const summary = cleanHomeSummary(topic.summary ?? "");
+  const shouldAvoidStoredSummary =
+    isBroadAiTopic(topic.title, topic.category) && isStockMarketNoise(summary);
 
   if (
     summary &&
+    !shouldAvoidStoredSummary &&
     isSummaryAlignedWithTitle(topic.title, summary) &&
     !/近期與「.+」相關的熱門新聞共有/u.test(summary) &&
     !/焦點集中在最新發展、事件結果與延伸影響/u.test(summary)
@@ -189,8 +218,16 @@ function getHomeQuickSummary(topic: {
 
   const bullet = toTextList(topic.bullets)[0];
 
-  if (bullet && isSummaryAlignedWithTitle(topic.title, bullet)) {
+  if (
+    bullet &&
+    !(isBroadAiTopic(topic.title, topic.category) && isStockMarketNoise(bullet)) &&
+    isSummaryAlignedWithTitle(topic.title, bullet)
+  ) {
     return shortenText(cleanHomeSummary(bullet));
+  }
+
+  if (isBroadAiTopic(topic.title, topic.category)) {
+    return "AI 主題目前只保留與人工智慧、模型、晶片基建或機器人直接相關的訊號，股價與買賣超類短訊會先降權。";
   }
 
   return shortenText(
@@ -368,6 +405,14 @@ export async function GET(request: NextRequest) {
           category: topic.category ?? "",
         });
         const originalCategory = topic.category ?? "";
+        const deferBroadAiTopic = shouldDeferBroadAiTopic({
+          title: topic.title,
+          category,
+          summary: topic.summary,
+          bullets: topic.bullets,
+        });
+        const sourceCount = deferBroadAiTopic ? 0 : topic.source_count ?? 0;
+        const articleCount = deferBroadAiTopic ? 0 : topic.article_count ?? 0;
 
         return {
           id: topic.id,
@@ -379,8 +424,8 @@ export async function GET(request: NextRequest) {
               ? topic.hero_image_url
               : getHeroImageForCategory(category),
           heatScore: topic.heat_score ?? 0,
-          sourceCount: topic.source_count ?? 0,
-          articleCount: topic.article_count ?? 0,
+          sourceCount,
+          articleCount,
           updatedAt:
             topic.last_article_published_at ??
             topic.last_synced_at ??
@@ -391,12 +436,12 @@ export async function GET(request: NextRequest) {
             category,
             summary: topic.summary,
             bullets: topic.bullets,
-            sourceCount: topic.source_count ?? 0,
-            articleCount: topic.article_count ?? 0,
+            sourceCount,
+            articleCount,
           }),
           sourceQuality: getHomeSourceQuality({
-            sourceCount: topic.source_count ?? 0,
-            articleCount: topic.article_count ?? 0,
+            sourceCount,
+            articleCount,
           }),
         };
       })
