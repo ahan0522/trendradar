@@ -17,6 +17,11 @@ type HomeTopic = {
   articleCount: number;
   updatedAt: string;
   discoveryMode: string;
+  quickSummary?: string;
+  sourceQuality?: {
+    label: string;
+    tone: "strong" | "medium" | "weak";
+  };
 };
 
 function getTopicFamily(topic: HomeTopic) {
@@ -115,6 +120,82 @@ function getDiversityScore(topic: HomeTopic) {
   const fallbackPenalty = isBroadFallbackTopic(topic) ? 900 : 0;
 
   return discoveryBoost + sourceBoost + articleBoost + topic.heatScore - fallbackPenalty;
+}
+
+function toTextList(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function cleanHomeSummary(value: string) {
+  return value
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^這個主題目前發生什麼事[:：]?\s*/u, "")
+    .trim();
+}
+
+function shortenText(value: string, maxLength = 92) {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength - 1).trim()}…`;
+}
+
+function getHomeQuickSummary(topic: {
+  title: string;
+  category: string;
+  summary?: string | null;
+  bullets?: unknown;
+  sourceCount: number;
+  articleCount: number;
+}) {
+  const summary = cleanHomeSummary(topic.summary ?? "");
+
+  if (
+    summary &&
+    !/近期與「.+」相關的熱門新聞共有/u.test(summary) &&
+    !/焦點集中在最新發展、事件結果與延伸影響/u.test(summary)
+  ) {
+    return shortenText(summary);
+  }
+
+  const bullet = toTextList(topic.bullets)[0];
+
+  if (bullet) {
+    return shortenText(cleanHomeSummary(bullet));
+  }
+
+  return `系統已把 ${topic.articleCount} 篇相關新聞整理成「${topic.title}」，方便快速掌握 ${topic.category} 焦點。`;
+}
+
+function getHomeSourceQuality(topic: Pick<HomeTopic, "sourceCount" | "articleCount">) {
+  if (topic.sourceCount >= 3 && topic.articleCount >= 2) {
+    return {
+      label: "交叉確認",
+      tone: "strong" as const,
+    };
+  }
+
+  if (topic.sourceCount >= 2 || topic.articleCount >= 2) {
+    return {
+      label: "來源補強中",
+      tone: "medium" as const,
+    };
+  }
+
+  return {
+    label: "早期訊號",
+    tone: "weak" as const,
+  };
 }
 
 function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
@@ -232,6 +313,8 @@ export async function GET(request: NextRequest) {
         category,
         hero_image_url,
         heat_score,
+        summary,
+        bullets,
         source_count,
         article_count,
         last_article_published_at,
@@ -282,6 +365,18 @@ export async function GET(request: NextRequest) {
             topic.last_synced_at ??
             new Date().toISOString(),
           discoveryMode: topic.discovery_mode ?? "rule_based",
+          quickSummary: getHomeQuickSummary({
+            title: topic.title,
+            category,
+            summary: topic.summary,
+            bullets: topic.bullets,
+            sourceCount: topic.source_count ?? 0,
+            articleCount: topic.article_count ?? 0,
+          }),
+          sourceQuality: getHomeSourceQuality({
+            sourceCount: topic.source_count ?? 0,
+            articleCount: topic.article_count ?? 0,
+          }),
         };
       })
       .sort((a, b) => {

@@ -10,6 +10,11 @@ type HomepageTopicCard = {
   category: string;
   heroImageUrl: string;
   heatScore: number;
+  quickSummary?: string;
+  sourceQuality?: {
+    label: string;
+    tone: "strong" | "medium" | "weak";
+  };
   sourceCount: number;
   articleCount: number;
   updatedAt: string;
@@ -48,6 +53,20 @@ function formatRelativeTime(dateString: string) {
 
   const diffDays = Math.floor(diffHours / 24);
   return `${diffDays} 天前`;
+}
+
+function getSourceQualityClass(
+  tone?: NonNullable<HomepageTopicCard["sourceQuality"]>["tone"]
+) {
+  if (tone === "strong") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  if (tone === "medium") {
+    return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+
+  return "border-slate-200 bg-slate-50 text-slate-500";
 }
 
 export default function HomePage() {
@@ -178,15 +197,30 @@ export default function HomePage() {
 
                 <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
                   <div className="space-y-2">
-                    <div>
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold tracking-wide text-slate-600">
                         {topic.category}
                       </span>
+                      {topic.sourceQuality && (
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold tracking-wide ${getSourceQualityClass(
+                            topic.sourceQuality.tone
+                          )}`}
+                        >
+                          {topic.sourceQuality.label}
+                        </span>
+                      )}
                     </div>
 
                     <h2 className="text-2xl font-bold leading-tight tracking-tight text-slate-950">
                       {topic.title}
                     </h2>
+
+                    {topic.quickSummary && (
+                      <p className="line-clamp-3 text-sm leading-6 text-slate-600">
+                        {topic.quickSummary}
+                      </p>
+                    )}
                   </div>
 
                   <div className="border-t border-slate-100 pt-3 md:min-w-36 md:border-t-0 md:pt-0 md:text-right">
