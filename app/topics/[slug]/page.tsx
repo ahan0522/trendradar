@@ -62,11 +62,13 @@ function getTopSources(articles: TopicArticle[]) {
 
   articles.forEach((article) => {
     const sourceName = article.sourceName || "未知來源";
-    if (isPlatformSourceName(sourceName)) return;
     sourceCounts.set(sourceName, (sourceCounts.get(sourceName) ?? 0) + 1);
   });
 
-  return Array.from(sourceCounts.entries())
+  const allSources = Array.from(sourceCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const originalSources = allSources.filter(([sourceName]) => !isPlatformSourceName(sourceName));
+
+  return (originalSources.length ? originalSources : allSources)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4);
 }
@@ -86,8 +88,45 @@ function isPlatformDigestTopic(topic: TopicDetail) {
   return (
     topic.discoveryMode === "candidate_cluster" &&
     topic.articleCount <= 1 &&
-    topic.sourceCount > 1
+    (topic.sourceCount > 1 ||
+      topic.articles.some((article) => isPlatformSourceName(article.sourceName)))
   );
+}
+
+function getSourceQuality(topic: TopicDetail) {
+  const hasPlatformOnlySources =
+    topic.articles.length > 0 &&
+    topic.articles.every((article) => isPlatformSourceName(article.sourceName));
+
+  if (topic.sourceCount >= 3 && topic.articleCount >= 2) {
+    return {
+      label: "多來源交叉",
+      tone: "bg-emerald-50 text-emerald-800",
+      text: "已合併多個有效來源與事件，可信度較穩。",
+    };
+  }
+
+  if (hasPlatformOnlySources) {
+    return {
+      label: "平台聚合",
+      tone: "bg-amber-50 text-amber-800",
+      text: "目前主要由 Google News 等平台聚合來源提供訊號，仍需等待更多原始媒體補強。",
+    };
+  }
+
+  if (topic.sourceCount >= 1) {
+    return {
+      label: "來源有限",
+      tone: "bg-blue-50 text-blue-800",
+      text: "已有可辨識來源，但仍屬早期訊號，後續同步會持續補強。",
+    };
+  }
+
+  return {
+    label: "待補來源",
+    tone: "bg-slate-100 text-slate-700",
+    text: "目前來源名稱辨識不足，先以事件內容作為快讀基礎。",
+  };
 }
 
 function cleanArticleTitle(title: string) {
@@ -310,6 +349,7 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
   const whatToWatch = getWhatToWatch(topic);
   const topicStatus = getTopicStatus(topic);
   const confidence = getSummaryConfidence(topic);
+  const sourceQuality = getSourceQuality(topic);
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -649,6 +689,10 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
               <h2 className="mt-1 text-xl font-bold text-slate-950">
                 主要來源
               </h2>
+              <div className={`mt-4 rounded-2xl px-4 py-3 text-sm ${sourceQuality.tone}`}>
+                <div className="font-semibold">{sourceQuality.label}</div>
+                <p className="mt-1 leading-6">{sourceQuality.text}</p>
+              </div>
 
               <div className="mt-5 space-y-3">
                 {topSources.map(([sourceName, count]) => (
@@ -662,6 +706,11 @@ export default async function TopicDetailPage({ params }: TopicPageProps) {
                     <span className="text-sm text-slate-500">{count} 篇</span>
                   </div>
                 ))}
+                {topSources.length === 0 && (
+                  <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                    尚未辨識出可顯示的來源。
+                  </div>
+                )}
               </div>
             </section>
           </aside>
