@@ -97,8 +97,12 @@ function getReliableCategory(topic: Pick<HomeTopic, "title" | "slug" | "category
     return "社會";
   }
 
-  if (/法網|網球|女雙|大滿貫|tennis|nba|籃球|棒球|中職/.test(text)) {
+  if (/法網|網球|女雙|大滿貫|tennis|nba|籃球|棒球|中職|日職|世足|world cup|球迷/.test(text)) {
     return "體育";
+  }
+
+  if (/葡萄糖胺|失智|護膝|研究|醫師|健康|疾病|風險/.test(text)) {
+    return "生活";
   }
 
   return topic.category || "新聞";
@@ -211,7 +215,8 @@ function getHomeQuickSummary(topic: {
     !shouldAvoidStoredSummary &&
     isSummaryAlignedWithTitle(topic.title, summary) &&
     !/近期與「.+」相關的熱門新聞共有/u.test(summary) &&
-    !/焦點集中在最新發展、事件結果與延伸影響/u.test(summary)
+    !/焦點集中在最新發展、事件結果與延伸影響/u.test(summary) &&
+    !/目前「.+」相關報導已整合.+系統先以去重後事件整理重點/u.test(summary)
   ) {
     return shortenText(summary);
   }
@@ -230,9 +235,51 @@ function getHomeQuickSummary(topic: {
     return "AI 主題目前只保留與人工智慧、模型、晶片基建或機器人直接相關的訊號，股價與買賣超類短訊會先降權。";
   }
 
+  const titleSummary = inferHomeSummaryFromTitle(topic.title);
+
+  if (titleSummary) {
+    return shortenText(titleSummary);
+  }
+
   return shortenText(
     `系統已把 ${topic.articleCount} 篇相關新聞整理成「${topic.title}」，方便快速掌握 ${topic.category} 焦點。`
   );
+}
+
+function inferHomeSummaryFromTitle(title: string) {
+  if (/日職|火腿|古林睿煬|防禦率|背靠背開轟/.test(title)) {
+    return "日職焦點集中在火腿連勝挑戰與古林睿煬先發表現，重點是被開轟、失分與球隊後續戰績。";
+  }
+
+  if (/世足|韓網紅|拉眼角|墨西哥球迷|肉搜/.test(title)) {
+    return "世足球迷歧視爭議引發討論，焦點在韓國網紅遭挑釁、涉事球迷身分曝光與賽場外族群歧視問題。";
+  }
+
+  if (/葡萄糖胺|護膝|失智|風險/.test(title)) {
+    return "葡萄糖胺研究引發健康討論，焦點在特定族群長期使用與失智風險的關聯，以及民眾用藥前是否需要諮詢醫師。";
+  }
+
+  if (/中東|停火|美伊|伊朗|以色列|黎巴嫩/.test(title)) {
+    return "中東停火與美伊互動持續牽動區域安全，重點在各方表態、談判進展與衝突是否外溢。";
+  }
+
+  if (/軍機|教練機|墜落|墜毀|飛官|飛安/.test(title)) {
+    return "軍機墜落事故受到關注，重點在人員安危、事故原因調查與後續飛安檢討。";
+  }
+
+  if (/強降雨|豪雨|防災|颱風|熱帶低壓|西南風/.test(title)) {
+    return "台灣天氣風險升高，重點在降雨時程、熱區變化與地方防災準備。";
+  }
+
+  if (/mlb|大谷翔平|投手|道奇|棒球/i.test(title)) {
+    return "MLB 焦點集中在大谷翔平投打狀況與球隊戰況，後續觀察先發安排、傷勢管理與比賽表現。";
+  }
+
+  if (/俄烏|烏克蘭|俄羅斯|普丁|澤倫斯基|和平談判/.test(title)) {
+    return "俄烏戰爭與和平談判持續受關注，焦點在前線變化、談判條件與國際斡旋是否出現進展。";
+  }
+
+  return "";
 }
 
 function getHomeSourceQuality(topic: Pick<HomeTopic, "sourceCount" | "articleCount">) {
@@ -254,6 +301,18 @@ function getHomeSourceQuality(topic: Pick<HomeTopic, "sourceCount" | "articleCou
     label: "早期訊號",
     tone: "weak" as const,
   };
+}
+
+function isDisplayableHomeTopic(topic: HomeTopic) {
+  if (topic.sourceCount <= 0 || topic.articleCount <= 0) {
+    return false;
+  }
+
+  if (isBroadFallbackTopic(topic) && topic.sourceCount < 2) {
+    return false;
+  }
+
+  return true;
 }
 
 function selectDiverseHomeTopics(topics: HomeTopic[], targetCount: number) {
@@ -346,6 +405,14 @@ function getHomeQualityStatus(topics: HomeTopic[], targetCount: number) {
       level: "limited",
       label: "精選不足",
       description: "系統只顯示來源與去重後事件都夠穩的主題，因此目前數量較少。",
+    };
+  }
+
+  if (topics.length < targetCount) {
+    return {
+      level: "healthy",
+      label: "少而準",
+      description: "目前只展示通過來源與摘要檢查的主題，低品質或待補來源的主題不會硬湊上首頁。",
     };
   }
 
@@ -445,6 +512,7 @@ export async function GET(request: NextRequest) {
           }),
         };
       })
+      .filter(isDisplayableHomeTopic)
       .sort((a, b) => {
         if (a.discoveryMode !== b.discoveryMode) {
           return a.discoveryMode === "candidate_cluster" ? -1 : 1;
