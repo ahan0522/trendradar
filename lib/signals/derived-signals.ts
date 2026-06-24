@@ -103,6 +103,9 @@ export async function getDerivedSignalsFromTopics(limit = 12) {
     .from("topics")
     .select("id, slug, title, category, summary, heat_score, source_count, article_count, discovery_mode, last_article_published_at, last_synced_at, updated_at")
     .eq("status", "active")
+    .gt("heat_score", 0)
+    .gte("source_count", 2)
+    .gte("article_count", 1)
     .order("heat_score", { ascending: false })
     .limit(limit)
     .returns<TopicRow[]>();
