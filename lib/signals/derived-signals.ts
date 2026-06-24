@@ -47,6 +47,21 @@ function cleanSummary(value: string | null | undefined) {
     .trim();
 }
 
+
+function getTitleSignals(title: string) {
+  return title
+    .split(/[、，,／/｜|：:；;（）()\s與和及]+/u)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2)
+    .filter((item) => !/^(討論|戰況|事故|議題|焦點|新聞|整理|周邊|安全|論述)$/u.test(item));
+}
+
+function isSummaryAligned(title: string, summary: string) {
+  if (!summary) return false;
+  const signals = getTitleSignals(title);
+  if (signals.length === 0) return true;
+  return signals.some((signal) => summary.toLowerCase().includes(signal.toLowerCase()));
+}
 function classifySignalType(topic: TopicRow) {
   const text = `${topic.title} ${topic.category ?? ""}`.toLowerCase();
   if (/ai|人工智慧|晶片|半導體|資料中心|電力|散熱|供應鏈/.test(text)) return "supply_chain";
@@ -64,7 +79,8 @@ function strength(topic: TopicRow) {
 function toSignal(topic: TopicRow): DerivedSignal {
   const signalStrength = strength(topic);
   const date = toDate(topic.last_article_published_at ?? topic.last_synced_at ?? topic.updated_at);
-  const summary = cleanSummary(topic.summary);
+  const rawSummary = cleanSummary(topic.summary);
+  const summary = isSummaryAligned(topic.title, rawSummary) ? rawSummary : "";
 
   return {
     id: `topic-${topic.slug ?? topic.id}`,
@@ -134,3 +150,4 @@ export function pendingOutcomes(signalEventId: string) {
 export function emptyStockReturnDetails() {
   return [7, 14, 30, 60].map((horizonDays) => ({ horizonDays, details: [], basketReturn: null }));
 }
+
