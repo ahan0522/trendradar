@@ -1,0 +1,209 @@
+import { getSupabaseAdmin } from "@/lib/supabase-server";
+import type { SignalEvent, SignalType } from "@/types/signals";
+
+export type SignalStrengthInput = {
+  mentionSpike?: number;
+  priceSpike?: number;
+  sourceDiversity?: number;
+  persistence?: number;
+  companyActivity?: number;
+  beneficiaryClarity?: number;
+};
+
+export type SignalConvictionStatus = "high_conviction" | "rising" | "watch" | "weak";
+
+type ArticleRow = {
+  id: string;
+  title: string;
+  source_name: string;
+  published_at: string | null;
+};
+
+type TopicArticleRow = {
+  topic_id: string;
+  article_id: string;
+};
+
+type TopicRow = {
+  id: string;
+  title: string;
+  category: string;
+  region: string;
+  summary: string | null;
+  trend_score: number;
+};
+
+type SignalEventRow = {
+  id: string;
+  signal_date: string;
+  as_of_date: string;
+  topic: string;
+  signal_type: SignalType;
+  signal_strength: number;
+  confidence_score: number;
+  hypothesis: string;
+  evidence: unknown[];
+  status: "active" | "validated" | "partial" | "failed";
+  model_version: string | null;
+};
+
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Number(value.toFixed(2))));
+}
+
+function daysBefore(date: Date, days: number) {
+  const copy = new Date(date);
+  copy.setUTCDate(copy.getUTCDate() - days);
+  return copy;
+}
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+}
+
+function mapSignalRow(row: SignalEventRow): SignalEvent {
+  return {
+    id: row.id,
+    signalDate: row.signal_date,
+    asOfDate: row.as_of_date,
+    topic: row.topic,
+    signalType: row.signal_type,
+    signalStrength: Number(row.signal_strength),
+    confidenceScore: Number(row.confidence_score),
+    hypothesis: row.hypothesis,
+    evidence: row.evidence,
+    status: row.status,
+    modelVersion: row.model_version ?? undefined,
+  };
+}
+
+export function calculateSignalStrength(input: SignalStrengthInput) {
+  const score =
+    (input.mentionSpike ?? 0) * 0.2 +
+    (input.priceSpike ?? 0) * 0.25 +
+    (input.sourceDiversity ?? 0) * 0.15 +
+    (input.persistence ?? 0) * 0.15 +
+    (input.companyActivity ?? 0) * 0.1 +
+    (input.beneficiaryClarity ?? 0) * 0.15;
+
+  return clampScore(score);
+}
+
+export function classifySignalStatus(score: number): SignalConvictionStatus {
+  if (score >= 85) return "high_conviction";
+  if (score >= 70) return "rising";
+  if (score >= 50) return "watch";
+  return "weak";
+}
+
+export async function detectSignalsFromTopics(asOfDate: string) {
+  const supabase = getSupabaseAdmin();
+  const asOf = new Date(asOfDate);
+  if (Number.isNaN(asOf.getTime())) {
+    throw new Error("Invalid asOfDate");
+  }
+
+  const asOfIso = asOf.toISOString();
+  const since30d = daysBefore(asOf, 30).toISOString();
+  const since7d = daysBefore(asOf, 7).toISOString();
+  const since24h = daysBefore(asOf, 1).toISOString();
+
+  const [{ data: topics, error: topicsError }, { data: articleLinks, error: linksError }, { data: articles, error: articlesError }] =
+    await Promise.all([
+      supabase
+        .from("topics")
+        .select("id, title, category, region, summary, trend_score")
+        .returns<TopicRow[]>(),
+      supabase
+        .from("topic_articles")
+        .select("topic_id, article_id")
+        .returns<TopicArticleRow[]>(),
+      supabase
+        .from("articles")
+        .select("id, title, source_name, published_at")
+        .lte("published_at", asOfIso)
+        .gte("published_at", since30d)
+        .returns<ArticleRow[]>(),
+    ]);
+
+  if (topicsError) throw topicsError;
+  if (linksError) throw linksError;
+  if (articlesError) throw articlesError;
+
+  const topicById = new Map((topics ?? []).map((topic) => [topic.id, topic]));
+  const articleById = new Map((articles ?? []).map((article) => [article.id, article]));
+  const grouped = new Map<string, ArticleRow[]>();
+
+  for (const link of articleLinks ?? []) {
+    const article = articleById.get(link.article_id);
+    if (!article) continue;
+    const current = grouped.get(link.topic_id) ?? [];
+    current.push(article);
+    grouped.set(link.topic_id, current);
+  }
+
+  const rows: Array<Omit<SignalEventRow, "model_version"> & { model_version: string }> = [];
+
+  for (const [topicId, topicArticles] of grouped) {
+    const topic = topicById.get(topicId);
+    if (!topic) continue;
+
+    const articleCount24h = topicArticles.filter((article) => article.published_at && article.published_at >= since24h).length;
+    const articleCount7d = topicArticles.filter((article) => article.published_at && article.published_at >= since7d).length;
+    const articleCount30d = topicArticles.length;
+    const sourceCount = new Set(topicArticles.map((article) => article.source_name)).size;
+    const expected7d = Math.max(articleCount30d * (7 / 30), 1);
+    const mentionSpike = Number((articleCount7d / expected7d).toFixed(2));
+
+    if (articleCount7d < 5 || sourceCount < 3 || mentionSpike < 2) continue;
+
+    const signalStrength = calculateSignalStrength({
+      mentionSpike: Math.min(mentionSpike * 20, 100),
+      sourceDiversity: Math.min(sourceCount * 15, 100),
+      persistence: Math.min(articleCount7d * 10, 100),
+      beneficiaryClarity: 55,
+    });
+
+    rows.push({
+      id: `auto-${asOfDate}-${slugify(topic.title)}`,
+      signal_date: asOfDate,
+      as_of_date: asOfDate,
+      topic: topic.title,
+      signal_type: "news",
+      signal_strength: signalStrength,
+      confidence_score: clampScore(signalStrength * 0.85),
+      hypothesis: topic.summary || `${topic.title} is showing abnormal cross-source news momentum before ${asOfDate}.`,
+      evidence: [
+        {
+          topicId,
+          category: topic.category,
+          region: topic.region,
+          article_count_24h: articleCount24h,
+          article_count_7d: articleCount7d,
+          article_count_30d: articleCount30d,
+          source_count: sourceCount,
+          mention_spike: mentionSpike,
+          sample_titles: topicArticles.slice(0, 5).map((article) => article.title),
+          conviction: classifySignalStatus(signalStrength),
+        },
+      ],
+      status: "active",
+      model_version: "rule-v1",
+    });
+  }
+
+  if (rows.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("signal_events")
+    .upsert(rows, { onConflict: "id" })
+    .select("id, signal_date, as_of_date, topic, signal_type, signal_strength, confidence_score, hypothesis, evidence, status, model_version")
+    .returns<SignalEventRow[]>();
+
+  if (error) throw error;
+  return (data ?? []).map(mapSignalRow);
+}
