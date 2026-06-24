@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getDerivedSignalsFromTopics } from "@/lib/signals/derived-signals";
 
 type SignalRow = {
   id: string;
@@ -57,6 +58,7 @@ export async function GET() {
 
     return NextResponse.json({
       ok: true,
+      source: "signal_tables",
       signals: (signals ?? []).map((signal) => ({
         id: signal.id,
         signalDate: signal.signal_date,
@@ -74,7 +76,12 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: message, signals: [] }, { status: 200 });
+    try {
+      const signals = await getDerivedSignalsFromTopics();
+      return NextResponse.json({ ok: true, source: "derived_topics", signals });
+    } catch (fallbackError) {
+      const message = fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "Unknown error";
+      return NextResponse.json({ ok: false, error: message, signals: [] }, { status: 200 });
+    }
   }
 }

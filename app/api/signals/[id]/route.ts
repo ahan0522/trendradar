@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getSignalReturnDetails } from "@/lib/signals/backtest";
+import { emptyStockReturnDetails, getDerivedSignalById, pendingOutcomes } from "@/lib/signals/derived-signals";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -42,8 +43,9 @@ type OutcomeRow = {
 };
 
 export async function GET(_request: NextRequest, context: RouteContext) {
+  const { id } = await context.params;
+
   try {
-    const { id } = await context.params;
     const supabase = getSupabaseAdmin();
     const [{ data: signalRows, error: signalError }, { data: watchlists, error: watchlistError }, { data: outcomes, error: outcomeError }] =
       await Promise.all([
@@ -84,6 +86,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     return NextResponse.json({
       ok: true,
+      source: "signal_tables",
       signal: {
         id: signal.id,
         signalDate: signal.signal_date,
@@ -111,7 +114,21 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       stockReturnDetails,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    try {
+      const signal = await getDerivedSignalById(id);
+      if (!signal) return NextResponse.json({ ok: false, error: "Signal not found" }, { status: 404 });
+
+      return NextResponse.json({
+        ok: true,
+        source: "derived_topics",
+        signal,
+        watchlists: [],
+        outcomes: pendingOutcomes(signal.id),
+        stockReturnDetails: emptyStockReturnDetails(),
+      });
+    } catch (fallbackError) {
+      const message = fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "Unknown error";
+      return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    }
   }
 }
