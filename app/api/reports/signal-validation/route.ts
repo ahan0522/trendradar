@@ -89,6 +89,7 @@ export async function GET() {
     if (signalError) throw signalError;
     if (watchlistError) throw watchlistError;
     if (outcomeError) throw outcomeError;
+    if ((signals ?? []).length === 0) throw new Error("No signal table rows yet");
 
     return NextResponse.json(reportPayload(signals ?? [], watchlists ?? [], outcomes ?? [], "signal_tables"));
   } catch (error) {
@@ -113,3 +114,4 @@ export async function GET() {
     }
   }
 }
+

@@ -45,6 +45,7 @@ export async function GET() {
     if (signalsError) throw signalsError;
     if (watchlistsError) throw watchlistsError;
     if (outcomesError) throw outcomesError;
+    if ((signals ?? []).length === 0) throw new Error("No signal table rows yet");
 
     const watchlistCounts = new Map<string, number>();
     for (const item of watchlists ?? []) {
@@ -85,3 +86,4 @@ export async function GET() {
     }
   }
 }
+

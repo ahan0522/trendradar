@@ -74,7 +74,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     if (outcomeError) throw outcomeError;
 
     const signal = signalRows?.[0];
-    if (!signal) return NextResponse.json({ ok: false, error: "Signal not found" }, { status: 404 });
+    if (!signal) throw new Error("Signal not found in signal tables");
 
     const horizons = [7, 14, 30, 60];
     const stockReturnDetails = await Promise.all(
@@ -132,3 +132,4 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
   }
 }
+
