@@ -64,7 +64,7 @@ function isSummaryAligned(title: string, summary: string) {
 }
 function classifySignalType(topic: TopicRow) {
   const text = `${topic.title} ${topic.category ?? ""}`.toLowerCase();
-  if (/ai|人工智慧|晶片|半導體|資料中心|電力|散熱|供應鏈/.test(text)) return "supply_chain";
+  if (/(人工智慧|輝達|nvidia|晶片|半導體|資料中心|伺服器|電力|散熱|液冷|供應鏈|記憶體|dram|nand|hbm|cowos|封裝|機器人)/.test(text)) return "supply_chain";
   if (/股價|價格|漲價|降價|報價|price/.test(text)) return "price";
   return "news";
 }
@@ -76,6 +76,16 @@ function strength(topic: TopicRow) {
   return Math.max(0, Math.min(100, Math.round(heat * 0.45 + source * 0.35 + articles * 0.2)));
 }
 
+
+function isMarketRelevant(topic: TopicRow) {
+  const text = `${topic.title} ${topic.category ?? ""} ${topic.summary ?? ""}`.toLowerCase();
+
+  if (/體育|世足|nba|mlb|棒球|足球|大谷|林書豪|內馬爾|gmail|電子郵件|帳號教學|教你如何/.test(text)) {
+    return false;
+  }
+
+  return /ai|人工智慧|輝達|nvidia|晶片|半導體|台積電|資料中心|伺服器|電力|電網|散熱|液冷|供應鏈|記憶體|dram|nand|hbm|cowos|封裝|機器人|能源|關稅|貿易|財經|股市|產業|企業/.test(text);
+}
 function toSignal(topic: TopicRow): DerivedSignal {
   const signalStrength = strength(topic);
   const date = toDate(topic.last_article_published_at ?? topic.last_synced_at ?? topic.updated_at);
@@ -127,7 +137,7 @@ export async function getDerivedSignalsFromTopics(limit = 12) {
     .returns<TopicRow[]>();
 
   if (error) throw error;
-  return (data ?? []).map(toSignal);
+  return (data ?? []).filter(isMarketRelevant).map(toSignal);
 }
 
 export async function getDerivedSignalById(id: string) {
@@ -150,4 +160,5 @@ export function pendingOutcomes(signalEventId: string) {
 export function emptyStockReturnDetails() {
   return [7, 14, 30, 60].map((horizonDays) => ({ horizonDays, details: [], basketReturn: null }));
 }
+
 
