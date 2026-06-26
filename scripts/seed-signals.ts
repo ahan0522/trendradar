@@ -196,6 +196,7 @@ function stableId(value: string) {
 
 async function main() {
   const supabase = getSupabaseAdmin();
+  const optionalErrors: string[] = [];
   const signalRows = seeds.map((seed) => ({
     id: seed.id,
     signal_date: seed.signalDate,
@@ -276,7 +277,7 @@ async function main() {
 
   if (evidenceRows.length > 0) {
     const { error: evidenceError } = await supabase.from("signal_evidence_items").upsert(evidenceRows, { onConflict: "id" });
-    if (evidenceError) throw evidenceError;
+    if (evidenceError) optionalErrors.push(`signal_evidence_items: ${evidenceError.message}`);
   }
 
   const timelineRows = seeds.flatMap((seed) =>
@@ -294,7 +295,7 @@ async function main() {
 
   if (timelineRows.length > 0) {
     const { error: timelineError } = await supabase.from("signal_timeline_events").upsert(timelineRows, { onConflict: "id" });
-    if (timelineError) throw timelineError;
+    if (timelineError) optionalErrors.push(`signal_timeline_events: ${timelineError.message}`);
   }
 
   const lessonRows = seeds.flatMap((seed) =>
@@ -310,12 +311,15 @@ async function main() {
 
   if (lessonRows.length > 0) {
     const { error: lessonError } = await supabase.from("signal_lessons").upsert(lessonRows, { onConflict: "id" });
-    if (lessonError) throw lessonError;
+    if (lessonError) optionalErrors.push(`signal_lessons: ${lessonError.message}`);
   }
 
   console.log(
     `Seeded ${signalRows.length} signals, ${watchlistRows.length} watchlist rows, ${outcomeRows.length} pending outcomes, ${evidenceRows.length} evidence items, ${timelineRows.length} timeline events, ${lessonRows.length} lessons.`,
   );
+  if (optionalErrors.length > 0) {
+    console.warn(`Skipped optional research case tables: ${optionalErrors.join(" | ")}`);
+  }
 }
 
 main().catch((error) => {

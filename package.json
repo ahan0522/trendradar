@@ -7,7 +7,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "seed:signals": "tsx scripts/seed-signals.ts"
+    "seed:signals": "tsx scripts/seed-signals.ts",
+    "prices:signals": "tsx scripts/fetch-signal-prices.ts"
   },
   "dependencies": {
     "@next/env": "latest",
