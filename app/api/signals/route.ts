@@ -24,6 +24,29 @@ type OutcomeRow = {
   outcome: string;
 };
 
+type WatchlistRow = {
+  signal_event_id: string;
+  symbol: string;
+  company_name: string;
+  market: string;
+  thesis: string;
+  weight: number;
+  source: string | null;
+};
+
+type PriceRow = {
+  symbol: string;
+  market: string;
+  price_date: string;
+  close: number;
+  adj_close: number | null;
+  volume: number | null;
+};
+
+function priceKey(symbol: string, market: string) {
+  return `${symbol}::${market}`;
+}
+
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
@@ -34,7 +57,11 @@ export async function GET() {
           .select("id, signal_date, as_of_date, topic, signal_type, signal_strength, confidence_score, hypothesis, status, model_version")
           .order("signal_date", { ascending: false })
           .returns<SignalRow[]>(),
-        supabase.from("signal_watchlists").select("signal_event_id").returns<Array<{ signal_event_id: string }>>(),
+        supabase
+          .from("signal_watchlists")
+          .select("signal_event_id, symbol, company_name, market, thesis, weight, source")
+          .order("weight", { ascending: false })
+          .returns<WatchlistRow[]>(),
         supabase
           .from("signal_outcomes")
           .select("signal_event_id, horizon_days, basket_return, benchmark_return, excess_return, outcome")
@@ -47,9 +74,31 @@ export async function GET() {
     if (outcomesError) throw outcomesError;
     if ((signals ?? []).length === 0) throw new Error("No signal table rows yet");
 
-    const watchlistCounts = new Map<string, number>();
+    const symbols = [...new Set((watchlists ?? []).map((item) => item.symbol))];
+    const markets = [...new Set((watchlists ?? []).map((item) => item.market))];
+    const { data: prices, error: pricesError } =
+      symbols.length > 0
+        ? await supabase
+            .from("stock_prices")
+            .select("symbol, market, price_date, close, adj_close, volume")
+            .in("symbol", symbols)
+            .in("market", markets)
+            .order("price_date", { ascending: false })
+            .limit(5000)
+            .returns<PriceRow[]>()
+        : { data: [] as PriceRow[], error: null };
+
+    if (pricesError) throw pricesError;
+
+    const latestPrices = new Map<string, PriceRow>();
+    for (const price of prices ?? []) {
+      const key = priceKey(price.symbol, price.market);
+      if (!latestPrices.has(key)) latestPrices.set(key, price);
+    }
+
+    const watchlistsBySignal = new Map<string, WatchlistRow[]>();
     for (const item of watchlists ?? []) {
-      watchlistCounts.set(item.signal_event_id, (watchlistCounts.get(item.signal_event_id) ?? 0) + 1);
+      watchlistsBySignal.set(item.signal_event_id, [...(watchlistsBySignal.get(item.signal_event_id) ?? []), item]);
     }
 
     const outcomesBySignal = new Map<string, OutcomeRow[]>();
@@ -71,7 +120,26 @@ export async function GET() {
         hypothesis: signal.hypothesis,
         status: signal.status,
         modelVersion: signal.model_version,
-        watchlistCount: watchlistCounts.get(signal.id) ?? 0,
+        watchlistCount: watchlistsBySignal.get(signal.id)?.length ?? 0,
+        watchlists: (watchlistsBySignal.get(signal.id) ?? []).map((item) => {
+          const latestPrice = latestPrices.get(priceKey(item.symbol, item.market));
+          return {
+            symbol: item.symbol,
+            companyName: item.company_name,
+            market: item.market,
+            thesis: item.thesis,
+            weight: Number(item.weight),
+            source: item.source,
+            latestPrice: latestPrice
+              ? {
+                  priceDate: latestPrice.price_date,
+                  close: Number(latestPrice.close),
+                  adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
+                  volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
+                }
+              : null,
+          };
+        }),
         latestOutcome: outcomesBySignal.get(signal.id)?.[0] ?? null,
         bestOutcome: [...(outcomesBySignal.get(signal.id) ?? [])].sort((a, b) => Number(b.excess_return) - Number(a.excess_return))[0] ?? null,
       })),
