@@ -322,31 +322,32 @@ export async function getMonthlySignalReport(options?: {
   const endMonth = options?.endMonth ?? today.slice(0, 7);
   const supabase = getSupabaseAdmin();
   const months = monthRange(startMonth, endMonth);
-  const rows = [];
 
-  for (const month of months) {
-    const asOfDate = asOfDateForMonth(month, today);
-    const start = monthStart(asOfDate);
-    const end = nextMonthStart(asOfDate);
-    const { count, error } = await supabase
-      .from("articles")
-      .select("id", { count: "exact", head: true })
-      .gte("published_at", `${start}T00:00:00+00:00`)
-      .lt("published_at", `${end}T00:00:00+00:00`)
-      .lte("published_at", `${asOfDate}T23:59:59+08:00`);
+  const rows = await Promise.all(
+    months.map(async (month) => {
+      const asOfDate = asOfDateForMonth(month, today);
+      const start = monthStart(asOfDate);
+      const end = nextMonthStart(asOfDate);
+      const { count, error } = await supabase
+        .from("articles")
+        .select("id", { count: "exact", head: true })
+        .gte("published_at", `${start}T00:00:00+00:00`)
+        .lt("published_at", `${end}T00:00:00+00:00`)
+        .lte("published_at", `${asOfDate}T23:59:59+08:00`);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const signals = count && count > 0 ? await getCurrentMonthlySignals(asOfDate) : [];
-    rows.push({
-      month,
-      asOfDate,
-      articleCount: count ?? 0,
-      signalCount: signals.length,
-      status: count && count > 0 ? (signals.length > 0 ? "candidate_ready" : "no_candidate") : "no_data",
-      signals,
-    });
-  }
+      const signals = count && count > 0 ? await getCurrentMonthlySignals(asOfDate) : [];
+      return {
+        month,
+        asOfDate,
+        articleCount: count ?? 0,
+        signalCount: signals.length,
+        status: count && count > 0 ? (signals.length > 0 ? "candidate_ready" : "no_candidate") : "no_data",
+        signals,
+      };
+    }),
+  );
 
   return {
     ok: true,
@@ -356,3 +357,4 @@ export async function getMonthlySignalReport(options?: {
     rows,
   };
 }
+

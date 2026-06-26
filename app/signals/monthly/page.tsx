@@ -8,13 +8,13 @@ type MonthlySignal = Awaited<ReturnType<typeof getMonthlySignalReport>>["rows"][
 function statusLabel(status: string) {
   if (status === "candidate_ready") return "已有月度候選";
   if (status === "no_candidate") return "有資料但未成訊號";
-  return "尚無資料";
+  return "Backfill Required";
 }
 
 function statusTone(status: string) {
   if (status === "candidate_ready") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-200";
   if (status === "no_candidate") return "border-amber-300/30 bg-amber-400/10 text-amber-200";
-  return "border-zinc-700 bg-zinc-900 text-zinc-500";
+  return "border-amber-300/30 bg-amber-400/10 text-amber-200";
 }
 
 function marketLabel(value: string) {
@@ -61,7 +61,7 @@ export default async function MonthlySignalsPage() {
           <div className="mt-6 grid gap-3 md:grid-cols-4">
             <MiniMetric label="月份範圍" value={`${report.startMonth} → ${report.endMonth}`} />
             <MiniMetric label="有候選月份" value={String(readyRows.length)} tone="text-emerald-300" />
-            <MiniMetric label="缺資料月份" value={String(missingRows.length)} tone="text-amber-300" />
+            <MiniMetric label="需 Backfill 月份" value={String(missingRows.length)} tone="text-amber-300" />
             <MiniMetric label="資料日期" value={report.generatedAt.slice(0, 10)} />
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -80,7 +80,7 @@ export default async function MonthlySignalsPage() {
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Coverage</p>
               <h2 className="mt-2 text-2xl font-black">月份資料狀態</h2>
             </div>
-            <p className="text-sm text-zinc-600">沒有資料的月份不會硬補訊號。</p>
+            <p className="text-sm text-zinc-600">Backfill Required 代表目前 Supabase 尚未補齊該月歷史資料，不代表資料不存在。</p>
           </div>
           <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {report.rows.map((row) => (
@@ -175,3 +175,4 @@ function MiniMetric({ label, value, tone = "text-white" }: { label: string; valu
     </div>
   );
 }
+
