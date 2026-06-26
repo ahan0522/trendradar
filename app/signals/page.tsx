@@ -98,6 +98,18 @@ function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
   );
 }
 
+const marketClusters = ["Compute", "Memory", "Packaging", "Cooling", "Power", "Networking"] as const;
+
+function inferCluster(signal: SignalRow) {
+  const text = `${signal.topic} ${signal.hypothesis}`.toLowerCase();
+  if (/memory|dram|nand|hbm|micron|sk hynix|samsung/.test(text)) return "Memory";
+  if (/packag|cowos|advanced packaging|tsmc|amkor|ase/.test(text)) return "Packaging";
+  if (/cool|thermal|liquid|vertiv|heat/.test(text)) return "Cooling";
+  if (/power|grid|transformer|electric|vernova|eaton/.test(text)) return "Power";
+  if (/network|switch|ethernet|broadcom|optical/.test(text)) return "Networking";
+  return "Compute";
+}
+
 export default function SignalsPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +128,18 @@ export default function SignalsPage() {
     const validated = signals.filter((signal) => signal.bestOutcome?.outcome === "success").length;
     const avgStrength = signals.length ? Math.round(signals.reduce((sum, signal) => sum + signal.signalStrength, 0) / signals.length) : 0;
     return { validated, avgStrength };
+  }, [signals]);
+  const marketMap = useMemo(() => {
+    return marketClusters.map((cluster) => {
+      const clusterSignals = signals.filter((signal) => inferCluster(signal) === cluster);
+      const strongest = clusterSignals.reduce<SignalRow | null>((best, signal) => (!best || signal.signalStrength > best.signalStrength ? signal : best), null);
+      return {
+        cluster,
+        count: clusterSignals.length,
+        strongest,
+        score: strongest?.signalStrength ?? 0,
+      };
+    });
   }, [signals]);
 
   return (
@@ -172,6 +196,20 @@ export default function SignalsPage() {
                 </div>
                 <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">{topSignal.topic}</h2>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">{topSignal.hypothesis}</p>
+                <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/30 p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Wow Moment</p>
+                  {topSignal.bestOutcome ? (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <MiniStat label={`${topSignal.bestOutcome.horizon_days}D Basket`} value={formatPct(topSignal.bestOutcome.basket_return)} tone="text-white" />
+                      <MiniStat label="Benchmark" value={formatPct(topSignal.bestOutcome.benchmark_return)} tone="text-zinc-300" />
+                      <MiniStat label="Alpha" value={formatPct(topSignal.bestOutcome.excess_return)} tone="text-emerald-300" />
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm leading-6 text-zinc-400">
+                      這個 signal 已形成研究假設，但尚未匯入足夠價格資料完成 outcome validation。下一步是匯入 basket 與 benchmark 價格，讓它從「可研究」變成「可驗證」。
+                    </p>
+                  )}
+                </div>
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
                   <MiniStat label="Confidence" value={String(topSignal.confidenceScore)} tone="text-sky-300" />
                   <MiniStat label="Watchlist" value={String(topSignal.watchlistCount)} tone="text-zinc-200" />
@@ -182,6 +220,30 @@ export default function SignalsPage() {
             </div>
           </Link>
         ) : null}
+
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Market Map</p>
+              <h2 className="mt-2 text-2xl font-black">AI infrastructure signal coverage</h2>
+            </div>
+            <p className="text-xs text-zinc-600">Coverage shows where TrendRadar currently has market-relevant evidence.</p>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {marketMap.map((item) => (
+              <Link key={item.cluster} href={item.strongest ? `/signals/${item.strongest.id}` : "/signals"} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 transition hover:border-sky-400/50">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-black text-white">{item.cluster}</p>
+                  <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-bold text-zinc-400">{item.count} signals</span>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
+                  <div className="h-full rounded-full bg-sky-400" style={{ width: `${Math.max(4, item.score)}%` }} />
+                </div>
+                <p className="mt-3 line-clamp-1 text-sm text-zinc-500">{item.strongest?.topic ?? "No active signal yet"}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">

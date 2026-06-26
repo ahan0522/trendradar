@@ -121,6 +121,36 @@ function ScoreRing({ score, size = 88 }: { score: number; size?: number }) {
   );
 }
 
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function buildSignalDna(signal: NonNullable<ApiResponse["signal"]>, evidence: EvidenceMetric, watchlistCount: number, outcomeCount: number) {
+  const heat = evidence.heat_score ?? signal.signalStrength;
+  const sources = evidence.source_count ?? 0;
+  const articles = evidence.article_count ?? 0;
+  const typeBoost = signal.signalType;
+
+  return [
+    { label: "News", value: clampScore(Math.min(heat, 100) * 0.55 + Math.min(articles * 8, 35)), note: `${articles || "-"} articles` },
+    { label: "Price", value: clampScore(typeBoost === "price" ? signal.signalStrength : outcomeCount > 0 ? 72 : 28), note: outcomeCount > 0 ? "validated data" : "needs prices" },
+    { label: "Supply Chain", value: clampScore(typeBoost === "supply_chain" ? signal.signalStrength : /supply|memory|power|cool|packag|grid/i.test(signal.hypothesis) ? 70 : 35), note: signal.signalType.replaceAll("_", " ") },
+    { label: "Company Activity", value: clampScore(typeBoost === "company_action" ? signal.signalStrength : watchlistCount > 0 ? 62 : 24), note: `${watchlistCount} names` },
+    { label: "Persistence", value: clampScore(Math.min(sources * 16, 80) + (signal.confidenceScore > 80 ? 12 : 0)), note: `${sources || "-"} sources` },
+    { label: "Beneficiary Clarity", value: clampScore(watchlistCount > 0 ? Math.min(50 + watchlistCount * 8, 95) : 25), note: watchlistCount > 0 ? "mapped basket" : "not mapped" },
+  ];
+}
+
+function buildTimeline(signal: NonNullable<ApiResponse["signal"]>, watchlistCount: number, outcomeCount: number) {
+  return [
+    { label: signal.signalDate, title: "Signal detected", body: `TrendRadar formed a ${signal.signalType.replaceAll("_", " ")} signal using only information available as of ${signal.asOfDate}.`, state: "done" },
+    { label: "Evidence", title: "Evidence assembled", body: "Topic, source diversity and available market context are normalized into a signal score and confidence score.", state: "done" },
+    { label: "Basket", title: "Investment basket", body: watchlistCount > 0 ? `${watchlistCount} beneficiary names are mapped for validation.` : "Beneficiary basket is not generated yet.", state: watchlistCount > 0 ? "done" : "pending" },
+    { label: "7/14/30/60D", title: "Backtest windows", body: outcomeCount > 0 ? `${outcomeCount} outcome windows are available.` : "Import price data and run backtest to validate forward returns.", state: outcomeCount > 0 ? "done" : "pending" },
+    { label: "Validation", title: "Lessons learned", body: outcomeCount > 0 ? "Outcome can be compared against benchmark to judge alpha." : "Pending until basket and benchmark prices are complete.", state: outcomeCount > 0 ? "done" : "pending" },
+  ];
+}
+
 export default function SignalDetailPage() {
   const params = useParams<{ id: string }>();
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -165,6 +195,9 @@ export default function SignalDetailPage() {
     return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-amber-200">{data?.error ?? "Signal not found"}</main>;
   }
 
+  const signalDna = buildSignalDna(data.signal, evidence, watchlists.length, outcomes.length);
+  const timeline = buildTimeline(data.signal, watchlists.length, outcomes.length);
+
   return (
     <main className="min-h-screen bg-[#05070d] px-4 py-8 text-white md:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -190,6 +223,48 @@ export default function SignalDetailPage() {
           <MetricCard label="Heat" value={String(evidence.heat_score ?? "-")} tone="text-amber-300" />
           <MetricCard label="Sources" value={String(evidence.source_count ?? "-")} tone="text-emerald-300" />
           <MetricCard label="Articles" value={String(evidence.article_count ?? "-")} tone="text-zinc-100" />
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Signal DNA</p>
+            <h2 className="mt-2 text-2xl font-black">Why this signal?</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-500">
+              第一版用目前可取得的 evidence 與 signal metadata 組成可解釋分數。正式版會把每一格拆成 mention spike、price spike、source diversity 與 company activity 的原始貢獻。
+            </p>
+            <div className="mt-5 space-y-4">
+              {signalDna.map((item) => (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-bold text-zinc-300">{item.label}</span>
+                    <span className="font-mono text-xs text-zinc-500">{item.note} · {item.value}</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-800">
+                    <div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-emerald-300" style={{ width: `${item.value}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Signal Timeline</p>
+            <h2 className="mt-2 text-2xl font-black">From detection to validation</h2>
+            <div className="mt-6 space-y-4">
+              {timeline.map((item, index) => (
+                <div key={`${item.label}-${item.title}`} className="relative grid grid-cols-[82px_1fr] gap-4">
+                  {index < timeline.length - 1 ? <div className="absolute left-[40px] top-8 h-full w-px bg-zinc-800" /> : null}
+                  <div className="relative z-10 flex h-8 items-center justify-center rounded-full border border-zinc-800 bg-zinc-950 font-mono text-[11px] font-bold text-zinc-400">
+                    {item.label}
+                  </div>
+                  <div className={`rounded-2xl border p-4 ${item.state === "done" ? "border-sky-300/20 bg-sky-400/10" : "border-zinc-800 bg-zinc-900/60"}`}>
+                    <p className="font-black text-white">{item.title}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-500">{item.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
