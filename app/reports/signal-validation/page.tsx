@@ -43,6 +43,40 @@ type ReportResponse = {
   outcomes: OutcomeRow[];
 };
 
+type PublicWatchlist = {
+  symbol: string;
+  companyName: string;
+  market: string;
+  thesis: string;
+  latestPrice: {
+    priceDate: string;
+    close: number;
+    adjClose: number | null;
+  } | null;
+  priceQuality?: {
+    status: "verified" | "needs_review";
+    reason?: string;
+  };
+};
+
+type PublicSignal = {
+  id: string;
+  signalDate: string;
+  asOfDate: string;
+  topic: string;
+  signalType: string;
+  signalStrength: number;
+  confidenceScore: number;
+  hypothesis: string;
+  watchlists?: PublicWatchlist[];
+};
+
+type PublicSignalsResponse = {
+  ok: boolean;
+  source?: string;
+  signals: PublicSignal[];
+};
+
 function pct(value: number | null | undefined) {
   if (value === null || value === undefined) return "待驗證";
   const number = Number(value);
@@ -58,12 +92,21 @@ const monthLabels: Record<string, string> = {
 
 export default function SignalValidationReportPage() {
   const [data, setData] = useState<ReportResponse | null>(null);
+  const [publicData, setPublicData] = useState<PublicSignalsResponse | null>(null);
 
   useEffect(() => {
-    fetch("/api/reports/signal-validation")
-      .then((response) => response.json())
-      .then((payload: ReportResponse) => setData(payload))
-      .catch((error: Error) => setData({ ok: false, error: error.message, summary: null, signals: [], watchlists: [], outcomes: [] }));
+    Promise.all([
+      fetch("/api/reports/signal-validation").then((response) => response.json()),
+      fetch("/api/signals").then((response) => response.json()),
+    ])
+      .then(([reportPayload, publicPayload]: [ReportResponse, PublicSignalsResponse]) => {
+        setData(reportPayload);
+        setPublicData(publicPayload);
+      })
+      .catch((error: Error) => {
+        setData({ ok: false, error: error.message, summary: null, signals: [], watchlists: [], outcomes: [] });
+        setPublicData({ ok: false, signals: [] });
+      });
   }, []);
 
   const signals = useMemo(() => data?.signals ?? [], [data?.signals]);
@@ -83,6 +126,10 @@ export default function SignalValidationReportPage() {
     }
     return sections;
   }, [signals]);
+  const publicSignals = useMemo(
+    () => [...(publicData?.signals ?? [])].sort((a, b) => b.signalStrength - a.signalStrength || b.confidenceScore - a.confidenceScore).slice(0, 3),
+    [publicData?.signals],
+  );
 
   return (
     <main className="min-h-screen bg-[#05070d] px-4 py-8 text-white md:px-8">
@@ -116,6 +163,56 @@ export default function SignalValidationReportPage() {
         <ReportSection index="2" title="研究方法">
           Time Machine Simulation（時間機模擬）：每個訊號只能使用 as_of_date 之前的資料產生。as_of_date 之後的資料只能用於結果驗證，避免把未來資訊混入訊號形成階段。
         </ReportSection>
+
+        {publicSignals.length > 0 ? (
+          <section className="rounded-3xl border border-sky-400/20 bg-sky-400/10 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-200">Current Research Brief</p>
+            <h2 className="mt-2 text-3xl font-black">目前使用者看得懂的研究摘要</h2>
+            <p className="mt-3 max-w-4xl text-sm leading-7 text-sky-50/75">
+              這裡只列 1-3 個夠強的候選訊號。每個訊號都要回答三件事：發生什麼變化、為什麼值得追蹤、台股/美股有哪些標的要觀察。
+            </p>
+            <div className="mt-6 grid gap-4">
+              {publicSignals.map((signal) => (
+                <article key={signal.id} className="rounded-3xl border border-zinc-800 bg-zinc-950/85 p-5">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                        {signal.signalDate} · Strength {signal.signalStrength} · Confidence {signal.confidenceScore}
+                      </p>
+                      <h3 className="mt-2 text-2xl font-black text-white">{signal.topic}</h3>
+                      <p className="mt-3 max-w-5xl text-sm leading-7 text-zinc-400">{signal.hypothesis}</p>
+                    </div>
+                    <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-2 text-xs font-black text-emerald-200">
+                      候選研究
+                    </span>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {(signal.watchlists ?? []).slice(0, 6).map((item) => (
+                      <div key={`${signal.id}-${item.market}-${item.symbol}`} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-black text-white">{item.companyName || item.symbol}</p>
+                            <p className="mt-1 text-xs text-zinc-500">{item.market} · {item.symbol}</p>
+                          </div>
+                          <p className="text-right font-mono text-xs font-black text-sky-300">
+                            {item.latestPrice ? `${Number(item.latestPrice.adjClose ?? item.latestPrice.close).toFixed(2)}` : "待驗證"}
+                          </p>
+                        </div>
+                        <p className="mt-3 text-xs leading-5 text-zinc-500">{item.thesis}</p>
+                        {item.priceQuality?.status === "needs_review" ? (
+                          <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                            價格資料：{item.priceQuality.reason}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/90">
           <div className="border-b border-zinc-800 px-6 py-5">

@@ -18,6 +18,10 @@ type Watchlist = {
   thesis: string;
   weight: number;
   source: string | null;
+  priceQuality?: {
+    status: "verified" | "needs_review";
+    reason?: string;
+  };
   latestPrice: {
     priceDate: string;
     close: number;
@@ -55,9 +59,16 @@ function formatPct(value: number | null | undefined) {
 }
 
 function formatPrice(item: Watchlist) {
+  if (item.priceQuality?.status === "needs_review") return "待重新驗證";
   if (!item.latestPrice) return "待補價格";
   const close = Number(item.latestPrice.adjClose ?? item.latestPrice.close);
   return `${close.toFixed(2)} · ${item.latestPrice.priceDate}`;
+}
+
+function priceNote(item: Watchlist) {
+  if (item.priceQuality?.status === "needs_review") return item.priceQuality.reason ?? "價格需重新驗證";
+  if (item.latestPrice) return "已通過基本區間檢查";
+  return "尚未匯入價格";
 }
 
 function marketLabel(value: string) {
@@ -329,7 +340,7 @@ function BasketSection({ title, items }: { title: string; items: Watchlist[] }) 
               </div>
               <div className="text-right">
                 <p className="font-mono text-sm font-black text-sky-300">{formatPrice(item)}</p>
-                <p className="mt-1 text-xs text-zinc-600">資料庫最新價</p>
+                <p className="mt-1 max-w-40 text-xs leading-4 text-zinc-600">{priceNote(item)}</p>
               </div>
             </div>
           </div>

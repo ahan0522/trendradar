@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getDerivedSignalsFromTopics } from "@/lib/signals/derived-signals";
 import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
+import { publishableLatestPrice } from "@/lib/signals/price-quality";
 
 type SignalRow = {
   id: string;
@@ -124,6 +125,15 @@ export async function GET() {
         watchlistCount: watchlistsBySignal.get(signal.id)?.length ?? 0,
         watchlists: (watchlistsBySignal.get(signal.id) ?? []).map((item) => {
           const latestPrice = latestPrices.get(priceKey(item.symbol, item.market));
+          const rawLatestPrice = latestPrice
+            ? {
+                priceDate: latestPrice.price_date,
+                close: Number(latestPrice.close),
+                adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
+                volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
+              }
+            : null;
+          const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice);
           return {
             symbol: item.symbol,
             companyName: item.company_name,
@@ -131,14 +141,8 @@ export async function GET() {
             thesis: item.thesis,
             weight: Number(item.weight),
             source: item.source,
-            latestPrice: latestPrice
-              ? {
-                  priceDate: latestPrice.price_date,
-                  close: Number(latestPrice.close),
-                  adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
-                  volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
-                }
-              : null,
+            latestPrice: publishable.latestPrice,
+            priceQuality: publishable.priceQuality,
           };
         }),
         latestOutcome: outcomesBySignal.get(signal.id)?.[0] ?? null,

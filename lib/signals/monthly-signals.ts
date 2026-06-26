@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { publishableLatestPrice } from "@/lib/signals/price-quality";
 import type { MarketCode } from "@/types/signals";
 
 type ArticleRow = {
@@ -118,6 +119,30 @@ const monthlyRules: MonthlyRule[] = [
   },
 ];
 
+const globalNoiseKeywords = [
+  "目標價",
+  "買超",
+  "賣超",
+  "投信",
+  "三大法人",
+  "外資",
+  "除息",
+  "eps",
+  "營收",
+  "報酬率",
+  "飆股",
+  "存股",
+  "女星抱",
+  "想像空間",
+  "噴了",
+  "爆買",
+  "豪擲",
+  "捕貨",
+  "海灌",
+  "法人豪",
+  "阮慕驊",
+];
+
 function normalizeText(value: string) {
   return value
     .toLowerCase()
@@ -185,6 +210,7 @@ function asOfDateForMonth(month: string, today = currentTaipeiDate()) {
 
 function matchesRule(article: ArticleRow, rule: MonthlyRule) {
   const text = normalizeText(`${article.title} ${article.description ?? ""} ${article.category ?? ""}`);
+  if (globalNoiseKeywords.some((keyword) => matchesLabel(text, keyword))) return false;
   if (rule.exclude?.some((keyword) => matchesLabel(text, keyword))) return false;
   return rule.labels.some((label) => matchesLabel(text, label));
 }
@@ -289,6 +315,15 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       watchlistCount: candidate.rule.watchlist.length,
       watchlists: candidate.rule.watchlist.map((item) => {
         const latestPrice = latestPrices.get(priceKey(item.symbol, item.market));
+        const rawLatestPrice = latestPrice
+          ? {
+              priceDate: latestPrice.price_date,
+              close: Number(latestPrice.close),
+              adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
+              volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
+            }
+          : null;
+        const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice);
         return {
           symbol: item.symbol,
           companyName: item.companyName,
@@ -296,14 +331,8 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           thesis: item.thesis,
           weight: Number((1 / candidate.rule.watchlist.length).toFixed(4)),
           source: "monthly-rule-based",
-          latestPrice: latestPrice
-            ? {
-                priceDate: latestPrice.price_date,
-                close: Number(latestPrice.close),
-                adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
-                volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
-              }
-            : null,
+          latestPrice: publishable.latestPrice,
+          priceQuality: publishable.priceQuality,
         };
       }),
       latestOutcome: null,
