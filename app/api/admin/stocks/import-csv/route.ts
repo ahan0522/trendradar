@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseStockPriceCsv, upsertStockPrices } from "@/lib/signals/stock-prices";
+import { requireAdminSecret } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  const unauthorized = requireAdminSecret(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = (await request.json()) as { csv?: string };
     const prices = parseStockPriceCsv(body.csv ?? "");

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AdminSecretField } from "@/components/AdminSecretField";
 
 const sampleCsv = `symbol,market,date,open,high,low,close,adj_close,volume
 MU,US,2026-03-31,100,101,99,100,100,1000000
@@ -12,6 +13,7 @@ export default function ImportStocksPage() {
   const [csv, setCsv] = useState(sampleCsv);
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const [adminSecret, setAdminSecret] = useState("");
 
   async function importCsv() {
     setLoading(true);
@@ -19,7 +21,7 @@ export default function ImportStocksPage() {
     try {
       const response = await fetch("/api/admin/stocks/import-csv", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-admin-secret": adminSecret },
         body: JSON.stringify({ csv }),
       });
       const payload = await response.json();
@@ -42,13 +44,15 @@ export default function ImportStocksPage() {
           </p>
         </header>
 
+        <AdminSecretField value={adminSecret} onChange={setAdminSecret} />
+
         <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-bold text-zinc-400">CSV Input</p>
             <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-bold text-zinc-500">symbol + market + date upsert</span>
           </div>
           <textarea value={csv} onChange={(event) => setCsv(event.target.value)} className="h-80 w-full rounded-2xl border border-zinc-800 bg-black p-4 font-mono text-sm leading-6 text-zinc-200 outline-none focus:border-sky-400" />
-          <button onClick={importCsv} disabled={loading} className="mt-4 rounded-2xl bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">
+          <button onClick={importCsv} disabled={loading || !adminSecret} className="mt-4 rounded-2xl bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">
             {loading ? "Importing..." : "Import CSV"}
           </button>
           <pre className="mt-6 max-h-72 overflow-auto rounded-2xl border border-zinc-800 bg-black p-4 text-xs leading-6 text-zinc-300">{result || "Import result will appear here."}</pre>

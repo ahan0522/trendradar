@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { detectSignalsFromTopics } from "@/lib/signals/signal-engine";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
+import { requireAdminSecret } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  const unauthorized = requireAdminSecret(request);
+  if (unauthorized) return unauthorized;
+
   try {
     const body = (await request.json()) as { asOfDate?: string };
     const asOfDate = body.asOfDate ?? new Date().toISOString().slice(0, 10);

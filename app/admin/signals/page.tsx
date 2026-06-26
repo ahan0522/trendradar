@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { AdminSecretField } from "@/components/AdminSecretField";
 
 export default function AdminSignalsPage() {
   const [asOfDate, setAsOfDate] = useState("2026-03-31");
   const [result, setResult] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [adminSecret, setAdminSecret] = useState("");
 
   async function generateSignals() {
     setLoading(true);
@@ -13,7 +15,7 @@ export default function AdminSignalsPage() {
     try {
       const response = await fetch("/api/admin/signals/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-admin-secret": adminSecret },
         body: JSON.stringify({ asOfDate }),
       });
       const payload = await response.json();
@@ -36,11 +38,13 @@ export default function AdminSignalsPage() {
           </p>
         </header>
 
+        <AdminSecretField value={adminSecret} onChange={setAdminSecret} />
+
         <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
           <label className="text-sm font-bold text-zinc-400" htmlFor="asOfDate">asOfDate</label>
           <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <input id="asOfDate" type="date" value={asOfDate} onChange={(event) => setAsOfDate(event.target.value)} className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-lg font-bold text-white outline-none focus:border-sky-400" />
-            <button onClick={generateSignals} disabled={loading} className="rounded-2xl bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">
+            <button onClick={generateSignals} disabled={loading || !adminSecret} className="rounded-2xl bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">
               {loading ? "Generating..." : "Generate Signals"}
             </button>
           </div>
