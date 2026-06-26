@@ -32,17 +32,28 @@ export default function ImportStocksPage() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Admin</p>
-      <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Import Stock Prices</h1>
-      <p className="mt-3 text-slate-600">CSV format: symbol,market,date,open,high,low,close,adj_close,volume</p>
-      <section className="mt-8 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-        <textarea value={csv} onChange={(event) => setCsv(event.target.value)} className="h-80 w-full rounded-2xl border border-slate-200 p-4 font-mono text-sm" />
-        <button onClick={importCsv} disabled={loading} className="mt-4 rounded-2xl bg-slate-950 px-6 py-3 font-bold text-white disabled:opacity-50">
-          {loading ? "Importing..." : "Import CSV"}
-        </button>
-        <pre className="mt-6 max-h-72 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-6 text-slate-100">{result || "Import result will appear here."}</pre>
-      </section>
+    <main className="min-h-screen bg-[#05070d] px-4 py-8 text-white md:px-8">
+      <div className="mx-auto max-w-5xl space-y-6">
+        <header>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">Admin Console</p>
+          <h1 className="mt-3 text-4xl font-black tracking-tight md:text-5xl">Import Stock Prices</h1>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-zinc-400">
+            第一版先用 CSV 匯入，建立 signal validation 的價格基礎。格式固定為 symbol, market, date, open, high, low, close, adj_close, volume。
+          </p>
+        </header>
+
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-bold text-zinc-400">CSV Input</p>
+            <span className="rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs font-bold text-zinc-500">symbol + market + date upsert</span>
+          </div>
+          <textarea value={csv} onChange={(event) => setCsv(event.target.value)} className="h-80 w-full rounded-2xl border border-zinc-800 bg-black p-4 font-mono text-sm leading-6 text-zinc-200 outline-none focus:border-sky-400" />
+          <button onClick={importCsv} disabled={loading} className="mt-4 rounded-2xl bg-white px-6 py-3 font-black text-zinc-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">
+            {loading ? "Importing..." : "Import CSV"}
+          </button>
+          <pre className="mt-6 max-h-72 overflow-auto rounded-2xl border border-zinc-800 bg-black p-4 text-xs leading-6 text-zinc-300">{result || "Import result will appear here."}</pre>
+        </section>
+      </div>
     </main>
   );
 }
