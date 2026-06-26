@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getDerivedSignalsFromTopics } from "@/lib/signals/derived-signals";
+import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
 
 type SignalRow = {
   id: string;
@@ -146,6 +147,11 @@ export async function GET() {
     });
   } catch (error) {
     try {
+      const monthlySignals = await getCurrentMonthlySignals();
+      if (monthlySignals.length > 0) {
+        return NextResponse.json({ ok: true, source: "monthly_current", signals: monthlySignals });
+      }
+
       const signals = await getDerivedSignalsFromTopics();
       return NextResponse.json({ ok: true, source: "derived_topics", signals });
     } catch (fallbackError) {

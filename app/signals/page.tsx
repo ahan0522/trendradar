@@ -82,6 +82,13 @@ function signalTypeLabel(value: string) {
   return labels[value] ?? value.replaceAll("_", " ");
 }
 
+function sourceLabel(value?: string) {
+  if (value === "signal_tables") return "正式 Signal Ledger";
+  if (value === "monthly_current") return "當月訊號候選";
+  if (value === "derived_topics") return "主題推導預覽";
+  return "資料載入中";
+}
+
 function stageLabel(signal: SignalRow) {
   if (signal.bestOutcome?.outcome === "success") return "已驗證";
   if (signal.bestOutcome?.outcome === "failed") return "需修正";
@@ -172,7 +179,7 @@ export default function SignalsPage() {
           </div>
           <div className="mt-6 flex flex-wrap gap-3 text-sm">
             <span className="rounded-full border border-zinc-700 bg-zinc-950 px-4 py-2 font-bold text-zinc-300">
-              資料模式：{data?.source === "derived_topics" ? "主題推導預覽" : "正式 Signal Ledger"}
+              資料模式：{sourceLabel(data?.source)}
             </span>
             <Link href="/market-map" className="rounded-full border border-zinc-700 bg-zinc-950 px-4 py-2 font-bold text-zinc-200 transition hover:border-sky-400/60">
               查看市場地圖
@@ -232,6 +239,7 @@ function ResearchSignalCard({ signal, rank }: { signal: SignalRow; rank: number 
   const { us, tw, other } = splitWatchlists(watchlists);
   const clues = trackingClues(signal);
   const best = signal.bestOutcome;
+  const isMonthlyCandidate = signal.id.startsWith("monthly-");
 
   return (
     <article className="rounded-[2rem] border border-zinc-800 bg-zinc-950/90 p-6 shadow-2xl shadow-black/20 md:p-8">
@@ -278,9 +286,15 @@ function ResearchSignalCard({ signal, rank }: { signal: SignalRow; rank: number 
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Investment Basket</p>
               <h3 className="mt-2 text-xl font-black">需關注標的</h3>
             </div>
-            <Link href={`/signals/${signal.id}`} className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 transition hover:bg-sky-100">
-              研究詳情
-            </Link>
+            {isMonthlyCandidate ? (
+              <span className="rounded-full border border-sky-300/30 bg-sky-400/10 px-4 py-2 text-xs font-black text-sky-200">
+                月度候選
+              </span>
+            ) : (
+              <Link href={`/signals/${signal.id}`} className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 transition hover:bg-sky-100">
+                研究詳情
+              </Link>
+            )}
           </div>
 
           <BasketSection title="美股" items={us} />
