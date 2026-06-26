@@ -1,6 +1,6 @@
 create table if not exists public.signal_evidence_items (
-  id uuid primary key default gen_random_uuid(),
-  signal_event_id uuid not null references public.signal_events(id) on delete cascade,
+  id text primary key,
+  signal_event_id text not null references public.signal_events(id) on delete cascade,
   evidence_date date,
   source_name text,
   source_url text,
@@ -19,8 +19,8 @@ create index if not exists signal_evidence_items_evidence_date_idx
   on public.signal_evidence_items(evidence_date);
 
 create table if not exists public.signal_timeline_events (
-  id uuid primary key default gen_random_uuid(),
-  signal_event_id uuid not null references public.signal_events(id) on delete cascade,
+  id text primary key,
+  signal_event_id text not null references public.signal_events(id) on delete cascade,
   event_date date,
   event_type text not null default 'evidence',
   title text not null,
@@ -38,8 +38,8 @@ create index if not exists signal_timeline_events_event_date_idx
   on public.signal_timeline_events(event_date);
 
 create table if not exists public.signal_lessons (
-  id uuid primary key default gen_random_uuid(),
-  signal_event_id uuid not null references public.signal_events(id) on delete cascade,
+  id text primary key,
+  signal_event_id text not null references public.signal_events(id) on delete cascade,
   lesson_type text not null default 'observation',
   title text not null,
   description text,

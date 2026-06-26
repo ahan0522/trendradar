@@ -33,18 +33,18 @@ type ApiResponse = {
 };
 
 function formatPct(value: number | null | undefined) {
-  if (value === null || value === undefined) return "Pending";
+  if (value === null || value === undefined) return "待驗證";
   const number = Number(value);
   return `${number > 0 ? "+" : ""}${number.toFixed(2)}%`;
 }
 
 function signalTypeLabel(value: string) {
   const labels: Record<string, string> = {
-    news: "News Signal",
-    price: "Price Signal",
-    supply_chain: "Supply Chain",
-    company_action: "Company Action",
-    mixed: "Mixed Signal",
+    news: "新聞訊號",
+    price: "價格訊號",
+    supply_chain: "供應鏈訊號",
+    company_action: "企業行動",
+    mixed: "混合訊號",
   };
   return labels[value] ?? value.replaceAll("_", " ");
 }
@@ -58,10 +58,10 @@ function lifecycle(signal: SignalRow) {
 
 function lifecycleStyle(value: string) {
   const styles: Record<string, { label: string; text: string; bg: string; border: string; dot: string }> = {
-    emerging: { label: "Emerging", text: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-300/30", dot: "bg-amber-300" },
-    growing: { label: "Growing", text: "text-sky-300", bg: "bg-sky-400/10", border: "border-sky-300/30", dot: "bg-sky-300" },
-    validated: { label: "Validated", text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-300/30", dot: "bg-emerald-300" },
-    watch: { label: "Watch", text: "text-zinc-300", bg: "bg-zinc-500/10", border: "border-zinc-500/40", dot: "bg-zinc-400" },
+    emerging: { label: "剛浮現", text: "text-amber-300", bg: "bg-amber-400/10", border: "border-amber-300/30", dot: "bg-amber-300" },
+    growing: { label: "升溫中", text: "text-sky-300", bg: "bg-sky-400/10", border: "border-sky-300/30", dot: "bg-sky-300" },
+    validated: { label: "已驗證", text: "text-emerald-300", bg: "bg-emerald-400/10", border: "border-emerald-300/30", dot: "bg-emerald-300" },
+    watch: { label: "觀察中", text: "text-zinc-300", bg: "bg-zinc-500/10", border: "border-zinc-500/40", dot: "bg-zinc-400" },
   };
   return styles[value] ?? styles.watch;
 }
@@ -99,6 +99,15 @@ function ScoreRing({ score, size = 64 }: { score: number; size?: number }) {
 }
 
 const marketClusters = ["Compute", "Memory", "Packaging", "Cooling", "Power", "Networking"] as const;
+
+const marketClusterLabels: Record<(typeof marketClusters)[number], string> = {
+  Compute: "算力",
+  Memory: "記憶體",
+  Packaging: "先進封裝",
+  Cooling: "散熱",
+  Power: "電力",
+  Networking: "網通",
+};
 
 function inferCluster(signal: SignalRow) {
   const text = `${signal.topic} ${signal.hypothesis}`.toLowerCase();
@@ -147,42 +156,42 @@ export default function SignalsPage() {
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI-Powered Market Research Platform</p>
-            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">Signal Ledger</h1>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI 驅動市場研究平台</p>
+            <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">市場訊號資料庫</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">
-              只放可轉成市場假設的訊號。一般熱門新聞留在首頁；這裡聚焦供應鏈、價格、企業行動與可驗證的投資 thesis。
+              這裡只放能轉成市場假設的訊號，聚焦供應鏈、價格、企業行動與可驗證的投資研究案例。
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/reports/signal-validation" className="rounded-full border border-zinc-700 bg-zinc-900 px-5 py-3 text-sm font-bold text-zinc-200 transition hover:border-sky-400/60">
-              Validation Report
+              驗證報告
             </Link>
             <Link href="/admin/backtest" className="rounded-full bg-white px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-sky-100">
-              Backtest Admin
+              回測後台
             </Link>
           </div>
         </header>
 
         <section className="grid gap-3 md:grid-cols-4">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Signals</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">訊號數量</p>
             <p className="mt-2 font-mono text-3xl font-black">{signals.length}</p>
           </div>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Avg Strength</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">平均強度</p>
             <p className="mt-2 font-mono text-3xl font-black text-sky-300">{stats.avgStrength}</p>
           </div>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Validated</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">已驗證</p>
             <p className="mt-2 font-mono text-3xl font-black text-emerald-300">{stats.validated}</p>
           </div>
           <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5">
-            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Data Mode</p>
-            <p className="mt-2 text-sm font-black text-amber-300">{data?.source === "derived_topics" ? "Topic-derived" : "Signal tables"}</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">資料模式</p>
+            <p className="mt-2 text-sm font-black text-amber-300">{data?.source === "derived_topics" ? "由主題推導" : "正式訊號表"}</p>
           </div>
         </section>
 
-        {loading ? <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-zinc-400">Loading market signals...</div> : null}
+        {loading ? <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-zinc-400">正在讀取市場訊號...</div> : null}
         {!loading && data?.error ? <div className="rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 text-amber-200">{data.error}</div> : null}
 
         {topSignal ? (
@@ -191,18 +200,18 @@ export default function SignalsPage() {
               <ScoreRing score={topSignal.signalStrength} size={82} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-sky-300/30 bg-sky-400/10 px-3 py-1 text-xs font-bold text-sky-200">Highest Conviction</span>
+                  <span className="rounded-full border border-sky-300/30 bg-sky-400/10 px-3 py-1 text-xs font-bold text-sky-200">最高信念訊號</span>
                   <span className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-bold text-zinc-300">{signalTypeLabel(topSignal.signalType)}</span>
                 </div>
                 <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">{topSignal.topic}</h2>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-300">{topSignal.hypothesis}</p>
                 <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/30 p-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Wow Moment</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">一眼看懂價值</p>
                   {topSignal.bestOutcome ? (
                     <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                      <MiniStat label={`${topSignal.bestOutcome.horizon_days}D Basket`} value={formatPct(topSignal.bestOutcome.basket_return)} tone="text-white" />
-                      <MiniStat label="Benchmark" value={formatPct(topSignal.bestOutcome.benchmark_return)} tone="text-zinc-300" />
-                      <MiniStat label="Alpha" value={formatPct(topSignal.bestOutcome.excess_return)} tone="text-emerald-300" />
+                      <MiniStat label={`${topSignal.bestOutcome.horizon_days}日組合`} value={formatPct(topSignal.bestOutcome.basket_return)} tone="text-white" />
+                      <MiniStat label="基準指數" value={formatPct(topSignal.bestOutcome.benchmark_return)} tone="text-zinc-300" />
+                      <MiniStat label="超額報酬" value={formatPct(topSignal.bestOutcome.excess_return)} tone="text-emerald-300" />
                     </div>
                   ) : (
                     <p className="mt-3 text-sm leading-6 text-zinc-400">
@@ -211,12 +220,12 @@ export default function SignalsPage() {
                   )}
                 </div>
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <MiniStat label="Confidence" value={String(topSignal.confidenceScore)} tone="text-sky-300" />
-                  <MiniStat label="Watchlist" value={String(topSignal.watchlistCount)} tone="text-zinc-200" />
-                  <MiniStat label="Best Outcome" value={topSignal.bestOutcome ? formatPct(topSignal.bestOutcome.excess_return) : "Pending"} tone="text-emerald-300" />
+                  <MiniStat label="信心分數" value={String(topSignal.confidenceScore)} tone="text-sky-300" />
+                  <MiniStat label="觀察名單" value={String(topSignal.watchlistCount)} tone="text-zinc-200" />
+                  <MiniStat label="最佳結果" value={topSignal.bestOutcome ? formatPct(topSignal.bestOutcome.excess_return) : "待驗證"} tone="text-emerald-300" />
                 </div>
               </div>
-              <span className="text-sm font-bold text-sky-300 transition group-hover:translate-x-1">Open thesis →</span>
+              <span className="text-sm font-bold text-sky-300 transition group-hover:translate-x-1">查看研究假設 →</span>
             </div>
           </Link>
         ) : null}
@@ -224,22 +233,22 @@ export default function SignalsPage() {
         <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
           <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Market Map</p>
-              <h2 className="mt-2 text-2xl font-black">AI infrastructure signal coverage</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">市場地圖</p>
+              <h2 className="mt-2 text-2xl font-black">AI 基礎建設訊號覆蓋</h2>
             </div>
-            <p className="text-xs text-zinc-600">Coverage shows where TrendRadar currently has market-relevant evidence.</p>
+            <p className="text-xs text-zinc-600">用來看 TrendRadar 目前在哪些產業環節已經偵測到市場相關訊號。</p>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {marketMap.map((item) => (
               <Link key={item.cluster} href={item.strongest ? `/signals/${item.strongest.id}` : "/signals"} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 transition hover:border-sky-400/50">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="font-black text-white">{item.cluster}</p>
-                  <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-bold text-zinc-400">{item.count} signals</span>
+                  <p className="font-black text-white">{marketClusterLabels[item.cluster]}</p>
+                  <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-bold text-zinc-400">{item.count} 個訊號</span>
                 </div>
                 <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-800">
                   <div className="h-full rounded-full bg-sky-400" style={{ width: `${Math.max(4, item.score)}%` }} />
                 </div>
-                <p className="mt-3 line-clamp-1 text-sm text-zinc-500">{item.strongest?.topic ?? "No active signal yet"}</p>
+                <p className="mt-3 line-clamp-1 text-sm text-zinc-500">{item.strongest?.topic ?? "目前沒有活躍訊號"}</p>
               </Link>
             ))}
           </div>
@@ -247,8 +256,8 @@ export default function SignalsPage() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Research Signals</p>
-            <p className="text-xs text-zinc-600">market-only filter active</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">研究訊號</p>
+            <p className="text-xs text-zinc-600">已啟用市場相關篩選</p>
           </div>
 
           {signals.map((signal) => {
@@ -275,8 +284,8 @@ export default function SignalsPage() {
                     </div>
                   </div>
                   <div className="min-w-28 text-left md:text-right">
-                    <p className="font-mono text-xl font-black text-white">{signal.bestOutcome ? formatPct(signal.bestOutcome.excess_return) : "Pending"}</p>
-                    <p className="mt-1 text-xs text-zinc-600">30D alpha</p>
+                    <p className="font-mono text-xl font-black text-white">{signal.bestOutcome ? formatPct(signal.bestOutcome.excess_return) : "待驗證"}</p>
+                    <p className="mt-1 text-xs text-zinc-600">30日超額</p>
                   </div>
                 </div>
               </Link>
@@ -285,7 +294,7 @@ export default function SignalsPage() {
 
           {!loading && signals.length === 0 ? (
             <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-12 text-center">
-              <p className="text-lg font-black text-white">No market signals yet.</p>
+              <p className="text-lg font-black text-white">目前還沒有市場訊號。</p>
               <p className="mt-2 text-sm text-zinc-500">目前 topics 裡沒有通過市場相關過濾的訊號。RSS sync 後若出現 AI、供應鏈、價格或企業行動主題，會自動顯示。</p>
             </div>
           ) : null}

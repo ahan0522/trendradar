@@ -20,6 +20,32 @@ type SeedSignal = {
   confidenceScore: number;
   hypothesis: string;
   watchlist: SeedWatchlist[];
+  evidenceItems: Array<{
+    id: string;
+    evidenceDate: string;
+    sourceName: string;
+    sourceType: string;
+    title: string;
+    summary: string;
+    whyItMatters: string;
+    knownAtSignalTime: boolean;
+  }>;
+  timelineEvents: Array<{
+    id: string;
+    eventDate?: string;
+    eventType: string;
+    title: string;
+    description: string;
+    knownAtSignalTime: boolean;
+    displayOrder: number;
+  }>;
+  lessons: Array<{
+    id: string;
+    lessonType: string;
+    title: string;
+    description: string;
+    impact: string;
+  }>;
 };
 
 const seeds: SeedSignal[] = [
@@ -41,6 +67,84 @@ const seeds: SeedSignal[] = [
       { symbol: "2344.TW", companyName: "華邦電", market: "TW" },
       { symbol: "8299.TW", companyName: "群聯", market: "TW" },
     ],
+    evidenceItems: [
+      {
+        id: "seed-memory-price-dislocation-evidence-hbm-demand",
+        evidenceDate: "2026-03-31",
+        sourceName: "Manual research seed",
+        sourceType: "supply_chain",
+        title: "HBM demand reallocates memory production capacity",
+        summary:
+          "The signal thesis assumes AI server and HBM demand can shift DRAM production allocation, tightening conventional DRAM/NAND supply.",
+        whyItMatters:
+          "A capacity reallocation signal is more investable than a single headline because it can affect pricing, margins, and beneficiary baskets across multiple memory suppliers.",
+        knownAtSignalTime: true,
+      },
+      {
+        id: "seed-memory-price-dislocation-evidence-price-pressure",
+        evidenceDate: "2026-03-31",
+        sourceName: "Manual research seed",
+        sourceType: "price",
+        title: "Memory pricing pressure becomes the validation target",
+        summary:
+          "The case should later validate whether spot or contract pricing, company guidance, and stock baskets confirmed the original thesis.",
+        whyItMatters:
+          "This defines the testable part of the thesis: if pricing and beneficiary returns do not confirm, the signal should be marked partial or failed.",
+        knownAtSignalTime: true,
+      },
+    ],
+    timelineEvents: [
+      {
+        id: "seed-memory-price-dislocation-timeline-signal",
+        eventDate: "2026-03-31",
+        eventType: "signal",
+        title: "Signal detected",
+        description:
+          "TrendRadar forms the Memory Price Dislocation signal using information available as of 2026-03-31.",
+        knownAtSignalTime: true,
+        displayOrder: 10,
+      },
+      {
+        id: "seed-memory-price-dislocation-timeline-thesis",
+        eventDate: "2026-03-31",
+        eventType: "evidence",
+        title: "Investment thesis created",
+        description:
+          "AI server and HBM demand may reallocate memory capacity, creating structural DRAM/NAND price pressure.",
+        knownAtSignalTime: true,
+        displayOrder: 20,
+      },
+      {
+        id: "seed-memory-price-dislocation-timeline-watchlist",
+        eventDate: "2026-03-31",
+        eventType: "watchlist",
+        title: "Beneficiary basket mapped",
+        description:
+          "TrendRadar maps MU, SK Hynix, Samsung, Nanya, Winbond, and Phison as the first validation basket.",
+        knownAtSignalTime: true,
+        displayOrder: 30,
+      },
+      {
+        id: "seed-memory-price-dislocation-timeline-backtest",
+        eventType: "backtest",
+        title: "Backtest pending",
+        description:
+          "Import basket and benchmark prices, then run 7D / 14D / 30D / 60D / 90D validation windows.",
+        knownAtSignalTime: false,
+        displayOrder: 40,
+      },
+    ],
+    lessons: [
+      {
+        id: "seed-memory-price-dislocation-lesson-pending",
+        lessonType: "observation",
+        title: "Case study needs price validation",
+        description:
+          "The signal has a thesis, watchlist, evidence items, and timeline, but it is not validated until basket and benchmark price data are imported.",
+        impact:
+          "This case should remain pending rather than being marketed as a success before backtest evidence exists.",
+      },
+    ],
   },
   {
     id: "seed-ai-power-infrastructure",
@@ -60,6 +164,9 @@ const seeds: SeedSignal[] = [
       { symbol: "1513.TW", companyName: "中興電", market: "TW" },
       { symbol: "1519.TW", companyName: "華城", market: "TW" },
     ],
+    evidenceItems: [],
+    timelineEvents: [],
+    lessons: [],
   },
   {
     id: "seed-ai-cooling-infrastructure",
@@ -77,6 +184,9 @@ const seeds: SeedSignal[] = [
       { symbol: "3324.TW", companyName: "雙鴻", market: "TW" },
       { symbol: "2308.TW", companyName: "台達電", market: "TW" },
     ],
+    evidenceItems: [],
+    timelineEvents: [],
+    lessons: [],
   },
 ];
 
@@ -150,7 +260,62 @@ async function main() {
     .upsert(outcomeRows, { onConflict: "signal_event_id,horizon_days" });
   if (outcomeError) throw outcomeError;
 
-  console.log(`Seeded ${signalRows.length} signals, ${watchlistRows.length} watchlist rows, ${outcomeRows.length} pending outcomes.`);
+  const evidenceRows = seeds.flatMap((seed) =>
+    seed.evidenceItems.map((item) => ({
+      id: item.id,
+      signal_event_id: seed.id,
+      evidence_date: item.evidenceDate,
+      source_name: item.sourceName,
+      source_type: item.sourceType,
+      title: item.title,
+      summary: item.summary,
+      why_it_matters: item.whyItMatters,
+      known_at_signal_time: item.knownAtSignalTime,
+    })),
+  );
+
+  if (evidenceRows.length > 0) {
+    const { error: evidenceError } = await supabase.from("signal_evidence_items").upsert(evidenceRows, { onConflict: "id" });
+    if (evidenceError) throw evidenceError;
+  }
+
+  const timelineRows = seeds.flatMap((seed) =>
+    seed.timelineEvents.map((item) => ({
+      id: item.id,
+      signal_event_id: seed.id,
+      event_date: item.eventDate,
+      event_type: item.eventType,
+      title: item.title,
+      description: item.description,
+      known_at_signal_time: item.knownAtSignalTime,
+      display_order: item.displayOrder,
+    })),
+  );
+
+  if (timelineRows.length > 0) {
+    const { error: timelineError } = await supabase.from("signal_timeline_events").upsert(timelineRows, { onConflict: "id" });
+    if (timelineError) throw timelineError;
+  }
+
+  const lessonRows = seeds.flatMap((seed) =>
+    seed.lessons.map((item) => ({
+      id: item.id,
+      signal_event_id: seed.id,
+      lesson_type: item.lessonType,
+      title: item.title,
+      description: item.description,
+      impact: item.impact,
+    })),
+  );
+
+  if (lessonRows.length > 0) {
+    const { error: lessonError } = await supabase.from("signal_lessons").upsert(lessonRows, { onConflict: "id" });
+    if (lessonError) throw lessonError;
+  }
+
+  console.log(
+    `Seeded ${signalRows.length} signals, ${watchlistRows.length} watchlist rows, ${outcomeRows.length} pending outcomes, ${evidenceRows.length} evidence items, ${timelineRows.length} timeline events, ${lessonRows.length} lessons.`,
+  );
 }
 
 main().catch((error) => {
