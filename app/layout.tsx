@@ -3,8 +3,8 @@ import "./globals.css";
 import { SiteNav } from "@/components/SiteNav";
 
 export const metadata: Metadata = {
-  title: "TrendRadar | 熱門話題雷達",
-  description: "掌握今日熱門話題、趨勢分數、AI 摘要與主要討論來源。",
+  title: "TrendRadar | AI-Native Market Signal Engine",
+  description: "把新聞、價格、供應鏈與企業行動轉換成可驗證的市場訊號。",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

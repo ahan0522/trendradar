@@ -1,5 +1,5 @@
-import { SettingsDashboard } from "@/components/SettingsDashboard";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return <SettingsDashboard />;
+  redirect("/signals");
 }

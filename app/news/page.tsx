@@ -1,5 +1,5 @@
-import { NewsDashboard } from "@/components/NewsDashboard";
+import { redirect } from "next/navigation";
 
 export default function NewsPage() {
-  return <NewsDashboard />;
+  redirect("/signals");
 }
