@@ -15,7 +15,9 @@ export function SiteFooter() {
         </div>
         <div className="flex flex-wrap gap-3 text-sm font-bold">
           <Link href="/signals" className="hover:text-white">市場訊號</Link>
+          <Link href="/market-map" className="hover:text-white">市場地圖</Link>
           <Link href="/reports/signal-validation" className="hover:text-white">驗證報告</Link>
+          <Link href="/failed-signals" className="hover:text-white">失敗紀錄</Link>
         </div>
       </div>
     </footer>

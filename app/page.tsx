@@ -52,6 +52,9 @@ export default function HomePage() {
                 <Link href="/signals" className="rounded-full bg-white px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-sky-100">
                   查看市場訊號
                 </Link>
+                <Link href="/market-map" className="rounded-full border border-zinc-700 bg-zinc-950 px-6 py-3 text-sm font-bold text-zinc-200 transition hover:border-sky-400/60">
+                  查看市場地圖
+                </Link>
                 <Link href="/reports/signal-validation" className="rounded-full border border-zinc-700 bg-zinc-950 px-6 py-3 text-sm font-bold text-zinc-200 transition hover:border-sky-400/60">
                   查看驗證報告
                 </Link>
@@ -122,6 +125,32 @@ export default function HomePage() {
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          {[
+            {
+              title: "Signal Ledger",
+              text: "查看每個市場訊號的假設、強度、觀察名單與驗證結果。",
+              href: "/signals",
+            },
+            {
+              title: "Market Map",
+              text: "把訊號放回 AI 基礎建設供應鏈，快速看出瓶頸集中在哪。",
+              href: "/market-map",
+            },
+            {
+              title: "Failed Signals",
+              text: "保存失敗、部分成立與待驗證案例，讓研究流程能持續修正。",
+              href: "/failed-signals",
+            },
+          ].map((item) => (
+            <Link key={item.href} href={item.href} className="group rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6 transition hover:border-sky-400/50">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">{item.title}</p>
+              <p className="mt-3 text-lg font-black leading-7 text-white">{item.text}</p>
+              <p className="mt-5 text-sm font-bold text-sky-300 transition group-hover:translate-x-1">進入頁面 →</p>
+            </Link>
+          ))}
         </section>
 
         <section className="rounded-3xl border border-amber-300/20 bg-amber-400/10 p-6">

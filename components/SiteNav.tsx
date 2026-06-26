@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, FileText, Home } from "lucide-react";
+import { Activity, BarChart3, FileText, Home, Map, TriangleAlert } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "產品介紹", icon: Home },
   { href: "/signals", label: "市場訊號", icon: Activity },
+  { href: "/market-map", label: "市場地圖", icon: Map },
   { href: "/reports/signal-validation", label: "驗證報告", icon: FileText },
+  { href: "/failed-signals", label: "失敗紀錄", icon: TriangleAlert },
 ];
 
 function isActive(pathname: string, href: string) {
