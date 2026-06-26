@@ -2,13 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, FileText, Gauge, Upload } from "lucide-react";
+import { Activity, BarChart3, FileText, Home } from "lucide-react";
 
 const navItems = [
+  { href: "/", label: "產品介紹", icon: Home },
   { href: "/signals", label: "市場訊號", icon: Activity },
   { href: "/reports/signal-validation", label: "驗證報告", icon: FileText },
-  { href: "/admin/backtest", label: "回測", icon: Gauge },
-  { href: "/admin/stocks/import", label: "股價匯入", icon: Upload },
 ];
 
 function isActive(pathname: string, href: string) {

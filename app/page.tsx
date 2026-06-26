@@ -131,6 +131,14 @@ export default function HomePage() {
             The next milestone is not more feeds or more AI. The next milestone is building full case studies that show what TrendRadar saw at the time, what thesis it formed, and what happened afterward.
           </p>
         </section>
+
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Research Disclaimer</p>
+          <h2 className="mt-2 text-2xl font-black">Not investment advice.</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-400">
+            TrendRadar identifies research candidates and validates them over time. It does not recommend buying or selling securities. Every signal may be wrong, incomplete, or early.
+          </p>
+        </section>
       </div>
     </main>
   );
