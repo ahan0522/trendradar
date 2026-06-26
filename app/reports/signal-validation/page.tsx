@@ -90,7 +90,7 @@ export default function SignalValidationReportPage() {
         <section className="rounded-[2rem] border border-sky-400/20 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.22),_transparent_34%),#090b13] p-6 shadow-2xl shadow-sky-950/30 md:p-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI-Native Market Signal Engine</p>
+              <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI-Powered Market Research Platform</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">Signal Validation Report</h1>
               <p className="mt-4 text-xl font-bold text-zinc-300">March-June 2026</p>
             </div>

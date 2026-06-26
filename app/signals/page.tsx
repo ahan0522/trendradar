@@ -147,7 +147,7 @@ export default function SignalsPage() {
       <div className="mx-auto max-w-6xl space-y-8">
         <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI-Native Market Signal Engine</p>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI-Powered Market Research Platform</p>
             <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">Signal Ledger</h1>
             <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">
               只放可轉成市場假設的訊號。一般熱門新聞留在首頁；這裡聚焦供應鏈、價格、企業行動與可驗證的投資 thesis。

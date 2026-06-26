@@ -3,7 +3,7 @@ import "./globals.css";
 import { SiteNav } from "@/components/SiteNav";
 
 export const metadata: Metadata = {
-  title: "TrendRadar | AI-Native Market Signal Engine",
+  title: "TrendRadar | AI-Powered Market Research Platform",
   description: "把新聞、價格、供應鏈與企業行動轉換成可驗證的市場訊號。",
 };
 

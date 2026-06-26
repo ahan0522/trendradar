@@ -21,13 +21,13 @@ export function SiteNav() {
   return (
     <nav className="sticky top-0 z-50 border-b border-zinc-800/80 bg-[#05070d]/92 text-white backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between md:px-8">
-        <Link href="/signals" className="flex items-center gap-2 font-bold tracking-tight text-white">
+        <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-white">
           <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-zinc-950">
             <BarChart3 className="h-5 w-5" />
           </span>
           <span className="text-lg">TrendRadar</span>
           <span className="hidden rounded-full border border-sky-300/30 bg-sky-400/10 px-2.5 py-1 text-xs font-bold text-sky-200 sm:inline-flex">
-            Market Signal Engine
+            Market Research Platform
           </span>
         </Link>
 
