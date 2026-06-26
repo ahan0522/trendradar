@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getSignalReturnDetails } from "@/lib/signals/backtest";
-import { emptyStockReturnDetails, getDerivedSignalById, pendingOutcomes } from "@/lib/signals/derived-signals";
+import {
+  derivedEvidenceItems,
+  derivedLessons,
+  derivedTimelineEvents,
+  emptyStockReturnDetails,
+  getDerivedSignalById,
+  pendingOutcomes,
+} from "@/lib/signals/derived-signals";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -42,6 +49,109 @@ type OutcomeRow = {
   details: unknown[];
 };
 
+type EvidenceItemRow = {
+  id: string;
+  signal_event_id: string;
+  evidence_date: string | null;
+  source_name: string | null;
+  source_url: string | null;
+  source_type: string;
+  title: string;
+  summary: string | null;
+  why_it_matters: string | null;
+  known_at_signal_time: boolean;
+};
+
+type TimelineEventRow = {
+  id: string;
+  signal_event_id: string;
+  event_date: string | null;
+  event_type: string;
+  title: string;
+  description: string | null;
+  source_url: string | null;
+  known_at_signal_time: boolean;
+  display_order: number;
+};
+
+type LessonRow = {
+  id: string;
+  signal_event_id: string;
+  lesson_type: string;
+  title: string;
+  description: string | null;
+  impact: string | null;
+};
+
+async function readCaseStudyParts(supabase: ReturnType<typeof getSupabaseAdmin>, id: string) {
+  const [evidenceResult, timelineResult, lessonsResult] = await Promise.all([
+    supabase
+      .from("signal_evidence_items")
+      .select("id, signal_event_id, evidence_date, source_name, source_url, source_type, title, summary, why_it_matters, known_at_signal_time")
+      .eq("signal_event_id", id)
+      .order("evidence_date", { ascending: true })
+      .returns<EvidenceItemRow[]>(),
+    supabase
+      .from("signal_timeline_events")
+      .select("id, signal_event_id, event_date, event_type, title, description, source_url, known_at_signal_time, display_order")
+      .eq("signal_event_id", id)
+      .order("display_order", { ascending: true })
+      .returns<TimelineEventRow[]>(),
+    supabase
+      .from("signal_lessons")
+      .select("id, signal_event_id, lesson_type, title, description, impact")
+      .eq("signal_event_id", id)
+      .order("created_at", { ascending: true })
+      .returns<LessonRow[]>(),
+  ]);
+
+  return {
+    evidenceItems: evidenceResult.error ? [] : evidenceResult.data ?? [],
+    timelineEvents: timelineResult.error ? [] : timelineResult.data ?? [],
+    lessons: lessonsResult.error ? [] : lessonsResult.data ?? [],
+  };
+}
+
+function mapEvidenceItem(item: EvidenceItemRow) {
+  return {
+    id: item.id,
+    signalEventId: item.signal_event_id,
+    evidenceDate: item.evidence_date ?? undefined,
+    sourceName: item.source_name ?? undefined,
+    sourceUrl: item.source_url ?? undefined,
+    sourceType: item.source_type,
+    title: item.title,
+    summary: item.summary ?? undefined,
+    whyItMatters: item.why_it_matters ?? undefined,
+    knownAtSignalTime: item.known_at_signal_time,
+  };
+}
+
+function mapTimelineEvent(item: TimelineEventRow) {
+  return {
+    id: item.id,
+    signalEventId: item.signal_event_id,
+    eventDate: item.event_date ?? undefined,
+    eventType: item.event_type,
+    title: item.title,
+    description: item.description ?? undefined,
+    sourceUrl: item.source_url ?? undefined,
+    knownAtSignalTime: item.known_at_signal_time,
+    displayOrder: Number(item.display_order),
+  };
+}
+
+function mapLesson(item: LessonRow) {
+  return {
+    id: item.id,
+    signalEventId: item.signal_event_id,
+    lessonType: item.lesson_type,
+    title: item.title,
+    description: item.description ?? undefined,
+    impact: item.impact ?? undefined,
+  };
+}
+
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
@@ -77,12 +187,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     if (!signal) throw new Error("Signal not found in signal tables");
 
     const horizons = [7, 14, 30, 60];
-    const stockReturnDetails = await Promise.all(
+    const [stockReturnDetails, caseStudyParts] = await Promise.all([
+      Promise.all(
       horizons.map(async (horizonDays) => {
         const result = await getSignalReturnDetails(id, horizonDays);
         return { horizonDays, details: result.details, basketReturn: result.basketReturn };
       }),
-    );
+      ),
+      readCaseStudyParts(supabase, id),
+    ]);
 
     return NextResponse.json({
       ok: true,
@@ -112,6 +225,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       })),
       outcomes: outcomes ?? [],
       stockReturnDetails,
+      evidenceItems: caseStudyParts.evidenceItems.map(mapEvidenceItem),
+      timelineEvents: caseStudyParts.timelineEvents.map(mapTimelineEvent),
+      lessons: caseStudyParts.lessons.map(mapLesson),
     });
   } catch (error) {
     try {
@@ -125,6 +241,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         watchlists: [],
         outcomes: pendingOutcomes(signal.id),
         stockReturnDetails: emptyStockReturnDetails(),
+        evidenceItems: derivedEvidenceItems(signal),
+        timelineEvents: derivedTimelineEvents(signal),
+        lessons: derivedLessons(signal),
       });
     } catch (fallbackError) {
       const message = fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "Unknown error";

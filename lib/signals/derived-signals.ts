@@ -161,4 +161,90 @@ export function emptyStockReturnDetails() {
   return [7, 14, 30, 60].map((horizonDays) => ({ horizonDays, details: [], basketReturn: null }));
 }
 
+export function derivedEvidenceItems(signal: DerivedSignal) {
+  const metric = (signal.evidence[0] ?? {}) as {
+    source?: string;
+    category?: string | null;
+    heat_score?: number | null;
+    source_count?: number | null;
+    article_count?: number | null;
+  };
+
+  return [
+    {
+      id: `${signal.id}-evidence-topic`,
+      signalEventId: signal.id,
+      evidenceDate: signal.asOfDate,
+      sourceName: metric.source ?? "topics",
+      sourceUrl: undefined,
+      sourceType: "news",
+      title: `${signal.topic} topic evidence`,
+      summary: `Derived from ${metric.source_count ?? 0} sources and ${metric.article_count ?? 0} representative articles. Heat score: ${metric.heat_score ?? signal.signalStrength}.`,
+      whyItMatters: "This gives TrendRadar an initial signal candidate, but it still needs formal evidence items, beneficiary mapping, and price validation.",
+      knownAtSignalTime: true,
+    },
+  ];
+}
+
+export function derivedTimelineEvents(signal: DerivedSignal) {
+  return [
+    {
+      id: `${signal.id}-timeline-signal`,
+      signalEventId: signal.id,
+      eventDate: signal.signalDate,
+      eventType: "signal",
+      title: "Signal candidate detected",
+      description: `TrendRadar detected ${signal.topic} as a market-relevant topic and converted it into a preliminary signal.`,
+      sourceUrl: undefined,
+      knownAtSignalTime: true,
+      displayOrder: 10,
+    },
+    {
+      id: `${signal.id}-timeline-evidence`,
+      signalEventId: signal.id,
+      eventDate: signal.asOfDate,
+      eventType: "evidence",
+      title: "Evidence assembled from topic intelligence",
+      description: "The current version uses topic-level evidence. A full case study should add source-level evidence and primary references.",
+      sourceUrl: undefined,
+      knownAtSignalTime: true,
+      displayOrder: 20,
+    },
+    {
+      id: `${signal.id}-timeline-watchlist`,
+      signalEventId: signal.id,
+      eventDate: undefined,
+      eventType: "watchlist",
+      title: "Beneficiary basket pending",
+      description: "A formal watchlist has not been mapped yet for this derived signal.",
+      sourceUrl: undefined,
+      knownAtSignalTime: false,
+      displayOrder: 30,
+    },
+    {
+      id: `${signal.id}-timeline-validation`,
+      signalEventId: signal.id,
+      eventDate: undefined,
+      eventType: "validation",
+      title: "Outcome validation pending",
+      description: "Import basket and benchmark prices, then run 7D / 14D / 30D / 60D backtests.",
+      sourceUrl: undefined,
+      knownAtSignalTime: false,
+      displayOrder: 40,
+    },
+  ];
+}
+
+export function derivedLessons(signal: DerivedSignal) {
+  return [
+    {
+      id: `${signal.id}-lesson-pending`,
+      signalEventId: signal.id,
+      lessonType: "observation",
+      title: "Case study not complete yet",
+      description: "This derived signal is useful for discovery, but it is not yet a fully validated research case.",
+      impact: "Next step: add formal evidence, beneficiary mapping, price data, backtest, and final outcome.",
+    },
+  ];
+}
 

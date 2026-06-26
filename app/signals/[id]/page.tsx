@@ -32,6 +32,40 @@ type StockDetail = {
   returnPct: number | null;
 };
 
+type EvidenceItem = {
+  id: string;
+  signalEventId: string;
+  evidenceDate?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceType: string;
+  title: string;
+  summary?: string;
+  whyItMatters?: string;
+  knownAtSignalTime: boolean;
+};
+
+type TimelineEvent = {
+  id: string;
+  signalEventId: string;
+  eventDate?: string;
+  eventType: string;
+  title: string;
+  description?: string;
+  sourceUrl?: string;
+  knownAtSignalTime: boolean;
+  displayOrder: number;
+};
+
+type Lesson = {
+  id: string;
+  signalEventId: string;
+  lessonType: string;
+  title: string;
+  description?: string;
+  impact?: string;
+};
+
 type ApiResponse = {
   ok: boolean;
   source?: string;
@@ -51,6 +85,9 @@ type ApiResponse = {
   watchlists?: Watchlist[];
   outcomes?: Outcome[];
   stockReturnDetails?: Array<{ horizonDays: number; details: StockDetail[]; basketReturn: number | null }>;
+  evidenceItems?: EvidenceItem[];
+  timelineEvents?: TimelineEvent[];
+  lessons?: Lesson[];
 };
 
 type EvidenceMetric = {
@@ -151,6 +188,10 @@ function buildTimeline(signal: NonNullable<ApiResponse["signal"]>, watchlistCoun
   ];
 }
 
+function timelineDate(value: string | undefined, fallback: string) {
+  return value ?? fallback;
+}
+
 export default function SignalDetailPage() {
   const params = useParams<{ id: string }>();
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -186,6 +227,8 @@ export default function SignalDetailPage() {
   const evidence = (data?.signal?.evidence?.[0] ?? {}) as EvidenceMetric;
   const outcomes = data?.outcomes ?? [];
   const watchlists = data?.watchlists ?? [];
+  const evidenceItems = data?.evidenceItems ?? [];
+  const lessons = data?.lessons ?? [];
 
   if (loading) {
     return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-zinc-400">Loading signal memo...</main>;
@@ -196,7 +239,16 @@ export default function SignalDetailPage() {
   }
 
   const signalDna = buildSignalDna(data.signal, evidence, watchlists.length, outcomes.length);
-  const timeline = buildTimeline(data.signal, watchlists.length, outcomes.length);
+  const fallbackTimeline = buildTimeline(data.signal, watchlists.length, outcomes.length);
+  const timeline =
+    (data.timelineEvents ?? []).length > 0
+      ? (data.timelineEvents ?? []).map((item) => ({
+          label: timelineDate(item.eventDate, item.eventType),
+          title: item.title,
+          body: item.description ?? "",
+          state: item.knownAtSignalTime ? "done" : "pending",
+        }))
+      : fallbackTimeline;
 
   return (
     <main className="min-h-screen bg-[#05070d] px-4 py-8 text-white md:px-8">
@@ -281,11 +333,27 @@ export default function SignalDetailPage() {
 
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Evidence</p>
-            <div className="mt-5 space-y-3">
-              <EvidenceRow label="Source mode" value={evidence.source ?? data.source ?? "signal"} />
-              <EvidenceRow label="Topic id" value={String(evidence.topic_id ?? data.signal.id)} />
-              <EvidenceRow label="Slug" value={String(evidence.slug ?? "-")} />
-            </div>
+            {evidenceItems.length > 0 ? (
+              <div className="mt-5 space-y-3">
+                {evidenceItems.map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-bold text-zinc-500">{item.sourceType}</span>
+                      <span className="text-xs font-mono text-zinc-600">{item.evidenceDate ?? "undated"}</span>
+                    </div>
+                    <p className="mt-3 font-black text-white">{item.title}</p>
+                    {item.summary ? <p className="mt-2 text-sm leading-6 text-zinc-500">{item.summary}</p> : null}
+                    {item.whyItMatters ? <p className="mt-2 text-sm leading-6 text-sky-300">{item.whyItMatters}</p> : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 space-y-3">
+                <EvidenceRow label="Source mode" value={evidence.source ?? data.source ?? "signal"} />
+                <EvidenceRow label="Topic id" value={String(evidence.topic_id ?? data.signal.id)} />
+                <EvidenceRow label="Slug" value={String(evidence.slug ?? "-")} />
+              </div>
+            )}
           </div>
         </section>
 
@@ -371,6 +439,26 @@ export default function SignalDetailPage() {
                 ) : null}
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Lessons Learned</p>
+          <h2 className="mt-2 text-2xl font-black">What the system should learn</h2>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {lessons.map((lesson) => (
+              <div key={lesson.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-bold text-zinc-500">{lesson.lessonType.replaceAll("_", " ")}</span>
+                <p className="mt-3 font-black text-white">{lesson.title}</p>
+                {lesson.description ? <p className="mt-2 text-sm leading-6 text-zinc-500">{lesson.description}</p> : null}
+                {lesson.impact ? <p className="mt-2 text-sm leading-6 text-amber-200">{lesson.impact}</p> : null}
+              </div>
+            ))}
+            {lessons.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 p-5 text-sm leading-7 text-zinc-500">
+                Lessons will appear after the signal has at least one validation result or manual postmortem.
+              </div>
+            ) : null}
           </div>
         </section>
       </div>

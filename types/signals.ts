@@ -60,3 +60,37 @@ export type SignalOutcome = {
   excessReturn: number;
   outcome: "success" | "partial" | "failed" | "pending";
 };
+
+export type SignalEvidenceItem = {
+  id: string;
+  signalEventId: string;
+  evidenceDate?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceType: "news" | "price" | "supply_chain" | "company_action" | "official" | "other";
+  title: string;
+  summary?: string;
+  whyItMatters?: string;
+  knownAtSignalTime: boolean;
+};
+
+export type SignalTimelineEvent = {
+  id: string;
+  signalEventId: string;
+  eventDate?: string;
+  eventType: "signal" | "evidence" | "watchlist" | "backtest" | "validation" | "lesson";
+  title: string;
+  description?: string;
+  sourceUrl?: string;
+  knownAtSignalTime: boolean;
+  displayOrder: number;
+};
+
+export type SignalLesson = {
+  id: string;
+  signalEventId: string;
+  lessonType: "what_worked" | "what_failed" | "observation" | "model_update";
+  title: string;
+  description?: string;
+  impact?: string;
+};
