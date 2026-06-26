@@ -157,6 +157,32 @@ function currentTaipeiDate() {
   }).format(new Date());
 }
 
+function lastDayOfMonth(month: string) {
+  const date = new Date(`${month}-01T00:00:00.000Z`);
+  date.setUTCMonth(date.getUTCMonth() + 1);
+  date.setUTCDate(0);
+  return date.toISOString().slice(0, 10);
+}
+
+function monthRange(startMonth: string, endMonth: string) {
+  const months: string[] = [];
+  const cursor = new Date(`${startMonth}-01T00:00:00.000Z`);
+  const end = new Date(`${endMonth}-01T00:00:00.000Z`);
+
+  while (cursor <= end) {
+    months.push(cursor.toISOString().slice(0, 7));
+    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+  }
+
+  return months;
+}
+
+function asOfDateForMonth(month: string, today = currentTaipeiDate()) {
+  const currentMonth = today.slice(0, 7);
+  if (month === currentMonth) return today;
+  return lastDayOfMonth(month);
+}
+
 function matchesRule(article: ArticleRow, rule: MonthlyRule) {
   const text = normalizeText(`${article.title} ${article.description ?? ""} ${article.category ?? ""}`);
   if (rule.exclude?.some((keyword) => matchesLabel(text, keyword))) return false;
@@ -284,4 +310,49 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       bestOutcome: null,
     };
   });
+}
+
+export async function getMonthlySignalReport(options?: {
+  startMonth?: string;
+  endMonth?: string;
+  today?: string;
+}) {
+  const today = options?.today ?? currentTaipeiDate();
+  const startMonth = options?.startMonth ?? "2025-01";
+  const endMonth = options?.endMonth ?? today.slice(0, 7);
+  const supabase = getSupabaseAdmin();
+  const months = monthRange(startMonth, endMonth);
+  const rows = [];
+
+  for (const month of months) {
+    const asOfDate = asOfDateForMonth(month, today);
+    const start = monthStart(asOfDate);
+    const end = nextMonthStart(asOfDate);
+    const { count, error } = await supabase
+      .from("articles")
+      .select("id", { count: "exact", head: true })
+      .gte("published_at", `${start}T00:00:00+00:00`)
+      .lt("published_at", `${end}T00:00:00+00:00`)
+      .lte("published_at", `${asOfDate}T23:59:59+08:00`);
+
+    if (error) throw error;
+
+    const signals = count && count > 0 ? await getCurrentMonthlySignals(asOfDate) : [];
+    rows.push({
+      month,
+      asOfDate,
+      articleCount: count ?? 0,
+      signalCount: signals.length,
+      status: count && count > 0 ? (signals.length > 0 ? "candidate_ready" : "no_candidate") : "no_data",
+      signals,
+    });
+  }
+
+  return {
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    startMonth,
+    endMonth,
+    rows,
+  };
 }
