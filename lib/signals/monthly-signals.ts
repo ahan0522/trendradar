@@ -108,6 +108,18 @@ function normalizeText(value: string) {
     .trim();
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchesLabel(text: string, label: string) {
+  const normalizedLabel = label.toLowerCase();
+  if (/^[a-z0-9+.-]+$/.test(normalizedLabel)) {
+    return new RegExp(`(^|[^a-z0-9])${escapeRegExp(normalizedLabel)}([^a-z0-9]|$)`, "i").test(text);
+  }
+  return text.includes(normalizedLabel);
+}
+
 function monthStart(asOfDate: string) {
   return `${asOfDate.slice(0, 7)}-01`;
 }
@@ -129,8 +141,8 @@ function currentTaipeiDate() {
 
 function matchesRule(article: ArticleRow, rule: MonthlyRule) {
   const text = normalizeText(`${article.title} ${article.description ?? ""} ${article.category ?? ""}`);
-  if (rule.exclude?.some((keyword) => text.includes(keyword.toLowerCase()))) return false;
-  return rule.labels.some((label) => text.includes(label.toLowerCase()));
+  if (rule.exclude?.some((keyword) => matchesLabel(text, keyword))) return false;
+  return rule.labels.some((label) => matchesLabel(text, label));
 }
 
 function score(articleCount: number, sourceCount: number) {
