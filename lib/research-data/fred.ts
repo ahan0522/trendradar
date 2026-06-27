@@ -243,8 +243,26 @@ export async function syncFredResearchData(options?: {
   apiKey?: string;
   allowCsvFallback?: boolean;
 }) {
-  const result = await fetchFredResearchData(options);
   const dryRun = options?.dryRun ?? true;
+  const apiKey = options?.apiKey?.trim() || process.env.FRED_API_KEY?.trim();
+  const allowCsvFallback = options?.allowCsvFallback ?? process.env.VERCEL !== "1";
+  if (!apiKey && !allowCsvFallback) {
+    return {
+      ok: true,
+      skipped: true,
+      dryRun,
+      providerMode: "not-configured",
+      reason: "FRED_API_KEY is not configured; no FRED data was fetched or written.",
+      commodityQuoteCount: 0,
+      industryObservationCount: 0,
+    };
+  }
+
+  const result = await fetchFredResearchData({
+    ...options,
+    apiKey,
+    allowCsvFallback,
+  });
   if (dryRun) {
     return {
       ok: true,
