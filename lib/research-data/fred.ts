@@ -20,6 +20,21 @@ type FredSeries = {
   quoteType?: CommodityQuote["quoteType"];
 };
 
+type FredObservation = {
+  observationDate: string;
+  value: number;
+  sourceUrl: string;
+  observedAt: string;
+};
+
+type FredApiResponse = {
+  observations?: Array<{
+    date?: string;
+    value?: string;
+  }>;
+  error_message?: string;
+};
+
 const fredSource: ResearchSource = {
   id: "fred",
   name: "Federal Reserve Economic Data (FRED)",
@@ -65,7 +80,50 @@ function fredCsvUrl(seriesId: string, startDate: string) {
   return `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(seriesId)}&cosd=${encodeURIComponent(startDate)}`;
 }
 
-async function fetchFredSeries(series: FredSeries, startDate: string, observedAt: string) {
+function fredApiUrl(seriesId: string, startDate: string, apiKey: string) {
+  const params = new URLSearchParams({
+    series_id: seriesId,
+    api_key: apiKey,
+    file_type: "json",
+    observation_start: startDate,
+    sort_order: "asc",
+  });
+  return `https://api.stlouisfed.org/fred/series/observations?${params.toString()}`;
+}
+
+async function fetchFredSeriesFromApi(
+  series: FredSeries,
+  startDate: string,
+  observedAt: string,
+  apiKey: string,
+): Promise<FredObservation[]> {
+  const sourceUrl = fredApiUrl(series.id, startDate, apiKey);
+  const response = await fetch(sourceUrl, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "TrendRadar/1.0 research-data",
+    },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const payload = (await response.json().catch(() => ({}))) as FredApiResponse;
+  if (!response.ok) {
+    throw new Error(payload.error_message || `FRED API request failed: ${response.status} ${series.id}`);
+  }
+
+  return (payload.observations ?? []).flatMap((observation) => {
+    const observationDate = observation.date ?? "";
+    const value = Number(observation.value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(observationDate) || !Number.isFinite(value)) return [];
+    return [{ observationDate, value, sourceUrl, observedAt }];
+  });
+}
+
+async function fetchFredSeriesFromCsv(
+  series: FredSeries,
+  startDate: string,
+  observedAt: string,
+): Promise<FredObservation[]> {
   const sourceUrl = fredCsvUrl(series.id, startDate);
   const response = await fetch(sourceUrl, {
     cache: "no-store",
@@ -73,6 +131,7 @@ async function fetchFredSeries(series: FredSeries, startDate: string, observedAt
       Accept: "text/csv",
       "User-Agent": "TrendRadar/1.0 research-data",
     },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`FRED request failed: ${response.status} ${series.id}`);
   const text = await response.text();
@@ -89,16 +148,25 @@ async function fetchFredSeries(series: FredSeries, startDate: string, observedAt
 export async function fetchFredResearchData(options?: {
   startDate?: string;
   seriesIds?: string[];
+  apiKey?: string;
+  allowCsvFallback?: boolean;
 }) {
   const startDate = options?.startDate ?? "2025-01-01";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) throw new Error("startDate must use YYYY-MM-DD");
   const selected = options?.seriesIds?.length
     ? defaultSeries.filter((series) => options.seriesIds?.includes(series.id))
     : defaultSeries;
+  const apiKey = options?.apiKey?.trim() || process.env.FRED_API_KEY?.trim();
+  const providerMode = apiKey ? "official-api" : "csv-fallback";
+  if (!apiKey && options?.allowCsvFallback === false) {
+    throw new Error("FRED_API_KEY is required for scheduled FRED ingestion.");
+  }
   const observedAt = new Date().toISOString();
   const results = await Promise.all(selected.map(async (series) => ({
     series,
-    observations: await fetchFredSeries(series, startDate, observedAt),
+    observations: apiKey
+      ? await fetchFredSeriesFromApi(series, startDate, observedAt, apiKey)
+      : await fetchFredSeriesFromCsv(series, startDate, observedAt),
   })));
 
   const commodityQuotes: CommodityQuote[] = [];
@@ -156,6 +224,7 @@ export async function fetchFredResearchData(options?: {
   return {
     source: fredSource,
     startDate,
+    providerMode,
     series: results.map((result) => ({
       id: result.series.id,
       name: result.series.name,
@@ -171,6 +240,8 @@ export async function syncFredResearchData(options?: {
   startDate?: string;
   seriesIds?: string[];
   dryRun?: boolean;
+  apiKey?: string;
+  allowCsvFallback?: boolean;
 }) {
   const result = await fetchFredResearchData(options);
   const dryRun = options?.dryRun ?? true;
@@ -180,6 +251,7 @@ export async function syncFredResearchData(options?: {
       dryRun: true,
       source: result.source.name,
       startDate: result.startDate,
+      providerMode: result.providerMode,
       series: result.series,
       commodityQuoteCount: result.commodityQuotes.length,
       industryObservationCount: result.industryObservations.length,
@@ -198,6 +270,7 @@ export async function syncFredResearchData(options?: {
     dryRun: false,
     source: result.source.name,
     startDate: result.startDate,
+    providerMode: result.providerMode,
     series: result.series,
     commodityQuoteCount: quotes.count,
     industryObservationCount: observations.count,

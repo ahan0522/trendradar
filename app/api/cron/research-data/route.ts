@@ -33,6 +33,22 @@ function currentTaipeiDay() {
   }).format(new Date());
 }
 
+type SyncResult =
+  | { status: "success"; data: unknown }
+  | { status: "skipped"; reason: string }
+  | { status: "failed"; error: string };
+
+async function runSync(task: () => Promise<unknown>): Promise<SyncResult> {
+  try {
+    return { status: "success", data: await task() };
+  } catch (error) {
+    return {
+      status: "failed",
+      error: error instanceof Error ? error.message : "Unknown source sync error",
+    };
+  }
+}
+
 export async function GET(request: NextRequest) {
   const unauthorized = requireAdminSecret(request);
   if (unauthorized) return unauthorized;
@@ -53,16 +69,24 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
+    const fredApiKey = process.env.FRED_API_KEY?.trim();
     const [twse, sec, fred] = await Promise.all([
-      syncTwseResearchData({ dryRun: false }),
-      syncSecResearchData({
+      runSync(() => syncTwseResearchData({ dryRun: false })),
+      runSync(() => syncSecResearchData({
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
-      }),
-      syncFredResearchData({
-        dryRun: false,
-        startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
-      }),
+      })),
+      fredApiKey
+        ? runSync(() => syncFredResearchData({
+            dryRun: false,
+            startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
+            apiKey: fredApiKey,
+            allowCsvFallback: false,
+          }))
+        : Promise.resolve<SyncResult>({
+            status: "skipped",
+            reason: "FRED_API_KEY is not configured; TWSE and SEC ingestion continued.",
+          }),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
     const finalizedMonth = currentTaipeiDay() === "01"
@@ -70,7 +94,8 @@ export async function GET(request: NextRequest) {
       : null;
 
     return NextResponse.json({
-      ok: true,
+      ok: [twse, sec, fred].some((result) => result.status === "success"),
+      degraded: [twse, sec, fred].some((result) => result.status !== "success"),
       mode: "daily-research-data",
       durationMs: Date.now() - startedAt,
       twse,
