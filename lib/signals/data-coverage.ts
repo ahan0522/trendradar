@@ -11,6 +11,9 @@ export type DataCoverageRow = {
   articles: CoverageMetric;
   stockPrices: CoverageMetric;
   marketPriceSeries: CoverageMetric;
+  industryObservations: CoverageMetric;
+  commodityQuotes: CoverageMetric;
+  companyActions: CoverageMetric;
 };
 
 function currentTaipeiMonth() {
@@ -84,13 +87,16 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
 
   const rows: DataCoverageRow[] = await Promise.all(
     months.map(async (month) => {
-      const [articles, stockPrices, marketPriceSeries] = await Promise.all([
+      const [articles, stockPrices, marketPriceSeries, industryObservations, commodityQuotes, companyActions] = await Promise.all([
         countRows("articles", "published_at", asTimestampStart(month), asTimestampEnd(month)),
         countRows("stock_prices", "price_date", asDateStart(month), asDateEnd(month)),
         countRows("market_price_series", "price_date", asDateStart(month), asDateEnd(month)),
+        countRows("industry_observations", "known_at", asTimestampStart(month), asTimestampEnd(month)),
+        countRows("commodity_quotes", "quote_date", asDateStart(month), asDateEnd(month)),
+        countRows("company_actions", "known_at", asTimestampStart(month), asTimestampEnd(month)),
       ]);
 
-      return { month, articles, stockPrices, marketPriceSeries };
+      return { month, articles, stockPrices, marketPriceSeries, industryObservations, commodityQuotes, companyActions };
     }),
   );
 
@@ -99,9 +105,19 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
       acc.articles += row.articles.count ?? 0;
       acc.stockPrices += row.stockPrices.count ?? 0;
       acc.marketPriceSeries += row.marketPriceSeries.count ?? 0;
+      acc.industryObservations += row.industryObservations.count ?? 0;
+      acc.commodityQuotes += row.commodityQuotes.count ?? 0;
+      acc.companyActions += row.companyActions.count ?? 0;
       return acc;
     },
-    { articles: 0, stockPrices: 0, marketPriceSeries: 0 },
+    {
+      articles: 0,
+      stockPrices: 0,
+      marketPriceSeries: 0,
+      industryObservations: 0,
+      commodityQuotes: 0,
+      companyActions: 0,
+    },
   );
 
   return {
