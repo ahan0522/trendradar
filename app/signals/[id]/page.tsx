@@ -293,6 +293,16 @@ function timelineDate(value: string | undefined, fallback: string) {
   return value ?? fallback;
 }
 
+function safeExternalUrl(value: string | undefined) {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function SignalDetailPage() {
   const params = useParams<{ id: string }>();
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -461,18 +471,34 @@ export default function SignalDetailPage() {
             <h2 className="mt-2 text-2xl font-black">證據鏈</h2>
             {evidenceItems.length > 0 ? (
               <div className="mt-5 space-y-3">
-                {evidenceItems.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                {evidenceItems.map((item) => {
+                  const sourceUrl = safeExternalUrl(item.sourceUrl);
+                  return (
+                    <div key={item.id} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-zinc-950 px-2.5 py-1 text-xs font-bold text-zinc-500">{item.sourceType}</span>
                       <span className="text-xs font-mono text-zinc-600">{item.evidenceDate ?? "undated"}</span>
+                      {item.sourceName ? <span className="text-xs font-bold text-zinc-500">{item.sourceName}</span> : null}
                     </div>
                     <p className="mt-3 font-black text-white">{item.title}</p>
                     {item.summary ? <p className="mt-2 text-sm leading-6 text-zinc-500">{item.summary}</p> : null}
                     {item.whyItMatters ? <p className="mt-2 text-sm leading-6 text-sky-300">{item.whyItMatters}</p> : null}
-                    <p className="mt-3 text-xs font-bold text-zinc-600">{item.knownAtSignalTime ? "✓ 訊號形成當時已知" : "後續驗證資料"}</p>
-                  </div>
-                ))}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs font-bold text-zinc-600">{item.knownAtSignalTime ? "✓ 訊號形成當時已知" : "後續驗證資料"}</p>
+                      {sourceUrl ? (
+                        <a
+                          href={sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-black text-sky-300 hover:text-sky-200"
+                        >
+                          查看原始資料 ↗
+                        </a>
+                      ) : null}
+                    </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="mt-5 space-y-3">

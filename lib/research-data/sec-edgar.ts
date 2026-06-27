@@ -85,7 +85,10 @@ export async function fetchSecCompanyActions(options?: {
   since?: string;
   limitPerCompany?: number;
 }) {
-  const symbols = [...new Set((options?.symbols ?? ["NVDA", "AMD", "MU", "GEV", "ETN", "VRT", "AMKR", "ABB"]).map((item) => item.toUpperCase()))];
+  const symbols = [...new Set(
+    (options?.symbols ?? ["NVDA", "AMD", "MU", "GEV", "ETN", "VRT", "AMKR", "ABB"])
+      .map((item) => item.toUpperCase()),
+  )].slice(0, 8);
   const since = options?.since ?? new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);
   const limitPerCompany = Math.max(1, Math.min(options?.limitPerCompany ?? 20, 100));
   const tickerMap = await fetchSecJson<Record<string, SecTickerRow>>(SEC_TICKERS_URL);

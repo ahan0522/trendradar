@@ -21,7 +21,7 @@ async function getUsWatchlistSymbols() {
     .from("signal_watchlists")
     .select("symbol, market")
     .eq("market", "US")
-    .limit(50)
+    .limit(8)
     .returns<WatchlistSymbol[]>();
   return [...new Set((data ?? []).map((item) => item.symbol))];
 }
