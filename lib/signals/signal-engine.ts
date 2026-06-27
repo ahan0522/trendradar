@@ -12,6 +12,16 @@ export type SignalStrengthInput = {
 
 export type SignalConvictionStatus = "high_conviction" | "rising" | "watch" | "weak";
 
+export type SignalScoreComponent = {
+  componentName: keyof SignalStrengthInput;
+  rawValue: number;
+  normalizedScore: number;
+  weight: number;
+  contribution: number;
+  calculationVersion: string;
+  inputSnapshot: Record<string, unknown>;
+};
+
 type ArticleRow = {
   id: string;
   title: string;
@@ -93,6 +103,34 @@ export function calculateSignalStrength(input: SignalStrengthInput) {
   return clampScore(score);
 }
 
+export function buildSignalScoreComponents(
+  input: SignalStrengthInput,
+  rawInput: Record<string, unknown> = {},
+): SignalScoreComponent[] {
+  const weights: Record<keyof SignalStrengthInput, number> = {
+    mentionSpike: 0.2,
+    priceSpike: 0.25,
+    sourceDiversity: 0.15,
+    persistence: 0.15,
+    companyActivity: 0.1,
+    beneficiaryClarity: 0.15,
+  };
+
+  return (Object.keys(weights) as Array<keyof SignalStrengthInput>).map((componentName) => {
+    const normalizedScore = clampScore(input[componentName] ?? 0);
+    const weight = weights[componentName];
+    return {
+      componentName,
+      rawValue: Number(input[componentName] ?? 0),
+      normalizedScore,
+      weight,
+      contribution: Number((normalizedScore * weight).toFixed(2)),
+      calculationVersion: "signal-strength-v1",
+      inputSnapshot: rawInput,
+    };
+  });
+}
+
 export function classifySignalStatus(score: number): SignalConvictionStatus {
   if (score >= 85) return "high_conviction";
   if (score >= 70) return "rising";
@@ -146,7 +184,10 @@ export async function detectSignalsFromTopics(asOfDate: string) {
     grouped.set(link.topic_id, current);
   }
 
-  const rows: Array<Omit<SignalEventRow, "model_version"> & { model_version: string }> = [];
+  const rows: Array<Omit<SignalEventRow, "model_version"> & {
+    model_version: string;
+    scoreComponents: SignalScoreComponent[];
+  }> = [];
 
   for (const [topicId, topicArticles] of grouped) {
     const topic = topicById.get(topicId);
@@ -161,11 +202,19 @@ export async function detectSignalsFromTopics(asOfDate: string) {
 
     if (articleCount7d < 5 || sourceCount < 3 || mentionSpike < 2) continue;
 
-    const signalStrength = calculateSignalStrength({
+    const scoreInput = {
       mentionSpike: Math.min(mentionSpike * 20, 100),
       sourceDiversity: Math.min(sourceCount * 15, 100),
       persistence: Math.min(articleCount7d * 10, 100),
       beneficiaryClarity: 55,
+    };
+    const signalStrength = calculateSignalStrength(scoreInput);
+    const scoreComponents = buildSignalScoreComponents(scoreInput, {
+      article_count_24h: articleCount24h,
+      article_count_7d: articleCount7d,
+      article_count_30d: articleCount30d,
+      source_count: sourceCount,
+      mention_spike: mentionSpike,
     });
 
     rows.push({
@@ -193,6 +242,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
       ],
       status: "active",
       model_version: "rule-v1",
+      scoreComponents,
     });
   }
 
@@ -200,10 +250,34 @@ export async function detectSignalsFromTopics(asOfDate: string) {
 
   const { data, error } = await supabase
     .from("signal_events")
-    .upsert(rows, { onConflict: "id" })
+    .upsert(rows.map(({ scoreComponents, ...row }) => {
+      void scoreComponents;
+      return row;
+    }), { onConflict: "id" })
     .select("id, signal_date, as_of_date, topic, signal_type, signal_strength, confidence_score, hypothesis, evidence, status, model_version")
     .returns<SignalEventRow[]>();
 
   if (error) throw error;
+
+  const componentRows = rows.flatMap((row) =>
+    row.scoreComponents.map((component) => ({
+      signal_event_id: row.id,
+      component_name: component.componentName,
+      raw_value: component.rawValue,
+      normalized_score: component.normalizedScore,
+      weight: component.weight,
+      contribution: component.contribution,
+      calculation_version: component.calculationVersion,
+      input_snapshot: component.inputSnapshot,
+      calculated_at: new Date().toISOString(),
+    })),
+  );
+  if (componentRows.length > 0) {
+    const { error: componentError } = await supabase
+      .from("signal_score_components")
+      .upsert(componentRows, { onConflict: "signal_event_id,component_name" });
+    if (componentError && componentError.code !== "42P01") throw componentError;
+  }
+
   return (data ?? []).map(mapSignalRow);
 }

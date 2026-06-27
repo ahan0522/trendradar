@@ -4,6 +4,10 @@
     {
       "path": "/api/topics/sync-grouped",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/research-data",
+      "schedule": "0 10 * * *"
     }
   ]
 }

@@ -66,6 +66,17 @@ type Lesson = {
   impact?: string;
 };
 
+type ScoreComponent = {
+  componentName: string;
+  rawValue: number;
+  normalizedScore: number;
+  weight: number;
+  contribution: number;
+  calculationVersion: string;
+  inputSnapshot: Record<string, unknown>;
+  calculatedAt: string;
+};
+
 type ApiResponse = {
   ok: boolean;
   source?: string;
@@ -88,6 +99,7 @@ type ApiResponse = {
   evidenceItems?: EvidenceItem[];
   timelineEvents?: TimelineEvent[];
   lessons?: Lesson[];
+  scoreComponents?: ScoreComponent[];
 };
 
 type EvidenceMetric = {
@@ -160,6 +172,18 @@ function outcomeLabel(value: string) {
     partial: "部分成立",
     failed: "未通過",
     pending: "等待驗證",
+  };
+  return labels[value] ?? value;
+}
+
+function componentLabel(value: string) {
+  const labels: Record<string, string> = {
+    mentionSpike: "討論增速",
+    priceSpike: "價格異常",
+    sourceDiversity: "來源多樣性",
+    persistence: "持續性",
+    companyActivity: "公司行動",
+    beneficiaryClarity: "受惠標的清晰度",
   };
   return labels[value] ?? value;
 }
@@ -306,6 +330,7 @@ export default function SignalDetailPage() {
   const watchlists = data?.watchlists ?? [];
   const evidenceItems = data?.evidenceItems ?? [];
   const lessons = data?.lessons ?? [];
+  const scoreComponents = data?.scoreComponents ?? [];
 
   if (loading) {
     return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-zinc-400">正在整理研究報告...</main>;
@@ -365,13 +390,22 @@ export default function SignalDetailPage() {
 
         <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Research Readiness</p>
-            <h2 className="mt-2 text-2xl font-black">這份研究目前完整到哪裡？</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">{scoreComponents.length > 0 ? "Signal Score Components" : "Research Readiness"}</p>
+            <h2 className="mt-2 text-2xl font-black">{scoreComponents.length > 0 ? "訊號分數從哪裡來？" : "這份研究目前完整到哪裡？"}</h2>
             <p className="mt-3 text-sm leading-6 text-zinc-500">
-              這裡顯示研究資料的完成程度，不是假裝成模型的精確分數拆解。缺少原始資料的項目會明確標示待補。
+              {scoreComponents.length > 0
+                ? "每一項都保存原始值、正規化分數、權重與實際貢獻，報告不再由前端猜測分數組成。"
+                : "這裡只顯示研究資料的完成程度，不是假裝成模型的精確分數拆解。缺少原始資料的項目會明確標示待補。"}
             </p>
             <div className="mt-5 space-y-4">
-              {researchReadiness.map((item) => (
+              {(scoreComponents.length > 0
+                ? scoreComponents.map((item) => ({
+                    label: componentLabel(item.componentName),
+                    value: item.normalizedScore,
+                    note: `權重 ${(item.weight * 100).toFixed(0)}% · 貢獻 ${item.contribution.toFixed(2)}`,
+                  }))
+                : researchReadiness
+              ).map((item) => (
                 <div key={item.label}>
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="font-bold text-zinc-300">{item.label}</span>

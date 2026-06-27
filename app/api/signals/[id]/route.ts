@@ -84,6 +84,18 @@ type LessonRow = {
   impact: string | null;
 };
 
+type ScoreComponentRow = {
+  signal_event_id: string;
+  component_name: string;
+  raw_value: number;
+  normalized_score: number;
+  weight: number;
+  contribution: number;
+  calculation_version: string;
+  input_snapshot: Record<string, unknown>;
+  calculated_at: string;
+};
+
 function lastDayOfMonth(month: string) {
   const date = new Date(`${month}-01T00:00:00.000Z`);
   date.setUTCMonth(date.getUTCMonth() + 1);
@@ -112,7 +124,7 @@ async function getMonthlySignalDetail(id: string) {
 }
 
 async function readCaseStudyParts(supabase: ReturnType<typeof getSupabaseAdmin>, id: string) {
-  const [evidenceResult, timelineResult, lessonsResult] = await Promise.all([
+  const [evidenceResult, timelineResult, lessonsResult, scoreComponentsResult] = await Promise.all([
     supabase
       .from("signal_evidence_items")
       .select("id, signal_event_id, evidence_date, source_name, source_url, source_type, title, summary, why_it_matters, known_at_signal_time")
@@ -131,12 +143,19 @@ async function readCaseStudyParts(supabase: ReturnType<typeof getSupabaseAdmin>,
       .eq("signal_event_id", id)
       .order("created_at", { ascending: true })
       .returns<LessonRow[]>(),
+    supabase
+      .from("signal_score_components")
+      .select("signal_event_id, component_name, raw_value, normalized_score, weight, contribution, calculation_version, input_snapshot, calculated_at")
+      .eq("signal_event_id", id)
+      .order("contribution", { ascending: false })
+      .returns<ScoreComponentRow[]>(),
   ]);
 
   return {
     evidenceItems: evidenceResult.error ? [] : evidenceResult.data ?? [],
     timelineEvents: timelineResult.error ? [] : timelineResult.data ?? [],
     lessons: lessonsResult.error ? [] : lessonsResult.data ?? [],
+    scoreComponents: scoreComponentsResult.error ? [] : scoreComponentsResult.data ?? [],
   };
 }
 
@@ -256,6 +275,16 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       evidenceItems: caseStudyParts.evidenceItems.map(mapEvidenceItem),
       timelineEvents: caseStudyParts.timelineEvents.map(mapTimelineEvent),
       lessons: caseStudyParts.lessons.map(mapLesson),
+      scoreComponents: caseStudyParts.scoreComponents.map((item) => ({
+        componentName: item.component_name,
+        rawValue: Number(item.raw_value),
+        normalizedScore: Number(item.normalized_score),
+        weight: Number(item.weight),
+        contribution: Number(item.contribution),
+        calculationVersion: item.calculation_version,
+        inputSnapshot: item.input_snapshot,
+        calculatedAt: item.calculated_at,
+      })),
     });
   } catch (error) {
     try {
@@ -341,6 +370,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
               impact: "價格與 benchmark 資料完整後，再判斷訊號是否成立。",
             },
           ],
+          scoreComponents: [],
         });
       }
 
@@ -357,6 +387,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         evidenceItems: derivedEvidenceItems(signal),
         timelineEvents: derivedTimelineEvents(signal),
         lessons: derivedLessons(signal),
+        scoreComponents: [],
       });
     } catch (fallbackError) {
       const message = fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "Unknown error";
