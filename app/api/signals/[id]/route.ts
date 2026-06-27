@@ -265,8 +265,31 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           article_count?: number;
           source_count?: number;
           sample_titles?: string[];
+          company_actions?: Array<{
+            id: string;
+            company_symbol: string;
+            company_name: string;
+            action_type: string;
+            title: string;
+            summary?: string | null;
+            known_at: string;
+            source_url: string;
+            quality_status: string;
+          }>;
         };
-        const evidenceItems = (metric.sample_titles ?? []).map((title, index) => ({
+        const companyEvidence = (metric.company_actions ?? []).map((item) => ({
+          id: `${monthlySignal.id}-company-${item.id}`,
+          signalEventId: monthlySignal.id,
+          evidenceDate: item.known_at.slice(0, 10),
+          sourceName: item.company_name,
+          sourceUrl: item.source_url,
+          sourceType: "company_action",
+          title: `${item.company_symbol}：${item.title}`,
+          summary: item.summary ?? undefined,
+          whyItMatters: "這是觀察標的在訊號形成當時已公開的正式公司資訊，可用來驗證新聞主題是否轉化為實際企業行動。",
+          knownAtSignalTime: true,
+        }));
+        const newsEvidence = (metric.sample_titles ?? []).map((title, index) => ({
           id: `${monthlySignal.id}-evidence-${index + 1}`,
           signalEventId: monthlySignal.id,
           evidenceDate: monthlySignal.asOfDate,
@@ -277,6 +300,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           whyItMatters: "它支持主題正在被市場討論，但仍需與其他獨立來源、公司行動及價格資料交叉驗證。",
           knownAtSignalTime: true,
         }));
+        const evidenceItems = [...companyEvidence, ...newsEvidence];
 
         return NextResponse.json({
           ok: true,

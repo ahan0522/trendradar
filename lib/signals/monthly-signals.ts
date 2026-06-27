@@ -20,6 +20,18 @@ type PriceRow = {
   volume: number | null;
 };
 
+type CompanyActionRow = {
+  id: string;
+  company_symbol: string;
+  company_name: string;
+  action_type: string;
+  title: string;
+  summary: string | null;
+  known_at: string;
+  source_url: string;
+  quality_status: string;
+};
+
 type WatchItem = {
   symbol: string;
   companyName: string;
@@ -294,6 +306,20 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
 
   if (pricesError) throw pricesError;
 
+  const companySymbols = [...new Set(watchlistItems.map((item) => item.symbol))];
+  const { data: companyActions } =
+    companySymbols.length > 0
+      ? await supabase
+          .from("company_actions")
+          .select("id, company_symbol, company_name, action_type, title, summary, known_at, source_url, quality_status")
+          .in("company_symbol", companySymbols)
+          .gte("known_at", `${start}T00:00:00+00:00`)
+          .lte("known_at", `${asOfDate}T23:59:59+08:00`)
+          .order("known_at", { ascending: false })
+          .limit(100)
+          .returns<CompanyActionRow[]>()
+      : { data: [] as CompanyActionRow[] };
+
   const latestPrices = new Map<string, PriceRow>();
   for (const price of prices ?? []) {
     const key = priceKey(price.symbol, price.market);
@@ -306,6 +332,21 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
     const sourceCount = candidate.sourceNames.size;
     const sampleTitles = candidate.articles.slice(0, 5).map((article) => article.title);
     const signalId = `monthly-${month}-${candidate.rule.key}`;
+    const candidateSymbols = new Set(candidate.rule.watchlist.map((item) => item.symbol));
+    const relevantCompanyActions = (companyActions ?? [])
+      .filter((item) => candidateSymbols.has(item.company_symbol))
+      .slice(0, 8)
+      .map((item) => ({
+        id: item.id,
+        company_symbol: item.company_symbol,
+        company_name: item.company_name,
+        action_type: item.action_type,
+        title: item.title,
+        summary: item.summary,
+        known_at: item.known_at,
+        source_url: item.source_url,
+        quality_status: item.quality_status,
+      }));
 
     return {
       id: signalId,
@@ -325,6 +366,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           article_count: articleCount,
           source_count: sourceCount,
           sample_titles: sampleTitles,
+          company_actions: relevantCompanyActions,
           missing_validation: "需要等待月底後的 30D / 60D / 90D 價格資料驗證。",
         },
       ],
