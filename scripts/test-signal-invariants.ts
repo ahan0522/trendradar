@@ -3,6 +3,7 @@ import {
   buildSignalScoreComponents,
   calculateSignalStrength,
   classifySignalStatus,
+  asOfEndIso,
 } from "../lib/signals/signal-engine";
 import {
   addDays,
@@ -85,6 +86,9 @@ function testCsvProvenance() {
 }
 
 function testBacktestTimeBoundary() {
+  assert.equal(asOfEndIso("2026-03-31"), "2026-03-31T15:59:59.999Z");
+  assert.throws(() => asOfEndIso("2026/03/31"), /YYYY-MM-DD/);
+  assert.throws(() => asOfEndIso("2026-02-31"), /Invalid asOfDate/);
   assert.equal(addDays("2024-02-28", 1), "2024-02-29");
   assert.equal(isHorizonMature("2026-06-01", 30, "2026-06-30"), false);
   assert.equal(isHorizonMature("2026-06-01", 30, "2026-07-01"), true);

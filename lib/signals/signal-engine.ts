@@ -32,6 +32,7 @@ type ArticleRow = {
 type TopicArticleRow = {
   topic_id: string;
   article_id: string;
+  created_at: string;
 };
 
 type TopicRow = {
@@ -41,6 +42,7 @@ type TopicRow = {
   region: string;
   summary: string | null;
   trend_score: number;
+  first_seen_at: string;
 };
 
 type SignalEventRow = {
@@ -65,6 +67,16 @@ function daysBefore(date: Date, days: number) {
   const copy = new Date(date);
   copy.setUTCDate(copy.getUTCDate() - days);
   return copy;
+}
+
+export function asOfEndIso(asOfDate: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) throw new Error("asOfDate must use YYYY-MM-DD");
+  const [year, month, day] = asOfDate.split("-").map(Number);
+  const calendarDate = new Date(Date.UTC(year, month - 1, day));
+  if (calendarDate.toISOString().slice(0, 10) !== asOfDate) throw new Error("Invalid asOfDate");
+  const parsed = new Date(`${asOfDate}T23:59:59.999+08:00`);
+  if (Number.isNaN(parsed.getTime())) throw new Error("Invalid asOfDate");
+  return parsed.toISOString();
 }
 
 function slugify(value: string) {
@@ -140,12 +152,8 @@ export function classifySignalStatus(score: number): SignalConvictionStatus {
 
 export async function detectSignalsFromTopics(asOfDate: string) {
   const supabase = getSupabaseAdmin();
-  const asOf = new Date(asOfDate);
-  if (Number.isNaN(asOf.getTime())) {
-    throw new Error("Invalid asOfDate");
-  }
-
-  const asOfIso = asOf.toISOString();
+  const asOfIso = asOfEndIso(asOfDate);
+  const asOf = new Date(asOfIso);
   const since30d = daysBefore(asOf, 30).toISOString();
   const since7d = daysBefore(asOf, 7).toISOString();
   const since24h = daysBefore(asOf, 1).toISOString();
@@ -154,11 +162,13 @@ export async function detectSignalsFromTopics(asOfDate: string) {
     await Promise.all([
       supabase
         .from("topics")
-        .select("id, title, category, region, summary, trend_score")
+        .select("id, title, category, region, summary, trend_score, first_seen_at")
+        .lte("first_seen_at", asOfIso)
         .returns<TopicRow[]>(),
       supabase
         .from("topic_articles")
-        .select("topic_id, article_id")
+        .select("topic_id, article_id, created_at")
+        .lte("created_at", asOfIso)
         .returns<TopicArticleRow[]>(),
       supabase
         .from("articles")
