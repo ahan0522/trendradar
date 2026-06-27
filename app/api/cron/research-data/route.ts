@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getResearchDataQualityReport } from "@/lib/research-data/quality-report";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
+import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ async function getUsWatchlistSymbols() {
     .limit(50)
     .returns<WatchlistSymbol[]>();
   return [...new Set((data ?? []).map((item) => item.symbol))];
+}
+
+function currentTaipeiDay() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 export async function GET(request: NextRequest) {
@@ -52,6 +60,9 @@ export async function GET(request: NextRequest) {
       }),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
+    const finalizedMonth = currentTaipeiDay() === "01"
+      ? await finalizeMonthlySignals(previousMonthEnd())
+      : null;
 
     return NextResponse.json({
       ok: true,
@@ -60,6 +71,7 @@ export async function GET(request: NextRequest) {
       twse,
       sec,
       quality: qualityAfter,
+      finalizedMonth,
     });
   } catch (error) {
     return NextResponse.json(

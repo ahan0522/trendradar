@@ -1,5 +1,10 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { publishableLatestPrice } from "@/lib/signals/price-quality";
+import {
+  buildSignalScoreComponents,
+  calculateSignalStrength,
+  type SignalStrengthInput,
+} from "@/lib/signals/signal-engine";
 import type { MarketCode } from "@/types/signals";
 
 type ArticleRow = {
@@ -245,12 +250,43 @@ function matchesRule(article: ArticleRow, rule: MonthlyRule) {
   return new Set(fullTextMatches.map((label) => label.toLowerCase())).size >= 2;
 }
 
-function score(articleCount: number, sourceCount: number) {
-  return Math.min(95, Math.round(35 + articleCount * 7 + sourceCount * 9));
+function daysElapsedInMonth(asOfDate: string) {
+  return Math.max(1, Number(asOfDate.slice(8, 10)));
 }
 
-function confidence(articleCount: number, sourceCount: number) {
-  return Math.min(90, Math.round(40 + articleCount * 5 + sourceCount * 8));
+function buildMonthlyScoreInput(
+  articles: ArticleRow[],
+  sourceCount: number,
+  asOfDate: string,
+  companyActionCount = 0,
+): SignalStrengthInput {
+  const asOf = new Date(`${asOfDate}T23:59:59.000Z`);
+  const recentStart = new Date(asOf);
+  recentStart.setUTCDate(recentStart.getUTCDate() - 7);
+  const recentCount = articles.filter((article) => article.published_at && new Date(article.published_at) >= recentStart).length;
+  const expectedRecent = Math.max(articles.length * (7 / daysElapsedInMonth(asOfDate)), 1);
+  const mentionRatio = recentCount / expectedRecent;
+
+  return {
+    mentionSpike: Math.min(mentionRatio * 40, 100),
+    priceSpike: 0,
+    sourceDiversity: Math.min(sourceCount * 20, 100),
+    persistence: Math.min(articles.length * 8, 100),
+    companyActivity: Math.min(companyActionCount * 20, 100),
+    beneficiaryClarity: 70,
+  };
+}
+
+function confidence(articleCount: number, sourceCount: number, companyActionCount = 0, hasPriceEvidence = false) {
+  const score = Math.round(
+    25 +
+    Math.min(articleCount * 1.5, 18) +
+    Math.min(sourceCount * 6, 30) +
+    Math.min(companyActionCount * 8, 16) +
+    (hasPriceEvidence ? 12 : 0),
+  );
+  if (companyActionCount === 0 && !hasPriceEvidence) return Math.min(score, 68);
+  return Math.min(score, 90);
 }
 
 function priceKey(symbol: string, market: string) {
@@ -281,7 +317,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
         rule,
         articles: matchedArticles,
         sourceNames,
-        signalStrength: score(matchedArticles.length, sourceNames.size),
+        signalStrength: calculateSignalStrength(buildMonthlyScoreInput(matchedArticles, sourceNames.size, asOfDate)),
         confidenceScore: confidence(matchedArticles.length, sourceNames.size),
       };
     })
@@ -347,6 +383,20 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
         source_url: item.source_url,
         quality_status: item.quality_status,
       }));
+    const scoreInput = buildMonthlyScoreInput(
+      candidate.articles,
+      sourceCount,
+      asOfDate,
+      relevantCompanyActions.length,
+    );
+    const signalStrength = calculateSignalStrength(scoreInput);
+    const confidenceScore = confidence(articleCount, sourceCount, relevantCompanyActions.length);
+    const scoreComponents = buildSignalScoreComponents(scoreInput, {
+      article_count: articleCount,
+      source_count: sourceCount,
+      company_action_count: relevantCompanyActions.length,
+      as_of_date: asOfDate,
+    });
 
     return {
       id: signalId,
@@ -354,8 +404,8 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       asOfDate,
       topic: `${month} ${candidate.rule.topic}`,
       signalType: candidate.rule.signalType,
-      signalStrength: candidate.signalStrength,
-      confidenceScore: candidate.confidenceScore,
+      signalStrength,
+      confidenceScore,
       hypothesis: `${candidate.rule.hypothesis} 目前僅使用 ${month} 月截至 ${asOfDate} 已發布資料，尚未使用任何未來資訊。`,
       evidence: [
         {
@@ -367,6 +417,8 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           source_count: sourceCount,
           sample_titles: sampleTitles,
           company_actions: relevantCompanyActions,
+          score_input: scoreInput,
+          score_components: scoreComponents,
           missing_validation: "需要等待月底後的 30D / 60D / 90D 價格資料驗證。",
         },
       ],

@@ -305,6 +305,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             source_url: string;
             quality_status: string;
           }>;
+          score_components?: Array<{
+            componentName: string;
+            rawValue: number;
+            normalizedScore: number;
+            weight: number;
+            contribution: number;
+            calculationVersion: string;
+            inputSnapshot: Record<string, unknown>;
+          }>;
         };
         const companyEvidence = (metric.company_actions ?? []).map((item) => ({
           id: `${monthlySignal.id}-company-${item.id}`,
@@ -370,7 +379,10 @@ export async function GET(_request: NextRequest, context: RouteContext) {
               impact: "價格與 benchmark 資料完整後，再判斷訊號是否成立。",
             },
           ],
-          scoreComponents: [],
+          scoreComponents: (metric.score_components ?? []).map((item) => ({
+            ...item,
+            calculatedAt: `${monthlySignal.asOfDate}T23:59:59.000Z`,
+          })),
         });
       }
 
