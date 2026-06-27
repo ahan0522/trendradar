@@ -54,10 +54,20 @@ function parseRocDate(value: string | undefined) {
   return `${year}-${month}-${day}`;
 }
 
-function parsePublishedAt(dateValue: string | undefined, timeValue?: string) {
+export function parseTwsePublishedAt(dateValue: string | undefined, timeValue?: string) {
   const date = parseRocDate(dateValue);
-  const digits = (timeValue ?? "0000").replace(/\D/g, "").padStart(4, "0");
-  return `${date}T${digits.slice(0, 2)}:${digits.slice(2, 4)}:00+08:00`;
+  const rawDigits = (timeValue ?? "0").replace(/\D/g, "");
+  if (!rawDigits || rawDigits.length > 6) {
+    throw new Error(`Invalid TWSE time: ${timeValue ?? "missing"}`);
+  }
+  const digits = rawDigits.padStart(6, "0");
+  const hour = Number(digits.slice(0, 2));
+  const minute = Number(digits.slice(2, 4));
+  const second = Number(digits.slice(4, 6));
+  if (hour > 23 || minute > 59 || second > 59) {
+    throw new Error(`Invalid TWSE time: ${timeValue ?? "missing"}`);
+  }
+  return `${date}T${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4, 6)}+08:00`;
 }
 
 function parsePositiveNumber(value: string | undefined) {
@@ -99,7 +109,7 @@ export async function fetchTwseCompanyActions() {
     const title = (row["主旨 "] ?? row.主旨 ?? "").trim();
     if (!symbol || !companyName || !title || !row.發言日期) return [];
 
-    const publishedAt = parsePublishedAt(row.發言日期, row.發言時間);
+    const publishedAt = parseTwsePublishedAt(row.發言日期, row.發言時間);
     const summary = row.說明?.trim();
     return [{
       id: `twse-action-${stableId(`${symbol}|${publishedAt}|${title}`)}`,

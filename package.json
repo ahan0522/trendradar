@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:signals": "tsx scripts/test-signal-invariants.ts",
+    "test:research": "tsx scripts/test-research-data.ts",
     "seed:signals": "tsx scripts/seed-signals.ts",
     "prices:signals": "tsx scripts/fetch-signal-prices.ts"
   },
