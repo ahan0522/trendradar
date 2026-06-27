@@ -3,6 +3,13 @@ import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
 
 type MonthlyEvidence = {
   sample_titles?: string[];
+  sample_articles?: Array<{
+    id: string;
+    title: string;
+    source_name: string;
+    source_url: string;
+    published_at: string | null;
+  }>;
   company_actions?: Array<{
     id: string;
     company_symbol: string;
@@ -82,17 +89,31 @@ export async function finalizeMonthlySignals(asOfDate: string) {
 
   const evidenceRows = signals.flatMap((signal) => {
     const evidence = (signal.evidence[0] ?? {}) as MonthlyEvidence;
-    const newsRows = (evidence.sample_titles ?? []).map((title, index) => ({
-      id: `${signal.id}-news-${index + 1}`,
+    const structuredArticles = evidence.sample_articles ?? [];
+    const newsRows = structuredArticles.length > 0
+      ? structuredArticles.map((article) => ({
+      id: `${signal.id}-news-${article.id}`,
       signal_event_id: signal.id,
-      evidence_date: signal.asOfDate,
-      source_name: "monthly-articles",
+      evidence_date: article.published_at?.slice(0, 10) ?? signal.asOfDate,
+      source_name: article.source_name,
+      source_url: article.source_url,
       source_type: "news",
-      title,
+      title: article.title,
       summary: "訊號形成當時已發布的代表文章。",
       why_it_matters: "支持市場討論正在集中，但仍需其他證據交叉驗證。",
       known_at_signal_time: true,
-    }));
+    }))
+      : (evidence.sample_titles ?? []).map((title, index) => ({
+          id: `${signal.id}-news-${index + 1}`,
+          signal_event_id: signal.id,
+          evidence_date: signal.asOfDate,
+          source_name: "monthly-articles",
+          source_type: "news",
+          title,
+          summary: "舊版訊號只保存標題，來源連結待補。",
+          why_it_matters: "支持市場討論正在集中，但因缺少來源連結，證據品質較低。",
+          known_at_signal_time: true,
+        }));
     const companyRows = (evidence.company_actions ?? []).map((item) => ({
       id: `${signal.id}-company-${item.id}`,
       signal_event_id: signal.id,

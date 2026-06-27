@@ -294,6 +294,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           article_count?: number;
           source_count?: number;
           sample_titles?: string[];
+          sample_articles?: Array<{
+            id: string;
+            title: string;
+            source_name: string;
+            source_url: string;
+            published_at: string | null;
+          }>;
           company_actions?: Array<{
             id: string;
             company_symbol: string;
@@ -348,17 +355,31 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           whyItMatters: "這是觀察標的在訊號形成當時已公開的正式公司資訊，可用來驗證新聞主題是否轉化為實際企業行動。",
           knownAtSignalTime: true,
         }));
-        const newsEvidence = (metric.sample_titles ?? []).map((title, index) => ({
-          id: `${monthlySignal.id}-evidence-${index + 1}`,
-          signalEventId: monthlySignal.id,
-          evidenceDate: monthlySignal.asOfDate,
-          sourceName: "monthly-articles",
-          sourceType: "news",
-          title,
-          summary: `這是 ${monthlySignal.asOfDate} 以前已發布、且符合此候選訊號規則的代表文章。`,
-          whyItMatters: "它支持主題正在被市場討論，但仍需與其他獨立來源、公司行動及價格資料交叉驗證。",
-          knownAtSignalTime: true,
-        }));
+        const structuredArticles = metric.sample_articles ?? [];
+        const newsEvidence = structuredArticles.length > 0
+          ? structuredArticles.map((article) => ({
+              id: `${monthlySignal.id}-evidence-${article.id}`,
+              signalEventId: monthlySignal.id,
+              evidenceDate: article.published_at?.slice(0, 10) ?? monthlySignal.asOfDate,
+              sourceName: article.source_name,
+              sourceUrl: article.source_url,
+              sourceType: "news",
+              title: article.title,
+              summary: `這是 ${monthlySignal.asOfDate} 以前已發布、且符合此候選訊號規則的代表文章。`,
+              whyItMatters: "它支持主題正在被市場討論，但仍需與其他獨立來源、公司行動及價格資料交叉驗證。",
+              knownAtSignalTime: true,
+            }))
+          : (metric.sample_titles ?? []).map((title, index) => ({
+              id: `${monthlySignal.id}-evidence-${index + 1}`,
+              signalEventId: monthlySignal.id,
+              evidenceDate: monthlySignal.asOfDate,
+              sourceName: "monthly-articles",
+              sourceType: "news",
+              title,
+              summary: "舊版訊號只保存標題，來源連結待補。",
+              whyItMatters: "此項只能證明當時的討論內容，不能單獨作為高品質證據。",
+              knownAtSignalTime: true,
+            }));
         const industryEvidence = (metric.industry_observations ?? []).map((item) => ({
           id: `${monthlySignal.id}-industry-${item.id}`,
           signalEventId: monthlySignal.id,

@@ -69,6 +69,20 @@ function daysBefore(date: Date, days: number) {
   return copy;
 }
 
+function currentTaipeiDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+export function assertAsOfNotFuture(asOfDate: string, today = currentTaipeiDate()) {
+  asOfEndIso(asOfDate);
+  if (asOfDate > today) throw new Error("asOfDate cannot be in the future");
+}
+
 export function asOfEndIso(asOfDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) throw new Error("asOfDate must use YYYY-MM-DD");
   const [year, month, day] = asOfDate.split("-").map(Number);
@@ -152,6 +166,7 @@ export function classifySignalStatus(score: number): SignalConvictionStatus {
 
 export async function detectSignalsFromTopics(asOfDate: string) {
   const supabase = getSupabaseAdmin();
+  assertAsOfNotFuture(asOfDate);
   const asOfIso = asOfEndIso(asOfDate);
   const asOf = new Date(asOfIso);
   const since30d = daysBefore(asOf, 30).toISOString();

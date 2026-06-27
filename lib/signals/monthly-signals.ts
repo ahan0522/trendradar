@@ -10,6 +10,7 @@ import type { MarketCode } from "@/types/signals";
 type ArticleRow = {
   id: string;
   title: string;
+  link: string;
   description: string | null;
   source_name: string;
   category: string | null;
@@ -344,7 +345,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
   const end = nextMonthStart(asOfDate);
   const { data: articles, error } = await supabase
     .from("articles")
-    .select("id, title, description, source_name, category, published_at")
+    .select("id, title, link, description, source_name, category, published_at")
     .gte("published_at", `${start}T00:00:00+00:00`)
     .lt("published_at", `${end}T00:00:00+00:00`)
     .lte("published_at", `${asOfDate}T23:59:59+08:00`)
@@ -398,6 +399,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           .in("company_symbol", companySymbols)
           .gte("known_at", `${start}T00:00:00+00:00`)
           .lte("known_at", `${asOfDate}T23:59:59+08:00`)
+          .eq("quality_status", "verified")
           .order("known_at", { ascending: false })
           .limit(100)
           .returns<CompanyActionRow[]>()
@@ -432,6 +434,13 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
     const articleCount = candidate.articles.length;
     const sourceCount = candidate.sourceNames.size;
     const sampleTitles = candidate.articles.slice(0, 5).map((article) => article.title);
+    const sampleArticles = candidate.articles.slice(0, 5).map((article) => ({
+      id: article.id,
+      title: article.title,
+      source_name: article.source_name,
+      source_url: article.link,
+      published_at: article.published_at,
+    }));
     const signalId = `monthly-${month}-${candidate.rule.key}`;
     const candidateSymbols = new Set(candidate.rule.watchlist.map((item) => item.symbol));
     const relevantCompanyActions = (companyActions ?? [])
@@ -486,6 +495,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           article_count: articleCount,
           source_count: sourceCount,
           sample_titles: sampleTitles,
+          sample_articles: sampleArticles,
           company_actions: relevantCompanyActions,
           industry_observations: researchData.industry,
           commodity_quotes: researchData.commodities,
