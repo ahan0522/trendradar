@@ -20,7 +20,10 @@ type QualityResponse = {
 
 type SyncResponse = {
   ok: boolean;
+  skipped?: boolean;
   dryRun?: boolean;
+  providerMode?: string;
+  reason?: string;
   source?: string;
   actionCount?: number;
   priceCount?: number;
@@ -30,6 +33,9 @@ type SyncResponse = {
   error?: string;
   migrationRequired?: boolean;
 };
+
+const migrationUrl = "https://github.com/ahan0522/trendradar/blob/main/supabase/migrations/20260627143000_research_data_foundation.sql";
+const supabaseSqlEditorUrl = "https://supabase.com/dashboard/project/_/sql/new";
 
 const tableLabels: Record<string, string> = {
   stockPrices: "股價資料",
@@ -134,6 +140,33 @@ export default function ResearchAdminPage() {
                 {quality.issues.map((issue) => <p key={issue}>{issue}</p>)}
               </div>
             ) : null}
+
+            {!quality.ok ? (
+              <div className="mt-5 rounded-2xl border border-sky-300/20 bg-sky-400/5 p-5">
+                <p className="font-black text-sky-100">只差一次資料庫啟用</p>
+                <p className="mt-2 text-sm leading-7 text-zinc-400">
+                  在 Supabase SQL Editor 執行研究資料 migration，回到本頁再按一次「檢查資料品質」。完成前正式同步會保持停用，避免半套資料寫入。
+                </p>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <a
+                    href={migrationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full border border-sky-300/30 px-4 py-2 text-sm font-bold text-sky-200"
+                  >
+                    開啟 migration SQL
+                  </a>
+                  <a
+                    href={supabaseSqlEditorUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full bg-sky-300 px-4 py-2 text-sm font-black text-zinc-950"
+                  >
+                    開啟 Supabase SQL Editor
+                  </a>
+                </div>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -144,6 +177,7 @@ export default function ResearchAdminPage() {
             onDryRun={() => sync("twse", true)}
             onWrite={() => sync("twse", false)}
             disabled={!secret || Boolean(loading)}
+            writeDisabled={!quality?.ok}
             loading={loading.startsWith("twse")}
           />
           <SourceCard
@@ -152,6 +186,7 @@ export default function ResearchAdminPage() {
             onDryRun={() => sync("sec", true)}
             onWrite={() => sync("sec", false)}
             disabled={!secret || Boolean(loading)}
+            writeDisabled={!quality?.ok}
             loading={loading.startsWith("sec")}
           />
           <SourceCard
@@ -160,15 +195,30 @@ export default function ResearchAdminPage() {
             onDryRun={() => sync("fred", true)}
             onWrite={() => sync("fred", false)}
             disabled={!secret || Boolean(loading)}
+            writeDisabled={!quality?.ok}
             loading={loading.startsWith("fred")}
           />
         </section>
 
         {result ? (
-          <section className={`rounded-3xl border p-6 ${result.ok ? "border-emerald-300/20 bg-emerald-400/5" : "border-rose-300/20 bg-rose-400/5"}`}>
+          <section className={`rounded-3xl border p-6 ${
+            result.skipped
+              ? "border-amber-300/20 bg-amber-400/5"
+              : result.ok
+                ? "border-emerald-300/20 bg-emerald-400/5"
+                : "border-rose-300/20 bg-rose-400/5"
+          }`}>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">Last Operation</p>
-            <h2 className="mt-2 text-xl font-black">{result.ok ? `${result.source ?? "資料來源"} ${result.dryRun ? "預覽成功" : "同步成功"}` : "同步失敗"}</h2>
-            {result.ok ? (
+            <h2 className="mt-2 text-xl font-black">
+              {result.skipped
+                ? "資料來源尚未啟用"
+                : result.ok
+                  ? `${result.source ?? "資料來源"} ${result.dryRun ? "預覽成功" : "同步成功"}`
+                  : "同步失敗"}
+            </h2>
+            {result.skipped ? (
+              <p className="mt-3 text-sm leading-7 text-amber-100">{result.reason}</p>
+            ) : result.ok ? (
               <p className="mt-3 text-sm text-zinc-300">
                 公司行動 {result.actionCount ?? 0} 筆 · 股價 {result.priceCount ?? 0} 筆 · 公司 {result.symbolCount ?? "-"} 家
                 {result.commodityQuoteCount !== undefined ? ` · 商品報價 ${result.commodityQuoteCount} 筆` : ""}
@@ -190,6 +240,7 @@ function SourceCard({
   onDryRun,
   onWrite,
   disabled,
+  writeDisabled,
   loading,
 }: {
   title: string;
@@ -197,6 +248,7 @@ function SourceCard({
   onDryRun: () => void;
   onWrite: () => void;
   disabled: boolean;
+  writeDisabled: boolean;
   loading: boolean;
 }) {
   return (
@@ -207,7 +259,13 @@ function SourceCard({
         <button type="button" onClick={onDryRun} disabled={disabled} className="rounded-full border border-zinc-700 px-4 py-2 text-sm font-bold disabled:opacity-40">
           {loading ? "處理中..." : "先預覽"}
         </button>
-        <button type="button" onClick={onWrite} disabled={disabled} className="rounded-full bg-sky-300 px-4 py-2 text-sm font-black text-zinc-950 disabled:opacity-40">
+        <button
+          type="button"
+          onClick={onWrite}
+          disabled={disabled || writeDisabled}
+          title={writeDisabled ? "請先完成資料庫 migration 並重新檢查" : undefined}
+          className="rounded-full bg-sky-300 px-4 py-2 text-sm font-black text-zinc-950 disabled:opacity-40"
+        >
           正式同步
         </button>
       </div>
