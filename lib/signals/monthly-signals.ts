@@ -37,6 +37,31 @@ type CompanyActionRow = {
   quality_status: string;
 };
 
+type IndustryObservationRow = {
+  id: string;
+  industry: string;
+  metric_name: string;
+  metric_value: number | null;
+  metric_text: string | null;
+  unit: string | null;
+  known_at: string;
+  source_url: string;
+  quality_status: string;
+};
+
+type CommodityQuoteRow = {
+  id: string;
+  commodity_code: string;
+  commodity_name: string;
+  quote_date: string;
+  price: number;
+  currency: string;
+  unit: string;
+  known_at: string;
+  source_url: string;
+  quality_status: string;
+};
+
 type WatchItem = {
   symbol: string;
   companyName: string;
@@ -293,6 +318,23 @@ function priceKey(symbol: string, market: string) {
   return `${symbol}::${market}`;
 }
 
+function relevantResearchData(
+  ruleKey: string,
+  industryRows: IndustryObservationRow[],
+  commodityRows: CommodityQuoteRow[],
+) {
+  const industry = industryRows.filter((item) => {
+    const text = `${item.industry} ${item.metric_name}`.toLowerCase();
+    if (ruleKey === "ai-power-grid") return /energy|power|grid|電力|能源/.test(text);
+    return /semiconductor|compute|high.?tech|半導體|算力|高科技/.test(text);
+  });
+  const commodities = commodityRows.filter((item) => {
+    if (ruleKey !== "ai-power-grid") return false;
+    return ["DHHNGSP", "WPU10250238"].includes(item.commodity_code);
+  });
+  return { industry: industry.slice(0, 5), commodities: commodities.slice(0, 10) };
+}
+
 export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
   const supabase = getSupabaseAdmin();
   const start = monthStart(asOfDate);
@@ -355,6 +397,24 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           .limit(100)
           .returns<CompanyActionRow[]>()
       : { data: [] as CompanyActionRow[] };
+  const [{ data: industryObservations }, { data: commodityQuotes }] = await Promise.all([
+    supabase
+      .from("industry_observations")
+      .select("id, industry, metric_name, metric_value, metric_text, unit, known_at, source_url, quality_status")
+      .lte("known_at", `${asOfDate}T23:59:59+08:00`)
+      .eq("quality_status", "verified")
+      .order("known_at", { ascending: false })
+      .limit(100)
+      .returns<IndustryObservationRow[]>(),
+    supabase
+      .from("commodity_quotes")
+      .select("id, commodity_code, commodity_name, quote_date, price, currency, unit, known_at, source_url, quality_status")
+      .lte("known_at", `${asOfDate}T23:59:59+08:00`)
+      .eq("quality_status", "verified")
+      .order("known_at", { ascending: false })
+      .limit(200)
+      .returns<CommodityQuoteRow[]>(),
+  ]);
 
   const latestPrices = new Map<string, PriceRow>();
   for (const price of prices ?? []) {
@@ -383,6 +443,11 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
         source_url: item.source_url,
         quality_status: item.quality_status,
       }));
+    const researchData = relevantResearchData(
+      candidate.rule.key,
+      industryObservations ?? [],
+      commodityQuotes ?? [],
+    );
     const scoreInput = buildMonthlyScoreInput(
       candidate.articles,
       sourceCount,
@@ -417,6 +482,8 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           source_count: sourceCount,
           sample_titles: sampleTitles,
           company_actions: relevantCompanyActions,
+          industry_observations: researchData.industry,
+          commodity_quotes: researchData.commodities,
           score_input: scoreInput,
           score_components: scoreComponents,
           missing_validation: "需要等待月底後的 30D / 60D / 90D 價格資料驗證。",

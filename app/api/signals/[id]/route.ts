@@ -314,6 +314,27 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             calculationVersion: string;
             inputSnapshot: Record<string, unknown>;
           }>;
+          industry_observations?: Array<{
+            id: string;
+            industry: string;
+            metric_name: string;
+            metric_value?: number | null;
+            metric_text?: string | null;
+            unit?: string | null;
+            known_at: string;
+            source_url: string;
+          }>;
+          commodity_quotes?: Array<{
+            id: string;
+            commodity_code: string;
+            commodity_name: string;
+            quote_date: string;
+            price: number;
+            currency: string;
+            unit: string;
+            known_at: string;
+            source_url: string;
+          }>;
         };
         const companyEvidence = (metric.company_actions ?? []).map((item) => ({
           id: `${monthlySignal.id}-company-${item.id}`,
@@ -338,7 +359,36 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           whyItMatters: "它支持主題正在被市場討論，但仍需與其他獨立來源、公司行動及價格資料交叉驗證。",
           knownAtSignalTime: true,
         }));
-        const evidenceItems = [...companyEvidence, ...newsEvidence];
+        const industryEvidence = (metric.industry_observations ?? []).map((item) => ({
+          id: `${monthlySignal.id}-industry-${item.id}`,
+          signalEventId: monthlySignal.id,
+          evidenceDate: item.known_at.slice(0, 10),
+          sourceName: "FRED",
+          sourceUrl: item.source_url,
+          sourceType: "supply_chain",
+          title: `${item.metric_name}：${item.metric_value ?? item.metric_text ?? "-"} ${item.unit ?? ""}`.trim(),
+          summary: `產業分類：${item.industry}`,
+          whyItMatters: "這是訊號形成時已取得的產業環境資料，用來支持或反駁新聞敘事。",
+          knownAtSignalTime: true,
+        }));
+        const commodityEvidence = (metric.commodity_quotes ?? []).map((item) => ({
+          id: `${monthlySignal.id}-commodity-${item.id}`,
+          signalEventId: monthlySignal.id,
+          evidenceDate: item.known_at.slice(0, 10),
+          sourceName: "FRED",
+          sourceUrl: item.source_url,
+          sourceType: "price",
+          title: `${item.commodity_name}：${item.price} ${item.currency}/${item.unit}`,
+          summary: `觀測日期 ${item.quote_date}，資料序列 ${item.commodity_code}。`,
+          whyItMatters: "這是產業成本或供需背景，不代表個股價格訊號。",
+          knownAtSignalTime: true,
+        }));
+        const evidenceItems = [
+          ...companyEvidence,
+          ...industryEvidence,
+          ...commodityEvidence,
+          ...newsEvidence,
+        ];
 
         return NextResponse.json({
           ok: true,
