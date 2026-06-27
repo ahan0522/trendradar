@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getSignalReturnDetails } from "@/lib/signals/backtest";
+import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
 import {
   derivedEvidenceItems,
   derivedLessons,
@@ -82,6 +83,33 @@ type LessonRow = {
   description: string | null;
   impact: string | null;
 };
+
+function lastDayOfMonth(month: string) {
+  const date = new Date(`${month}-01T00:00:00.000Z`);
+  date.setUTCMonth(date.getUTCMonth() + 1);
+  date.setUTCDate(0);
+  return date.toISOString().slice(0, 10);
+}
+
+function currentTaipeiDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+async function getMonthlySignalDetail(id: string) {
+  const match = /^monthly-(\d{4}-\d{2})-/.exec(id);
+  if (!match) return null;
+
+  const month = match[1];
+  const today = currentTaipeiDate();
+  const asOfDate = month === today.slice(0, 7) ? today : lastDayOfMonth(month);
+  const signals = await getCurrentMonthlySignals(asOfDate);
+  return signals.find((signal) => signal.id === id) ?? null;
+}
 
 async function readCaseStudyParts(supabase: ReturnType<typeof getSupabaseAdmin>, id: string) {
   const [evidenceResult, timelineResult, lessonsResult] = await Promise.all([
@@ -231,6 +259,67 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     try {
+      const monthlySignal = await getMonthlySignalDetail(id);
+      if (monthlySignal) {
+        const metric = (monthlySignal.evidence[0] ?? {}) as {
+          article_count?: number;
+          source_count?: number;
+          sample_titles?: string[];
+        };
+        const evidenceItems = (metric.sample_titles ?? []).map((title, index) => ({
+          id: `${monthlySignal.id}-evidence-${index + 1}`,
+          signalEventId: monthlySignal.id,
+          evidenceDate: monthlySignal.asOfDate,
+          sourceName: "monthly-articles",
+          sourceType: "news",
+          title,
+          summary: `這是 ${monthlySignal.asOfDate} 以前已發布、且符合此候選訊號規則的代表文章。`,
+          whyItMatters: "它支持主題正在被市場討論，但仍需與其他獨立來源、公司行動及價格資料交叉驗證。",
+          knownAtSignalTime: true,
+        }));
+
+        return NextResponse.json({
+          ok: true,
+          source: "monthly_current",
+          signal: monthlySignal,
+          watchlists: monthlySignal.watchlists,
+          outcomes: pendingOutcomes(monthlySignal.id),
+          stockReturnDetails: emptyStockReturnDetails(),
+          evidenceItems,
+          timelineEvents: [
+            {
+              id: `${monthlySignal.id}-timeline-detected`,
+              signalEventId: monthlySignal.id,
+              eventDate: monthlySignal.signalDate,
+              eventType: "signal",
+              title: "月度候選形成",
+              description: `截至 ${monthlySignal.asOfDate}，由 ${metric.article_count ?? 0} 篇文章與 ${metric.source_count ?? 0} 個來源形成初步訊號。`,
+              knownAtSignalTime: true,
+              displayOrder: 10,
+            },
+            {
+              id: `${monthlySignal.id}-timeline-validation`,
+              signalEventId: monthlySignal.id,
+              eventType: "validation",
+              title: "等待前瞻驗證",
+              description: "訊號日之後的價格資料不得回填到研究假設，只能用於 7／14／30／60 天結果驗證。",
+              knownAtSignalTime: false,
+              displayOrder: 20,
+            },
+          ],
+          lessons: [
+            {
+              id: `${monthlySignal.id}-lesson-pending`,
+              signalEventId: monthlySignal.id,
+              lessonType: "observation",
+              title: "目前仍是候選研究",
+              description: "已建立研究假設與觀察標的，但尚未完成前瞻報酬驗證。",
+              impact: "價格與 benchmark 資料完整後，再判斷訊號是否成立。",
+            },
+          ],
+        });
+      }
+
       const signal = await getDerivedSignalById(id);
       if (!signal) return NextResponse.json({ ok: false, error: "Signal not found" }, { status: 404 });
 

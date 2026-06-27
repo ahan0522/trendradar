@@ -338,15 +338,9 @@ function ResearchSignalCard({ signal, rank }: { signal: SignalRow; rank: number 
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Investment Basket</p>
               <h3 className="mt-2 text-xl font-black">需關注標的</h3>
             </div>
-            {isMonthlyCandidate ? (
-              <span className="rounded-full border border-sky-300/30 bg-sky-400/10 px-4 py-2 text-xs font-black text-sky-200">
-                月度候選
-              </span>
-            ) : (
-              <Link href={`/signals/${signal.id}`} className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 transition hover:bg-sky-100">
-                研究詳情
-              </Link>
-            )}
+            <Link href={`/signals/${signal.id}`} className="rounded-full bg-white px-4 py-2 text-xs font-black text-zinc-950 transition hover:bg-sky-100">
+              {isMonthlyCandidate ? "查看候選研究" : "研究詳情"}
+            </Link>
           </div>
 
           <BasketSection title="美股" items={us} />
