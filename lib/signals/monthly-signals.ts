@@ -141,6 +141,16 @@ const globalNoiseKeywords = [
   "海灌",
   "法人豪",
   "阮慕驊",
+  "台股大跌",
+  "台股重挫",
+  "跌停",
+  "股王",
+  "股后",
+  "千金",
+  "腰斬",
+  "估值修正",
+  "股價大跌",
+  "股價大漲",
 ];
 
 function normalizeText(value: string) {
