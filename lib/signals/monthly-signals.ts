@@ -151,6 +151,8 @@ const globalNoiseKeywords = [
   "估值修正",
   "股價大跌",
   "股價大漲",
+  "暴跌",
+  "重摔",
 ];
 
 function normalizeText(value: string) {
