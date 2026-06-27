@@ -25,6 +25,8 @@ type SyncResponse = {
   actionCount?: number;
   priceCount?: number;
   symbolCount?: number;
+  commodityQuoteCount?: number;
+  industryObservationCount?: number;
   error?: string;
   migrationRequired?: boolean;
 };
@@ -60,13 +62,13 @@ export default function ResearchAdminPage() {
     }
   }
 
-  async function sync(source: "twse" | "sec", dryRun: boolean) {
+  async function sync(source: "twse" | "sec" | "fred", dryRun: boolean) {
     setLoading(`${source}-${dryRun ? "dry" : "write"}`);
     try {
       const response = await fetch(`/api/admin/research/sync-${source}`, {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ dryRun }),
+        body: JSON.stringify(source === "fred" ? { dryRun, startDate: "2025-01-01" } : { dryRun }),
       });
       const payload = (await response.json()) as SyncResponse;
       setResult(payload);
@@ -135,7 +137,7 @@ export default function ResearchAdminPage() {
           </section>
         ) : null}
 
-        <section className="grid gap-4 lg:grid-cols-2">
+        <section className="grid gap-4 lg:grid-cols-3">
           <SourceCard
             title="臺灣證券交易所"
             description="上市公司重大訊息與每日官方成交資料。"
@@ -152,6 +154,14 @@ export default function ResearchAdminPage() {
             disabled={!secret || Boolean(loading)}
             loading={loading.startsWith("sec")}
           />
+          <SourceCard
+            title="FRED"
+            description="天然氣、銅製品價格指數與高科技製造產能利用率。"
+            onDryRun={() => sync("fred", true)}
+            onWrite={() => sync("fred", false)}
+            disabled={!secret || Boolean(loading)}
+            loading={loading.startsWith("fred")}
+          />
         </section>
 
         {result ? (
@@ -161,6 +171,8 @@ export default function ResearchAdminPage() {
             {result.ok ? (
               <p className="mt-3 text-sm text-zinc-300">
                 公司行動 {result.actionCount ?? 0} 筆 · 股價 {result.priceCount ?? 0} 筆 · 公司 {result.symbolCount ?? "-"} 家
+                {result.commodityQuoteCount !== undefined ? ` · 商品報價 ${result.commodityQuoteCount} 筆` : ""}
+                {result.industryObservationCount !== undefined ? ` · 產業觀測 ${result.industryObservationCount} 筆` : ""}
               </p>
             ) : (
               <p className="mt-3 text-sm leading-7 text-rose-100">{result.error}</p>

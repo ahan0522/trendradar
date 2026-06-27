@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSecret } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getResearchDataQualityReport } from "@/lib/research-data/quality-report";
+import { syncFredResearchData } from "@/lib/research-data/fred";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
@@ -52,11 +53,15 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
-    const [twse, sec] = await Promise.all([
+    const [twse, sec, fred] = await Promise.all([
       syncTwseResearchData({ dryRun: false }),
       syncSecResearchData({
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
+      }),
+      syncFredResearchData({
+        dryRun: false,
+        startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
       }),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
@@ -70,6 +75,7 @@ export async function GET(request: NextRequest) {
       durationMs: Date.now() - startedAt,
       twse,
       sec,
+      fred,
       quality: qualityAfter,
       finalizedMonth,
     });
