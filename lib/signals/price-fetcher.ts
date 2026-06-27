@@ -93,6 +93,22 @@ function validateFetchedPrice(price: StockPrice, requestedDate: string, warnings
   }
 }
 
+function validateFetchedPriceOnOrAfter(price: StockPrice, requestedDate: string, warnings: string[], errors: string[]) {
+  if (!isIsoDate(price.priceDate)) errors.push(`Invalid price date: ${price.priceDate}`);
+  if (price.priceDate < requestedDate) {
+    errors.push(`Fetched price date ${price.priceDate} is before requested date ${requestedDate}`);
+  }
+  if (!Number.isFinite(price.close) || price.close <= 0) errors.push(`Invalid close price: ${price.close}`);
+  if (price.volume !== undefined && (!Number.isFinite(price.volume) || price.volume < 0)) {
+    errors.push(`Invalid volume: ${price.volume}`);
+  }
+  const distanceDays =
+    (new Date(`${price.priceDate}T00:00:00.000Z`).getTime() -
+      new Date(`${requestedDate}T00:00:00.000Z`).getTime()) /
+    86_400_000;
+  if (distanceDays > 7) warnings.push(`First available price is ${distanceDays} days after requested date.`);
+}
+
 async function fetchTwseListedPriceOnOrBefore(symbol: string, requestedDate: string, lookbackDays: number) {
   const stockNo = stockNoFromTwSymbol(symbol);
   const warnings: string[] = [];
@@ -183,6 +199,81 @@ async function fetchTwseListedPriceOnOrBefore(symbol: string, requestedDate: str
   };
 }
 
+async function fetchTwseListedPriceOnOrAfter(symbol: string, requestedDate: string, lookforwardDays: number) {
+  const stockNo = stockNoFromTwSymbol(symbol);
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const endDate = addDays(requestedDate, lookforwardDays);
+  const monthStarts = new Set([`${requestedDate.slice(0, 8)}01`, `${endDate.slice(0, 8)}01`]);
+  const candidates: StockPrice[] = [];
+
+  for (const monthStart of monthStarts) {
+    const url = `https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${toTwseQueryDate(
+      monthStart,
+    )}&stockNo=${encodeURIComponent(stockNo)}`;
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "TrendRadar/1.0 stock price validation",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      warnings.push(`TWSE request failed for ${stockNo} ${monthStart}: HTTP ${response.status}`);
+      continue;
+    }
+    const payload = (await response.json()) as TwseStockDayResponse;
+    if (payload.stat !== "OK" || !Array.isArray(payload.data)) continue;
+
+    for (const row of payload.data) {
+      const priceDate = parseTwseRocDate(row[0]);
+      const close = parseTwseNumber(row[6]);
+      const volume = parseTwseNumber(row[1]);
+      if (!priceDate || close === null || priceDate < requestedDate || priceDate > endDate) continue;
+      candidates.push({
+        symbol: normalizeSymbol(symbol),
+        market: "TW",
+        priceDate,
+        close,
+        adjClose: close,
+        volume: volume ?? undefined,
+        provider: "twse-official",
+        sourceUrl: url,
+        fetchedAt: new Date().toISOString(),
+        qualityStatus: "verified",
+        verificationProvider: "twse-official",
+      });
+    }
+  }
+
+  candidates.sort((a, b) => a.priceDate.localeCompare(b.priceDate));
+  const price = candidates[0] ?? null;
+  if (!price) {
+    return {
+      symbol: normalizeSymbol(symbol),
+      market: "TW" as MarketCode,
+      requestedDate,
+      provider: "twse" as const,
+      status: "skipped" as const,
+      price: null,
+      warnings,
+      errors: [`No TWSE listed price found for ${symbol} on or after ${requestedDate}.`],
+    };
+  }
+
+  validateFetchedPriceOnOrAfter(price, requestedDate, warnings, errors);
+  return {
+    symbol: normalizeSymbol(symbol),
+    market: "TW" as MarketCode,
+    requestedDate,
+    provider: "twse" as const,
+    status: errors.length > 0 ? ("error" as const) : ("fetched" as const),
+    price: errors.length > 0 ? null : price,
+    warnings,
+    errors,
+  };
+}
+
 export async function fetchValidatedStockPriceOnOrBefore(
   request: StockPriceFetchRequest,
   lookbackDays = 10,
@@ -217,6 +308,37 @@ export async function fetchValidatedStockPriceOnOrBefore(
     warnings: [
       "Automatic source is not enabled for this market yet. Use CSV import or connect a licensed market data provider.",
     ],
+    errors: [],
+  };
+}
+
+export async function fetchValidatedStockPriceOnOrAfter(
+  request: StockPriceFetchRequest,
+  lookforwardDays = 10,
+): Promise<StockPriceFetchResult> {
+  const symbol = normalizeSymbol(request.symbol);
+  const date = request.date.trim();
+  if (!isIsoDate(date)) {
+    return {
+      symbol,
+      market: request.market,
+      requestedDate: date,
+      provider: "manual_required",
+      status: "error",
+      price: null,
+      warnings: [],
+      errors: [`Date must use YYYY-MM-DD format: ${request.date}`],
+    };
+  }
+  if (request.market === "TW") return fetchTwseListedPriceOnOrAfter(symbol, date, lookforwardDays);
+  return {
+    symbol,
+    market: request.market,
+    requestedDate: date,
+    provider: "manual_required",
+    status: "skipped",
+    price: null,
+    warnings: ["Automatic verified source is not enabled for this market yet."],
     errors: [],
   };
 }
