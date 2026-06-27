@@ -20,6 +20,7 @@ import {
   calculateReturn,
   parseStockPriceCsv,
 } from "../lib/signals/stock-prices";
+import { textMatchesTopicKeyword } from "../lib/topic-grouping";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -54,6 +55,13 @@ function testSignalScore() {
     { id: "tie-high", signal_strength: 60, confidence_score: 80 },
   ], 3);
   assert.deepEqual(selected.map((item) => item.id), ["strong", "tie-high", "tie-low"]);
+}
+
+function testTopicKeywordBoundaries() {
+  assert.equal(textMatchesTopicKeyword("AI server demand rises", "ai"), true);
+  assert.equal(textMatchesTopicKeyword("The company said demand rose", "ai"), false);
+  assert.equal(textMatchesTopicKeyword("台積電推進人工智慧晶片", "人工智慧"), true);
+  assert.equal(textMatchesTopicKeyword("防洪與地方政治新聞", "ai"), false);
 }
 
 function testVerifiedPriceGate() {
@@ -126,6 +134,7 @@ function testBacktestTimeBoundary() {
 
 function main() {
   testSignalScore();
+  testTopicKeywordBoundaries();
   testVerifiedPriceGate();
   testCsvProvenance();
   testBacktestTimeBoundary();

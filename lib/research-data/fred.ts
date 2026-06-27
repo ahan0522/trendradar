@@ -76,6 +76,13 @@ function stableId(value: string) {
   return createHash("sha256").update(value).digest("hex").slice(0, 32);
 }
 
+export function parseFredObservationValue(rawValue: string | undefined) {
+  const normalized = rawValue?.trim();
+  if (!normalized || normalized === ".") return null;
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : null;
+}
+
 function fredCsvUrl(seriesId: string, startDate: string) {
   return `https://fred.stlouisfed.org/graph/fredgraph.csv?id=${encodeURIComponent(seriesId)}&cosd=${encodeURIComponent(startDate)}`;
 }
@@ -113,8 +120,8 @@ async function fetchFredSeriesFromApi(
 
   return (payload.observations ?? []).flatMap((observation) => {
     const observationDate = observation.date ?? "";
-    const value = Number(observation.value);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(observationDate) || !Number.isFinite(value)) return [];
+    const value = parseFredObservationValue(observation.value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(observationDate) || value === null) return [];
     return [{ observationDate, value, sourceUrl, observedAt }];
   });
 }
@@ -139,8 +146,8 @@ async function fetchFredSeriesFromCsv(
 
   return lines.flatMap((line) => {
     const [observationDate, rawValue] = line.split(",");
-    const value = Number(rawValue);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(observationDate) || !Number.isFinite(value)) return [];
+    const value = parseFredObservationValue(rawValue);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(observationDate) || value === null) return [];
     return [{ observationDate, value, sourceUrl, observedAt }];
   });
 }

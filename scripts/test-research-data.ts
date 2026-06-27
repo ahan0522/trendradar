@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { parseTwsePublishedAt } from "../lib/research-data/twse";
+import { parseFredObservationValue } from "../lib/research-data/fred";
 
 function testTwseTimeParsing() {
   assert.equal(
@@ -20,5 +21,15 @@ function testTwseTimeParsing() {
   );
 }
 
+function testFredMissingValues() {
+  assert.equal(parseFredObservationValue("3.16"), 3.16);
+  assert.equal(parseFredObservationValue(" 101.25 "), 101.25);
+  assert.equal(parseFredObservationValue(""), null);
+  assert.equal(parseFredObservationValue("   "), null);
+  assert.equal(parseFredObservationValue("."), null);
+  assert.equal(parseFredObservationValue(undefined), null);
+}
+
 testTwseTimeParsing();
+testFredMissingValues();
 console.log("Research data invariants: PASS");

@@ -182,7 +182,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
   const since7d = daysBefore(asOf, 7).toISOString();
   const since24h = daysBefore(asOf, 1).toISOString();
 
-  const [{ data: topics, error: topicsError }, { data: articleLinks, error: linksError }, { data: articles, error: articlesError }] =
+  const [{ data: topics, error: topicsError }, { data: articleLinks, error: linksError }] =
     await Promise.all([
       supabase
         .from("topics")
@@ -194,20 +194,29 @@ export async function detectSignalsFromTopics(asOfDate: string) {
         .select("topic_id, article_id, created_at")
         .lte("created_at", asOfIso)
         .returns<TopicArticleRow[]>(),
-      supabase
-        .from("articles")
-        .select("id, title, link, source_name, published_at")
-        .lte("published_at", asOfIso)
-        .gte("published_at", since30d)
-        .returns<ArticleRow[]>(),
     ]);
 
   if (topicsError) throw topicsError;
   if (linksError) throw linksError;
-  if (articlesError) throw articlesError;
+
+  const linkedArticleIds = [...new Set((articleLinks ?? []).map((link) => link.article_id))];
+  const articles: ArticleRow[] = [];
+  for (let index = 0; index < linkedArticleIds.length; index += 500) {
+    const articleIds = linkedArticleIds.slice(index, index + 500);
+    const { data, error } = await supabase
+      .from("articles")
+      .select("id, title, link, source_name, published_at")
+      .in("id", articleIds)
+      .lte("published_at", asOfIso)
+      .gte("published_at", since30d)
+      .order("published_at", { ascending: false })
+      .returns<ArticleRow[]>();
+    if (error) throw error;
+    articles.push(...(data ?? []));
+  }
 
   const topicById = new Map((topics ?? []).map((topic) => [topic.id, topic]));
-  const articleById = new Map((articles ?? []).map((article) => [article.id, article]));
+  const articleById = new Map(articles.map((article) => [article.id, article]));
   const grouped = new Map<string, ArticleRow[]>();
 
   for (const link of articleLinks ?? []) {

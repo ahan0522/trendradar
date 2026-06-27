@@ -32,24 +32,39 @@ function normalizeText(value: string) {
   return value.toLowerCase().trim();
 }
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function textMatchesTopicKeyword(text: string, keyword: string) {
+  const normalizedKeyword = normalizeText(keyword);
+  if (/^[a-z0-9+.-]+$/.test(normalizedKeyword)) {
+    return new RegExp(
+      `(^|[^a-z0-9])${escapeRegExp(normalizedKeyword)}([^a-z0-9]|$)`,
+      "i",
+    ).test(text);
+  }
+  return text.includes(normalizedKeyword);
+}
+
 function articleMatchesRule(
   article: NewsArticle,
   keywords: readonly string[],
   excludeKeywords?: readonly string[]
 ) {
   const haystack = normalizeText(
-    `${article.title} ${article.description ?? ""} ${article.category ?? ""}`
+    `${article.title} ${article.description ?? ""}`
   );
 
   if (
     excludeKeywords?.some((keyword) =>
-      haystack.includes(normalizeText(keyword))
+      textMatchesTopicKeyword(haystack, keyword)
     )
   ) {
     return false;
   }
 
-  return keywords.some((keyword) => haystack.includes(normalizeText(keyword)));
+  return keywords.some((keyword) => textMatchesTopicKeyword(haystack, keyword));
 }
 
 function getLatestPublishedAt(articles: NewsArticle[]) {
