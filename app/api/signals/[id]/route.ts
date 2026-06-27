@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getSignalReturnDetails } from "@/lib/signals/backtest";
 import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
+import { publishableLatestPrice } from "@/lib/signals/price-quality";
 import {
   derivedEvidenceItems,
   derivedLessons,
@@ -38,6 +39,18 @@ type WatchlistRow = {
   thesis: string;
   weight: number;
   source: string | null;
+};
+
+type PriceRow = {
+  symbol: string;
+  market: string;
+  price_date: string;
+  close: number;
+  adj_close: number | null;
+  volume: number | null;
+  quality_status: string | null;
+  provider: string | null;
+  source_url: string | null;
 };
 
 type OutcomeRow = {
@@ -233,6 +246,29 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const signal = signalRows?.[0];
     if (!signal) throw new Error("Signal not found in signal tables");
 
+    const symbols = [...new Set((watchlists ?? []).map((item) => item.symbol))];
+    const markets = [...new Set((watchlists ?? []).map((item) => item.market))];
+    const { data: prices, error: pricesError } =
+      symbols.length > 0
+        ? await supabase
+            .from("stock_prices")
+            .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url")
+            .in("symbol", symbols)
+            .in("market", markets)
+            .eq("quality_status", "verified")
+            .order("price_date", { ascending: false })
+            .limit(5000)
+            .returns<PriceRow[]>()
+        : { data: [] as PriceRow[], error: null };
+
+    if (pricesError) throw pricesError;
+
+    const latestPrices = new Map<string, PriceRow>();
+    for (const item of prices ?? []) {
+      const key = `${item.symbol}::${item.market}`;
+      if (!latestPrices.has(key)) latestPrices.set(key, item);
+    }
+
     const horizons = [7, 14, 30, 60];
     const [stockReturnDetails, caseStudyParts] = await Promise.all([
       Promise.all(
@@ -260,16 +296,34 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         status: signal.status,
         modelVersion: signal.model_version,
       },
-      watchlists: (watchlists ?? []).map((item) => ({
-        id: item.id,
-        signalEventId: item.signal_event_id,
-        symbol: item.symbol,
-        companyName: item.company_name,
-        market: item.market,
-        thesis: item.thesis,
-        weight: Number(item.weight),
-        source: item.source,
-      })),
+      watchlists: (watchlists ?? []).map((item) => {
+        const latestPrice = latestPrices.get(`${item.symbol}::${item.market}`);
+        const rawLatestPrice = latestPrice
+          ? {
+              priceDate: latestPrice.price_date,
+              close: Number(latestPrice.close),
+              adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
+              volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
+              qualityStatus: latestPrice.quality_status,
+              provider: latestPrice.provider,
+              sourceUrl: latestPrice.source_url,
+            }
+          : null;
+        const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice);
+
+        return {
+          id: item.id,
+          signalEventId: item.signal_event_id,
+          symbol: item.symbol,
+          companyName: item.company_name,
+          market: item.market,
+          thesis: item.thesis,
+          weight: Number(item.weight),
+          source: item.source,
+          latestPrice: publishable.latestPrice,
+          priceQuality: publishable.priceQuality,
+        };
+      }),
       outcomes: outcomes ?? [],
       stockReturnDetails,
       evidenceItems: caseStudyParts.evidenceItems.map(mapEvidenceItem),

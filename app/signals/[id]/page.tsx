@@ -11,6 +11,19 @@ type Watchlist = {
   thesis: string;
   weight: number;
   source: string | null;
+  latestPrice: {
+    priceDate: string;
+    close: number;
+    adjClose: number | null;
+    volume: number | null;
+    qualityStatus?: string | null;
+    provider?: string | null;
+    sourceUrl?: string | null;
+  } | null;
+  priceQuality?: {
+    status: "verified" | "needs_review";
+    reason?: string;
+  };
 };
 
 type Outcome = {
@@ -122,6 +135,12 @@ function pct(value: number | null | undefined) {
 function price(value: number | null | undefined) {
   if (value === null || value === undefined) return "-";
   return Number(value).toFixed(2);
+}
+
+function latestPrice(item: Watchlist) {
+  if (!item.latestPrice || item.priceQuality?.status !== "verified") return "待補可靠價格";
+  const value = Number(item.latestPrice.adjClose ?? item.latestPrice.close);
+  return `${value.toLocaleString("zh-TW", { maximumFractionDigits: 2 })} · ${item.latestPrice.priceDate}`;
 }
 
 function signalTypeLabel(value: string) {
@@ -527,6 +546,16 @@ export default function SignalDetailPage() {
                     <div className="rounded-full border border-sky-300/30 bg-sky-400/10 px-3 py-1 text-xs font-bold text-sky-200">{item.market}</div>
                   </div>
                   <p className="mt-1 text-sm font-bold text-zinc-300">{item.companyName}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-zinc-950 px-3 py-1.5 font-mono font-bold text-white">
+                      最新收盤 {latestPrice(item)}
+                    </span>
+                    <span className={item.priceQuality?.status === "verified"
+                      ? "rounded-full bg-emerald-400/10 px-3 py-1.5 font-bold text-emerald-200"
+                      : "rounded-full bg-amber-400/10 px-3 py-1.5 font-bold text-amber-200"}>
+                      {item.priceQuality?.status === "verified" ? "官方資料已驗證" : "價格待驗證"}
+                    </span>
+                  </div>
                   <p className="mt-3 text-sm leading-6 text-zinc-500">{item.thesis}</p>
                 </div>
               ))}
