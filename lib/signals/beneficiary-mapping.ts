@@ -23,8 +23,6 @@ const ruleGroups: RuleGroup[] = [
       { symbol: "3081.TW", companyName: "聯亞", market: "TW" },
       { symbol: "3363.TW", companyName: "上詮", market: "TW" },
       { symbol: "3163.TW", companyName: "波若威", market: "TW" },
-      { symbol: "COHR", companyName: "Coherent", market: "US" },
-      { symbol: "LITE", companyName: "Lumentum", market: "US" },
     ],
   },
   {
