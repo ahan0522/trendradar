@@ -209,10 +209,16 @@ function asOfDateForMonth(month: string, today = currentTaipeiDate()) {
 }
 
 function matchesRule(article: ArticleRow, rule: MonthlyRule) {
-  const text = normalizeText(`${article.title} ${article.description ?? ""} ${article.category ?? ""}`);
-  if (globalNoiseKeywords.some((keyword) => matchesLabel(text, keyword))) return false;
-  if (rule.exclude?.some((keyword) => matchesLabel(text, keyword))) return false;
-  return rule.labels.some((label) => matchesLabel(text, label));
+  const titleText = normalizeText(article.title);
+  const fullText = normalizeText(`${article.title} ${article.description ?? ""} ${article.category ?? ""}`);
+  if (globalNoiseKeywords.some((keyword) => matchesLabel(fullText, keyword))) return false;
+  if (rule.exclude?.some((keyword) => matchesLabel(fullText, keyword))) return false;
+
+  const titleMatch = rule.labels.some((label) => matchesLabel(titleText, label));
+  if (titleMatch) return true;
+
+  const fullTextMatches = rule.labels.filter((label) => matchesLabel(fullText, label));
+  return new Set(fullTextMatches.map((label) => label.toLowerCase())).size >= 2;
 }
 
 function score(articleCount: number, sourceCount: number) {
