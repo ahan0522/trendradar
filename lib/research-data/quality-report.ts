@@ -41,14 +41,65 @@ async function inspectTable(table: string, dateColumn: string): Promise<TableQua
   }
 }
 
+async function inspectLedgerTable(table: string, dateColumn: string): Promise<TableQuality> {
+  const supabase = getSupabaseAdmin();
+  try {
+    const [totalResult, latestResult] = await Promise.all([
+      supabase.from(table).select("*", { count: "exact", head: true }),
+      supabase.from(table).select(dateColumn).order(dateColumn, { ascending: false }).limit(1),
+    ]);
+    const error = totalResult.error ?? latestResult.error;
+    if (error) throw error;
+    const latestRow = latestResult.data?.[0] as Record<string, string> | undefined;
+    return {
+      available: true,
+      total: totalResult.count ?? 0,
+      verified: null,
+      needsReview: null,
+      latestAt: latestRow?.[dateColumn] ?? null,
+    };
+  } catch (error) {
+    return {
+      available: false,
+      total: null,
+      verified: null,
+      needsReview: null,
+      latestAt: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 export async function getResearchDataQualityReport() {
-  const [stockPrices, companyActions, industryObservations, commodityQuotes] = await Promise.all([
+  const [
+    stockPrices,
+    companyActions,
+    industryObservations,
+    commodityQuotes,
+    signalEvidence,
+    scoreComponents,
+    signalTimeline,
+    signalLessons,
+  ] = await Promise.all([
     inspectTable("stock_prices", "price_date"),
     inspectTable("company_actions", "known_at"),
     inspectTable("industry_observations", "known_at"),
     inspectTable("commodity_quotes", "quote_date"),
+    inspectLedgerTable("signal_evidence_items", "created_at"),
+    inspectLedgerTable("signal_score_components", "calculated_at"),
+    inspectLedgerTable("signal_timeline_events", "created_at"),
+    inspectLedgerTable("signal_lessons", "created_at"),
   ]);
-  const tables = { stockPrices, companyActions, industryObservations, commodityQuotes };
+  const tables = {
+    stockPrices,
+    companyActions,
+    industryObservations,
+    commodityQuotes,
+    signalEvidence,
+    scoreComponents,
+    signalTimeline,
+    signalLessons,
+  };
   const migrationRequired = Object.entries(tables)
     .filter(([, value]) => !value.available)
     .map(([name]) => name);

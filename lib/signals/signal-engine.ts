@@ -25,6 +25,7 @@ export type SignalScoreComponent = {
 type ArticleRow = {
   id: string;
   title: string;
+  link: string;
   source_name: string;
   published_at: string | null;
 };
@@ -164,6 +165,14 @@ export function classifySignalStatus(score: number): SignalConvictionStatus {
   return "weak";
 }
 
+export function selectHighestConviction<
+  T extends { signal_strength: number; confidence_score: number },
+>(rows: T[], limit = 3) {
+  return [...rows]
+    .sort((a, b) => b.signal_strength - a.signal_strength || b.confidence_score - a.confidence_score)
+    .slice(0, Math.max(0, limit));
+}
+
 export async function detectSignalsFromTopics(asOfDate: string) {
   const supabase = getSupabaseAdmin();
   assertAsOfNotFuture(asOfDate);
@@ -187,7 +196,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
         .returns<TopicArticleRow[]>(),
       supabase
         .from("articles")
-        .select("id, title, source_name, published_at")
+        .select("id, title, link, source_name, published_at")
         .lte("published_at", asOfIso)
         .gte("published_at", since30d)
         .returns<ArticleRow[]>(),
@@ -262,6 +271,13 @@ export async function detectSignalsFromTopics(asOfDate: string) {
           source_count: sourceCount,
           mention_spike: mentionSpike,
           sample_titles: topicArticles.slice(0, 5).map((article) => article.title),
+          sample_articles: topicArticles.slice(0, 5).map((article) => ({
+            id: article.id,
+            title: article.title,
+            source_name: article.source_name,
+            source_url: article.link,
+            published_at: article.published_at,
+          })),
           conviction: classifySignalStatus(signalStrength),
         },
       ],
@@ -271,11 +287,12 @@ export async function detectSignalsFromTopics(asOfDate: string) {
     });
   }
 
-  if (rows.length === 0) return [];
+  const selectedRows = selectHighestConviction(rows, 3);
+  if (selectedRows.length === 0) return [];
 
   const { data, error } = await supabase
     .from("signal_events")
-    .upsert(rows.map(({ scoreComponents, ...row }) => {
+    .upsert(selectedRows.map(({ scoreComponents, ...row }) => {
       void scoreComponents;
       return row;
     }), { onConflict: "id" })
@@ -284,7 +301,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
 
   if (error) throw error;
 
-  const componentRows = rows.flatMap((row) =>
+  const componentRows = selectedRows.flatMap((row) =>
     row.scoreComponents.map((component) => ({
       signal_event_id: row.id,
       component_name: component.componentName,

@@ -5,6 +5,7 @@ import {
   classifySignalStatus,
   asOfEndIso,
   assertAsOfNotFuture,
+  selectHighestConviction,
 } from "../lib/signals/signal-engine";
 import {
   addDays,
@@ -46,6 +47,13 @@ function testSignalScore() {
   });
   const contribution = components.reduce((sum, item) => sum + item.contribution, 0);
   assert.equal(contribution, 37.5);
+  const selected = selectHighestConviction([
+    { id: "weak", signal_strength: 30, confidence_score: 90 },
+    { id: "strong", signal_strength: 80, confidence_score: 70 },
+    { id: "tie-low", signal_strength: 60, confidence_score: 50 },
+    { id: "tie-high", signal_strength: 60, confidence_score: 80 },
+  ], 3);
+  assert.deepEqual(selected.map((item) => item.id), ["strong", "tie-high", "tie-low"]);
 }
 
 function testVerifiedPriceGate() {

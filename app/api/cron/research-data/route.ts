@@ -6,6 +6,7 @@ import { syncFredResearchData } from "@/lib/research-data/fred";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
+import { generateSignalLedger } from "@/lib/signals/generate-ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +30,15 @@ async function getUsWatchlistSymbols() {
 function currentTaipeiDay() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Taipei",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function currentTaipeiDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
     day: "2-digit",
   }).format(new Date());
 }
@@ -89,6 +99,7 @@ export async function GET(request: NextRequest) {
           }),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
+    const signalLedger = await runSync(() => generateSignalLedger(currentTaipeiDate()));
     const finalizedMonth = currentTaipeiDay() === "01"
       ? await finalizeMonthlySignals(previousMonthEnd())
       : null;
@@ -102,6 +113,7 @@ export async function GET(request: NextRequest) {
       sec,
       fred,
       quality: qualityAfter,
+      signalLedger,
       finalizedMonth,
     });
   } catch (error) {

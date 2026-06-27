@@ -42,6 +42,10 @@ const tableLabels: Record<string, string> = {
   companyActions: "公司行動",
   industryObservations: "產業觀測",
   commodityQuotes: "商品報價",
+  signalEvidence: "訊號證據鏈",
+  scoreComponents: "分數組成",
+  signalTimeline: "訊號時間軸",
+  signalLessons: "驗證反思",
 };
 
 export default function ResearchAdminPage() {
