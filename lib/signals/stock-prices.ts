@@ -8,6 +8,8 @@ type StockPriceRow = {
   close: number;
   adj_close: number | null;
   volume: number | null;
+  quality_status?: string | null;
+  provider?: string | null;
 };
 
 function parseNumber(value: string | undefined) {
@@ -35,6 +37,14 @@ function mapRow(row: StockPriceRow): StockPrice {
   };
 }
 
+const supportedMarkets: MarketCode[] = ["US", "TW", "KR", "JP", "GLOBAL"];
+const supportedQualityStatuses: NonNullable<StockPrice["qualityStatus"]>[] = [
+  "unverified",
+  "verified",
+  "needs_review",
+  "rejected",
+];
+
 export function parseStockPriceCsv(csvText: string): StockPrice[] {
   const lines = csvText
     .split(/\r?\n/)
@@ -55,18 +65,31 @@ export function parseStockPriceCsv(csvText: string): StockPrice[] {
     const values = line.split(",").map((value) => value.trim());
     const get = (name: string) => values[headers.indexOf(name)];
     const close = parseNumber(get("close"));
+    const market = get("market").toUpperCase() as MarketCode;
+    const qualityStatus = get("quality_status") as StockPrice["qualityStatus"];
 
     if (!close || close <= 0) {
       throw new Error(`Invalid close price at CSV row ${index + 2}`);
     }
+    if (!supportedMarkets.includes(market)) {
+      throw new Error(`Unsupported market at CSV row ${index + 2}: ${market}`);
+    }
+    if (qualityStatus && !supportedQualityStatuses.includes(qualityStatus)) {
+      throw new Error(`Unsupported quality_status at CSV row ${index + 2}: ${qualityStatus}`);
+    }
 
     return {
       symbol: get("symbol").toUpperCase(),
-      market: get("market").toUpperCase() as MarketCode,
+      market,
       priceDate: toIsoDate(get("date")),
       close,
       adjClose: parseNumber(get("adj_close")),
       volume: parseNumber(get("volume")),
+      provider: get("provider") || undefined,
+      sourceUrl: get("source_url") || undefined,
+      fetchedAt: get("fetched_at") || undefined,
+      qualityStatus: qualityStatus || undefined,
+      verificationProvider: get("verification_provider") || undefined,
     };
   });
 }
@@ -75,15 +98,25 @@ export async function upsertStockPrices(prices: StockPrice[]) {
   if (prices.length === 0) return { count: 0 };
 
   const supabase = getSupabaseAdmin();
-  const rows = prices.map((price) => ({
-    symbol: price.symbol,
-    market: price.market,
-    price_date: price.priceDate,
-    close: price.close,
-    adj_close: price.adjClose ?? null,
-    volume: price.volume ?? null,
-    updated_at: new Date().toISOString(),
-  }));
+  const rows = prices.map((price) => {
+    if (price.qualityStatus === "verified" && (!price.provider || !price.sourceUrl)) {
+      throw new Error(`Verified price ${price.symbol} ${price.priceDate} requires provider and source_url`);
+    }
+    return {
+      symbol: price.symbol,
+      market: price.market,
+      price_date: price.priceDate,
+      close: price.close,
+      adj_close: price.adjClose ?? null,
+      volume: price.volume ?? null,
+      ...(price.provider ? { provider: price.provider } : {}),
+      ...(price.sourceUrl ? { source_url: price.sourceUrl } : {}),
+      ...(price.fetchedAt ? { fetched_at: price.fetchedAt } : {}),
+      ...(price.qualityStatus ? { quality_status: price.qualityStatus } : {}),
+      ...(price.verificationProvider ? { verification_provider: price.verificationProvider } : {}),
+      updated_at: new Date().toISOString(),
+    };
+  });
 
   const { error } = await supabase
     .from("stock_prices")
@@ -97,14 +130,16 @@ export async function getPriceOnOrAfter(symbol: string, market: MarketCode, date
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("stock_prices")
-    .select("symbol, market, price_date, close, adj_close, volume")
+    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider")
     .eq("symbol", symbol)
     .eq("market", market)
+    .eq("quality_status", "verified")
     .gte("price_date", date)
     .order("price_date", { ascending: true })
     .limit(1)
     .returns<StockPriceRow[]>();
 
+  if (error?.code === "42703") return null;
   if (error) throw error;
   return data?.[0] ? mapRow(data[0]) : null;
 }
@@ -113,14 +148,16 @@ export async function getPriceOnOrBefore(symbol: string, market: MarketCode, dat
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("stock_prices")
-    .select("symbol, market, price_date, close, adj_close, volume")
+    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider")
     .eq("symbol", symbol)
     .eq("market", market)
+    .eq("quality_status", "verified")
     .lte("price_date", date)
     .order("price_date", { ascending: false })
     .limit(1)
     .returns<StockPriceRow[]>();
 
+  if (error?.code === "42703") return null;
   if (error) throw error;
   return data?.[0] ? mapRow(data[0]) : null;
 }

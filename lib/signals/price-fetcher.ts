@@ -144,6 +144,11 @@ async function fetchTwseListedPriceOnOrBefore(symbol: string, requestedDate: str
         close,
         adjClose: close,
         volume: volume ?? undefined,
+        provider: "twse-official",
+        sourceUrl: url,
+        fetchedAt: new Date().toISOString(),
+        qualityStatus: "verified",
+        verificationProvider: "twse-official",
       });
     }
   }

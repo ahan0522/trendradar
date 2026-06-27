@@ -50,6 +50,11 @@ export type StockPrice = {
   close: number;
   adjClose?: number;
   volume?: number;
+  provider?: string;
+  sourceUrl?: string;
+  fetchedAt?: string;
+  qualityStatus?: "unverified" | "verified" | "needs_review" | "rejected";
+  verificationProvider?: string;
 };
 
 export type SignalOutcome = {

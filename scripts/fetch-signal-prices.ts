@@ -11,19 +11,6 @@ type WatchlistRow = {
   market: MarketCode;
 };
 
-type YahooChartResponse = {
-  chart?: {
-    result?: Array<{
-      meta?: {
-        regularMarketPrice?: number;
-        regularMarketTime?: number;
-        regularMarketVolume?: number;
-      };
-    }>;
-    error?: unknown;
-  };
-};
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -32,53 +19,9 @@ function normalizeSymbol(symbol: string) {
   return symbol.trim().toUpperCase();
 }
 
-function yahooCandidates(symbol: string, market: MarketCode) {
-  const normalized = normalizeSymbol(symbol);
-  if (market === "TW" && normalized.endsWith(".TW")) {
-    return [normalized, normalized.replace(".TW", ".TWO")];
-  }
-  return [normalized];
-}
-
-async function fetchYahooLatestPrice(symbol: string, market: MarketCode): Promise<StockPrice | null> {
-  for (const candidate of yahooCandidates(symbol, market)) {
-    const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(candidate)}?range=1d&interval=1d`, {
-      headers: {
-        accept: "application/json",
-        "user-agent": "TrendRadar/1.0 signal price validation",
-      },
-      cache: "no-store",
-    });
-
-    if (!response.ok) continue;
-
-    const payload = (await response.json()) as YahooChartResponse;
-    const meta = payload.chart?.result?.[0]?.meta;
-    const price = meta?.regularMarketPrice;
-    const time = meta?.regularMarketTime;
-
-    if (!price || price <= 0 || !time) continue;
-
-    return {
-      symbol: normalizeSymbol(symbol),
-      market,
-      priceDate: new Date(time * 1000).toISOString().slice(0, 10),
-      close: Number(price),
-      adjClose: Number(price),
-      volume: meta.regularMarketVolume,
-    };
-  }
-
-  return null;
-}
-
 async function fetchLatestPrice(symbol: string, market: MarketCode, date: string) {
-  if (market === "TW") {
-    const twse = await fetchValidatedStockPriceOnOrBefore({ symbol, market, date }, 14);
-    if (twse.price) return twse.price;
-  }
-
-  return fetchYahooLatestPrice(symbol, market);
+  const result = await fetchValidatedStockPriceOnOrBefore({ symbol, market, date }, 14);
+  return result.price;
 }
 
 async function main() {
