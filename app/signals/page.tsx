@@ -133,6 +133,31 @@ function trackingClues(signal: SignalRow) {
   return base;
 }
 
+function cleanHypothesis(value: string) {
+  return value
+    .replace(/目前僅使用 \d{4}-\d{2} 月截至 \d{4}-\d{2}-\d{2} 已發布資料，尚未使用任何未來資訊。?/g, "")
+    .trim();
+}
+
+function whyItMatters(signal: SignalRow) {
+  const lane = inferResearchLane(signal);
+  if (lane.includes("Memory")) return "記憶體供需變化會先反映在報價、產能分配與業者展望，可能比終端財報更早揭露產業循環方向。";
+  if (lane.includes("Power")) return "若 AI 建設瓶頸由晶片轉向供電，價值鏈可能擴散至發電、電網、變壓器、UPS 與電力管理設備。";
+  if (lane.includes("Cooling")) return "單櫃功耗提高會增加散熱難度，液冷滲透率、熱管理訂單及資料中心設計改變值得持續驗證。";
+  if (lane.includes("Packaging")) return "先進封裝若成為供應瓶頸，產能利用率、設備訂單與資本支出可能比晶片出貨更早出現變化。";
+  if (lane.includes("Networking")) return "算力擴張需要同步提升資料傳輸效率，交換器、光通訊與高速網路可能成為下一個基礎建設瓶頸。";
+  return "這些資訊若同時出現在新聞、公司行動與供應鏈，可能代表產業需求正在形成，而不只是單日市場話題。";
+}
+
+function invalidationClues(signal: SignalRow) {
+  const lane = inferResearchLane(signal);
+  if (lane.includes("Memory")) return ["記憶體報價轉跌或庫存重新上升", "主要業者下修需求、產能利用率或資本支出"];
+  if (lane.includes("Power")) return ["資料中心建置延期，電力設備交期與訂單開始縮短", "電網與電力管理公司下修在手訂單或展望"];
+  if (lane.includes("Cooling")) return ["液冷導入速度低於預期，相關訂單沒有轉化為營收", "高密度機櫃需求放緩或客戶延後建置"];
+  if (lane.includes("Packaging")) return ["先進封裝利用率下滑或擴產計畫延後", "設備供應商訂單未跟上產能擴張敘事"];
+  return ["相關消息來源與公司證據未持續增加", "觀察籃子長期落後 benchmark，且基本面沒有驗證"];
+}
+
 function splitWatchlists(watchlists: Watchlist[] = []) {
   return {
     us: watchlists.filter((item) => item.market === "US"),
@@ -269,8 +294,13 @@ function ResearchSignalCard({ signal, rank }: { signal: SignalRow; rank: number 
           </p>
 
           <div className="mt-6 rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-200">你從這個訊號得到什麼</p>
-            <p className="mt-3 text-lg font-black leading-8 text-white">{signal.hypothesis}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-200">發生什麼事</p>
+            <p className="mt-3 text-lg font-black leading-8 text-white">{cleanHypothesis(signal.hypothesis)}</p>
+          </div>
+
+          <div className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">為什麼值得注意</p>
+            <p className="mt-3 text-sm font-bold leading-7 text-zinc-200">{whyItMatters(signal)}</p>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -280,10 +310,21 @@ function ResearchSignalCard({ signal, rank }: { signal: SignalRow; rank: number 
           </div>
 
           <div className="mt-6">
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">接下來追蹤的蹤跡</p>
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">接下來要驗證什麼</p>
             <div className="mt-3 grid gap-2">
               {clues.map((clue) => (
                 <div key={clue} className="rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm font-bold text-zinc-300">
+                  <span className="mr-2 text-emerald-300">✓</span>{clue}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose-300/80">什麼情況代表判斷可能錯了</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {invalidationClues(signal).map((clue) => (
+                <div key={clue} className="rounded-2xl border border-rose-300/15 bg-rose-400/5 px-4 py-3 text-sm font-bold text-rose-100/80">
                   {clue}
                 </div>
               ))}
@@ -337,6 +378,7 @@ function BasketSection({ title, items }: { title: string; items: Watchlist[] }) 
               <div className="min-w-0">
                 <p className="line-clamp-1 font-black text-white">{item.companyName || item.symbol}</p>
                 <p className="mt-1 text-xs text-zinc-500">{marketLabel(item.market)} · {item.symbol}</p>
+                <p className="mt-2 text-xs font-medium leading-5 text-zinc-400">{item.thesis || "尚待補充與此訊號的具體關聯。"}</p>
               </div>
               <div className="text-right">
                 <p className="font-mono text-sm font-black text-sky-300">{formatPrice(item)}</p>
