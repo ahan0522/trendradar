@@ -62,18 +62,26 @@ export async function generateSignalLedger(asOfDate: string) {
 
   const evidenceRows = signals.flatMap((signal) => {
     const payload = (signal.evidence[0] ?? {}) as EvidencePayload;
-    return (payload.sample_articles ?? []).map((article) => ({
-      id: `${signal.id}-news-${article.id}`,
-      signal_event_id: signal.id,
-      evidence_date: article.published_at?.slice(0, 10) ?? signal.asOfDate,
-      source_name: article.source_name,
-      source_url: article.source_url,
-      source_type: "news",
-      title: article.title,
-      summary: "訊號形成時已公開的代表文章。",
-      why_it_matters: "支持跨來源討論正在集中，但不能單獨證明投資假設成立。",
-      known_at_signal_time: true,
-    }));
+    return (payload.sample_articles ?? []).map((article) => {
+      const evidenceDate = article.published_at?.slice(0, 10) ?? signal.asOfDate;
+      const knownAtSignalTime = evidenceDate <= signal.signalDate;
+      return {
+        id: `${signal.id}-news-${article.id}`,
+        signal_event_id: signal.id,
+        evidence_date: evidenceDate,
+        source_name: article.source_name,
+        source_url: article.source_url,
+        source_type: knownAtSignalTime ? "news" : "validation_news",
+        title: article.title,
+        summary: knownAtSignalTime
+          ? "訊號形成時已公開的代表文章。"
+          : "訊號形成後新增的追蹤資料，不回寫為當時已知資訊。",
+        why_it_matters: knownAtSignalTime
+          ? "支持跨來源討論正在集中，但不能單獨證明投資假設成立。"
+          : "用於驗證原始研究假設是否持續發展，不參與回溯調高初始信心。",
+        known_at_signal_time: knownAtSignalTime,
+      };
+    });
   });
   if (evidenceRows.length > 0) {
     const { error } = await supabase
@@ -96,7 +104,7 @@ export async function generateSignalLedger(asOfDate: string) {
     id: `${item.id}-timeline`,
     signal_event_id: item.signal_event_id,
     event_date: item.evidence_date,
-    event_type: "evidence",
+    event_type: item.known_at_signal_time ? "evidence" : "validation",
     title: item.title,
     description: `${item.source_name ?? "未知來源"}：${item.why_it_matters}`,
     source_url: item.source_url,

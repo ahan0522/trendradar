@@ -50,6 +50,15 @@ export function isHorizonMature(signalDate: string, horizonDays: number, asOfDat
   return addDays(signalDate, horizonDays) <= asOfDate;
 }
 
+function currentTaipeiDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
 export function isValidBacktestWindow(
   signalDate: string,
   targetDate: string,
@@ -112,19 +121,31 @@ export async function getSignalReturnDetails(signalEventId: string, horizonDays:
   const exitDate = addDays(signal.signal_date, horizonDays);
   const weights = normalizeWeights(watchlists);
   if (!isHorizonMature(signal.signal_date, horizonDays)) {
-    return {
-      signal,
-      details: watchlists.map((item, index) => ({
+    const entryCutoff = currentTaipeiDate();
+    const details: StockReturnDetail[] = [];
+    for (let index = 0; index < watchlists.length; index += 1) {
+      const item = watchlists[index];
+      const entry = await getPriceOnOrAfter(
+        item.symbol,
+        item.market,
+        signal.signal_date,
+        entryCutoff,
+      );
+      details.push({
         symbol: item.symbol,
         companyName: item.company_name,
         market: item.market,
         weight: weights[index],
-        entryPrice: null,
-        entryDate: null,
+        entryPrice: entry?.adjClose ?? entry?.close ?? null,
+        entryDate: entry?.priceDate ?? null,
         exitPrice: null,
         exitDate: null,
         returnPct: null,
-      })),
+      });
+    }
+    return {
+      signal,
+      details,
       basketReturn: null as number | null,
     };
   }
@@ -274,6 +295,30 @@ export async function runBacktestForAllSignals() {
     results.push({ signalEventId: signal.id, results: await runBacktestForSignal(signal.id) });
   }
   return results;
+}
+
+export async function runDailyBacktestUpdate(limit = 25) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("signal_events")
+    .select("id")
+    .order("signal_date", { ascending: false })
+    .limit(limit)
+    .returns<Array<{ id: string }>>();
+
+  if (error) throw error;
+
+  const results = [];
+  for (const signal of data ?? []) {
+    results.push({
+      signalEventId: signal.id,
+      results: await runBacktestForSignal(signal.id),
+    });
+  }
+  return {
+    signalCount: results.length,
+    results,
+  };
 }
 
 export function mapOutcomeRow(row: OutcomeRow) {

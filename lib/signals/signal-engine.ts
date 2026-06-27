@@ -61,6 +61,12 @@ type SignalEventRow = {
   model_version: string | null;
 };
 
+type ExistingSignalRow = {
+  id: string;
+  signal_date: string;
+  topic: string;
+};
+
 function clampScore(value: number) {
   return Math.max(0, Math.min(100, Number(value.toFixed(2))));
 }
@@ -191,6 +197,27 @@ export function buildEvidenceBasedHypothesis(topicTitle: string, sourceCount: nu
   return `${prefix} 這仍是早期候選，需等待公司公告、產業數據與可靠價格資料確認是否形成可持續市場趨勢。`;
 }
 
+export function resolveSignalIdentity(
+  topic: string,
+  asOfDate: string,
+  existingSignals: ExistingSignalRow[],
+) {
+  const normalizedTopic = topic.trim().toLocaleLowerCase();
+  const existing = existingSignals.find(
+    (signal) =>
+      signal.signal_date <= asOfDate &&
+      signal.topic.trim().toLocaleLowerCase() === normalizedTopic,
+  );
+
+  return existing
+    ? { id: existing.id, signalDate: existing.signal_date, isNew: false }
+    : {
+        id: `auto-${asOfDate}-${slugify(topic)}`,
+        signalDate: asOfDate,
+        isNew: true,
+      };
+}
+
 export async function detectSignalsFromTopics(asOfDate: string) {
   const supabase = getSupabaseAdmin();
   assertAsOfNotFuture(asOfDate);
@@ -200,7 +227,11 @@ export async function detectSignalsFromTopics(asOfDate: string) {
   const since7d = daysBefore(asOf, 7).toISOString();
   const since24h = daysBefore(asOf, 1).toISOString();
 
-  const [{ data: topics, error: topicsError }, { data: articleLinks, error: linksError }] =
+  const [
+    { data: topics, error: topicsError },
+    { data: articleLinks, error: linksError },
+    { data: existingSignals, error: existingSignalsError },
+  ] =
     await Promise.all([
       supabase
         .from("topics")
@@ -212,10 +243,17 @@ export async function detectSignalsFromTopics(asOfDate: string) {
         .select("topic_id, article_id, created_at")
         .lte("created_at", asOfIso)
         .returns<TopicArticleRow[]>(),
+      supabase
+        .from("signal_events")
+        .select("id, signal_date, topic")
+        .lte("signal_date", asOfDate)
+        .order("signal_date", { ascending: true })
+        .returns<ExistingSignalRow[]>(),
     ]);
 
   if (topicsError) throw topicsError;
   if (linksError) throw linksError;
+  if (existingSignalsError) throw existingSignalsError;
 
   const linkedArticleIds = [...new Set((articleLinks ?? []).map((link) => link.article_id))];
   const articles: ArticleRow[] = [];
@@ -262,10 +300,11 @@ export async function detectSignalsFromTopics(asOfDate: string) {
     const expected7d = Math.max(articleCount30d * (7 / 30), 1);
     const mentionSpike = Number((articleCount7d / expected7d).toFixed(2));
     const hypothesis = buildEvidenceBasedHypothesis(topic.title, sourceCount);
+    const identity = resolveSignalIdentity(topic.title, asOfDate, existingSignals ?? []);
     const mappedBeneficiaries = mapBeneficiaries({
       topic: topic.title,
       hypothesis,
-      signalEventId: `auto-${asOfDate}-${slugify(topic.title)}`,
+      signalEventId: identity.id,
     });
     if (mappedBeneficiaries.length === 0) continue;
 
@@ -289,8 +328,8 @@ export async function detectSignalsFromTopics(asOfDate: string) {
     });
 
     rows.push({
-      id: `auto-${asOfDate}-${slugify(topic.title)}`,
-      signal_date: asOfDate,
+      id: identity.id,
+      signal_date: identity.signalDate,
       as_of_date: asOfDate,
       topic: topic.title,
       signal_type: "news",

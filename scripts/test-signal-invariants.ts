@@ -6,6 +6,7 @@ import {
   asOfEndIso,
   assertAsOfNotFuture,
   buildEvidenceBasedHypothesis,
+  resolveSignalIdentity,
   selectHighestConviction,
 } from "../lib/signals/signal-engine";
 import {
@@ -159,12 +160,37 @@ function testBacktestTimeBoundary() {
   assert.equal(calculateReturn(100, 110), 10);
 }
 
+function testSignalIdentityContinuity() {
+  const existing = [{
+    id: "auto-2026-06-27-cpo",
+    signal_date: "2026-06-27",
+    topic: "訊芯具 CPO 量產能力",
+  }];
+  assert.deepEqual(
+    resolveSignalIdentity("訊芯具 CPO 量產能力", "2026-06-28", existing),
+    {
+      id: "auto-2026-06-27-cpo",
+      signalDate: "2026-06-27",
+      isNew: false,
+    },
+  );
+  assert.equal(
+    resolveSignalIdentity("AI 電力基礎建設", "2026-06-28", existing).isNew,
+    true,
+  );
+  assert.equal(
+    resolveSignalIdentity("訊芯具 CPO 量產能力", "2026-06-26", existing).isNew,
+    true,
+  );
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
   testVerifiedPriceGate();
   testCsvProvenance();
   testBacktestTimeBoundary();
+  testSignalIdentityContinuity();
   console.log("Signal research invariants: PASS");
 }
 

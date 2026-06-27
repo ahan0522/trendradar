@@ -8,6 +8,7 @@ import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 import { generateSignalLedger } from "@/lib/signals/generate-ledger";
+import { runDailyBacktestUpdate } from "@/lib/signals/backtest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,6 +103,7 @@ export async function GET(request: NextRequest) {
     ]);
     const qualityAfter = await getResearchDataQualityReport();
     const signalLedger = await runSync(() => generateSignalLedger(currentTaipeiDate()));
+    const backtests = await runSync(() => runDailyBacktestUpdate());
     const finalizedMonth = currentTaipeiDay() === "01"
       ? await finalizeMonthlySignals(previousMonthEnd())
       : null;
@@ -117,6 +119,7 @@ export async function GET(request: NextRequest) {
       fred,
       quality: qualityAfter,
       signalLedger,
+      backtests,
       finalizedMonth,
     });
   } catch (error) {
