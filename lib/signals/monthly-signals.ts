@@ -23,6 +23,9 @@ type PriceRow = {
   close: number;
   adj_close: number | null;
   volume: number | null;
+  quality_status: string | null;
+  provider: string | null;
+  source_url: string | null;
 };
 
 type CompanyActionRow = {
@@ -374,15 +377,17 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
     symbols.length > 0
       ? await supabase
           .from("stock_prices")
-          .select("symbol, market, price_date, close, adj_close, volume")
+          .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url")
           .in("symbol", symbols)
           .in("market", markets)
+          .eq("quality_status", "verified")
+          .lte("price_date", asOfDate)
           .order("price_date", { ascending: false })
           .limit(5000)
           .returns<PriceRow[]>()
       : { data: [] as PriceRow[], error: null };
 
-  if (pricesError) throw pricesError;
+  if (pricesError && pricesError.code !== "42703") throw pricesError;
 
   const companySymbols = [...new Set(watchlistItems.map((item) => item.symbol))];
   const { data: companyActions } =
@@ -500,9 +505,12 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
               close: Number(latestPrice.close),
               adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
               volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
+              qualityStatus: latestPrice.quality_status,
+              provider: latestPrice.provider,
+              sourceUrl: latestPrice.source_url,
             }
           : null;
-        const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice);
+        const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice, { asOfDate });
         return {
           symbol: item.symbol,
           companyName: item.companyName,

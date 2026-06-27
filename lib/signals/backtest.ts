@@ -40,10 +40,24 @@ export type StockReturnDetail = {
   returnPct: number | null;
 };
 
-function addDays(date: string, days: number) {
+export function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00.000Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
+}
+
+export function isHorizonMature(signalDate: string, horizonDays: number, asOfDate = new Date().toISOString().slice(0, 10)) {
+  return addDays(signalDate, horizonDays) <= asOfDate;
+}
+
+export function isValidBacktestWindow(
+  signalDate: string,
+  targetDate: string,
+  entryDate: string | null,
+  exitDate: string | null,
+) {
+  if (!entryDate || !exitDate) return false;
+  return entryDate >= signalDate && entryDate <= targetDate && exitDate >= entryDate && exitDate <= targetDate;
 }
 
 function normalizeWeights(rows: WatchlistRow[]) {
@@ -97,15 +111,40 @@ export async function getSignalReturnDetails(signalEventId: string, horizonDays:
 
   const exitDate = addDays(signal.signal_date, horizonDays);
   const weights = normalizeWeights(watchlists);
+  if (!isHorizonMature(signal.signal_date, horizonDays)) {
+    return {
+      signal,
+      details: watchlists.map((item, index) => ({
+        symbol: item.symbol,
+        companyName: item.company_name,
+        market: item.market,
+        weight: weights[index],
+        entryPrice: null,
+        entryDate: null,
+        exitPrice: null,
+        exitDate: null,
+        returnPct: null,
+      })),
+      basketReturn: null as number | null,
+    };
+  }
   const details: StockReturnDetail[] = [];
 
   for (let index = 0; index < watchlists.length; index += 1) {
     const item = watchlists[index];
-    const entry = await getPriceOnOrAfter(item.symbol, item.market, signal.signal_date);
-    const exit = await getPriceOnOrBefore(item.symbol, item.market, exitDate);
+    const entry = await getPriceOnOrAfter(item.symbol, item.market, signal.signal_date, exitDate);
+    const exit = await getPriceOnOrBefore(item.symbol, item.market, exitDate, entry?.priceDate ?? signal.signal_date);
     const entryValue = entry?.adjClose ?? entry?.close ?? null;
     const exitValue = exit?.adjClose ?? exit?.close ?? null;
-    const returnPct = entryValue !== null && exitValue !== null ? calculateReturn(entryValue, exitValue) : null;
+    const validWindow = isValidBacktestWindow(
+      signal.signal_date,
+      exitDate,
+      entry?.priceDate ?? null,
+      exit?.priceDate ?? null,
+    );
+    const returnPct = validWindow && entryValue !== null && exitValue !== null
+      ? calculateReturn(entryValue, exitValue)
+      : null;
 
     details.push({
       symbol: item.symbol,
@@ -139,12 +178,17 @@ export async function calculateBenchmarkReturn(
   horizonDays: number,
 ) {
   const exitDate = addDays(signalDate, horizonDays);
-  const entry = await getPriceOnOrAfter(benchmarkSymbol, market, signalDate);
-  const exit = await getPriceOnOrBefore(benchmarkSymbol, market, exitDate);
+  if (!isHorizonMature(signalDate, horizonDays)) return null;
+  const entry = await getPriceOnOrAfter(benchmarkSymbol, market, signalDate, exitDate);
+  const exit = await getPriceOnOrBefore(benchmarkSymbol, market, exitDate, entry?.priceDate ?? signalDate);
   const entryValue = entry?.adjClose ?? entry?.close ?? null;
   const exitValue = exit?.adjClose ?? exit?.close ?? null;
 
-  if (entryValue === null || exitValue === null) return null;
+  if (
+    entryValue === null ||
+    exitValue === null ||
+    !isValidBacktestWindow(signalDate, exitDate, entry?.priceDate ?? null, exit?.priceDate ?? null)
+  ) return null;
   return calculateReturn(entryValue, exitValue);
 }
 

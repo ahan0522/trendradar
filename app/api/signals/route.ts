@@ -43,6 +43,9 @@ type PriceRow = {
   close: number;
   adj_close: number | null;
   volume: number | null;
+  quality_status: string | null;
+  provider: string | null;
+  source_url: string | null;
 };
 
 function priceKey(symbol: string, market: string) {
@@ -82,9 +85,10 @@ export async function GET() {
       symbols.length > 0
         ? await supabase
             .from("stock_prices")
-            .select("symbol, market, price_date, close, adj_close, volume")
+            .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url")
             .in("symbol", symbols)
             .in("market", markets)
+            .eq("quality_status", "verified")
             .order("price_date", { ascending: false })
             .limit(5000)
             .returns<PriceRow[]>()
@@ -131,6 +135,9 @@ export async function GET() {
                 close: Number(latestPrice.close),
                 adjClose: latestPrice.adj_close === null ? null : Number(latestPrice.adj_close),
                 volume: latestPrice.volume === null ? null : Number(latestPrice.volume),
+                qualityStatus: latestPrice.quality_status,
+                provider: latestPrice.provider,
+                sourceUrl: latestPrice.source_url,
               }
             : null;
           const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice);

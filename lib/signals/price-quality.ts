@@ -5,6 +5,9 @@ export type RawLatestPrice = {
   close: number;
   adjClose: number | null;
   volume: number | null;
+  qualityStatus?: string | null;
+  provider?: string | null;
+  sourceUrl?: string | null;
 };
 
 export type PriceQuality = {
@@ -46,8 +49,22 @@ function key(symbol: string, market: MarketCode | string) {
   return `${symbol.trim().toUpperCase()}::${market}`;
 }
 
-export function assessLatestPrice(symbol: string, market: MarketCode | string, price: RawLatestPrice | null): PriceQuality {
+export function assessLatestPrice(
+  symbol: string,
+  market: MarketCode | string,
+  price: RawLatestPrice | null,
+  options?: { asOfDate?: string; requireVerified?: boolean },
+): PriceQuality {
   if (!price) return { status: "needs_review", reason: "資料庫尚未匯入可用價格" };
+  if ((options?.requireVerified ?? true) && price.qualityStatus !== "verified") {
+    return { status: "needs_review", reason: "價格尚未通過來源驗證" };
+  }
+  if (options?.asOfDate && price.priceDate > options.asOfDate) {
+    return { status: "needs_review", reason: `價格日期 ${price.priceDate} 晚於研究時點 ${options.asOfDate}` };
+  }
+  if (price.qualityStatus === "verified" && (!price.provider || !price.sourceUrl)) {
+    return { status: "needs_review", reason: "已驗證價格缺少 provider 或 source URL" };
+  }
 
   const close = Number(price.adjClose ?? price.close);
   if (!Number.isFinite(close) || close <= 0) {
@@ -67,8 +84,13 @@ export function assessLatestPrice(symbol: string, market: MarketCode | string, p
   return { status: "verified", reason: range.note };
 }
 
-export function publishableLatestPrice(symbol: string, market: MarketCode | string, price: RawLatestPrice | null) {
-  const quality = assessLatestPrice(symbol, market, price);
+export function publishableLatestPrice(
+  symbol: string,
+  market: MarketCode | string,
+  price: RawLatestPrice | null,
+  options?: { asOfDate?: string; requireVerified?: boolean },
+) {
+  const quality = assessLatestPrice(symbol, market, price, options);
   return {
     latestPrice: quality.status === "verified" ? price : null,
     priceQuality: quality,

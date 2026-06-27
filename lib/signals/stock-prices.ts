@@ -126,15 +126,22 @@ export async function upsertStockPrices(prices: StockPrice[]) {
   return { count: rows.length };
 }
 
-export async function getPriceOnOrAfter(symbol: string, market: MarketCode, date: string) {
+export async function getPriceOnOrAfter(
+  symbol: string,
+  market: MarketCode,
+  date: string,
+  maxDate?: string,
+) {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  let query = supabase
     .from("stock_prices")
     .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider")
     .eq("symbol", symbol)
     .eq("market", market)
     .eq("quality_status", "verified")
-    .gte("price_date", date)
+    .gte("price_date", date);
+  if (maxDate) query = query.lte("price_date", maxDate);
+  const { data, error } = await query
     .order("price_date", { ascending: true })
     .limit(1)
     .returns<StockPriceRow[]>();
@@ -144,15 +151,22 @@ export async function getPriceOnOrAfter(symbol: string, market: MarketCode, date
   return data?.[0] ? mapRow(data[0]) : null;
 }
 
-export async function getPriceOnOrBefore(symbol: string, market: MarketCode, date: string) {
+export async function getPriceOnOrBefore(
+  symbol: string,
+  market: MarketCode,
+  date: string,
+  minDate?: string,
+) {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  let query = supabase
     .from("stock_prices")
     .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider")
     .eq("symbol", symbol)
     .eq("market", market)
     .eq("quality_status", "verified")
-    .lte("price_date", date)
+    .lte("price_date", date);
+  if (minDate) query = query.gte("price_date", minDate);
+  const { data, error } = await query
     .order("price_date", { ascending: false })
     .limit(1)
     .returns<StockPriceRow[]>();
