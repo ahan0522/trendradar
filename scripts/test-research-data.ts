@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { parseTwsePublishedAt } from "../lib/research-data/twse";
 import { parseFredObservationValue } from "../lib/research-data/fred";
+import { parseTpexRocDate } from "../lib/research-data/tpex";
 
 function testTwseTimeParsing() {
   assert.equal(
@@ -30,6 +31,12 @@ function testFredMissingValues() {
   assert.equal(parseFredObservationValue(undefined), null);
 }
 
+function testTpexDateParsing() {
+  assert.equal(parseTpexRocDate("1150626"), "2026-06-26");
+  assert.throws(() => parseTpexRocDate("1150230"), /Invalid TPEx ROC date/);
+}
+
 testTwseTimeParsing();
 testFredMissingValues();
+testTpexDateParsing();
 console.log("Research data invariants: PASS");

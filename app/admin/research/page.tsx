@@ -72,7 +72,7 @@ export default function ResearchAdminPage() {
     }
   }
 
-  async function sync(source: "twse" | "sec" | "fred", dryRun: boolean) {
+  async function sync(source: "twse" | "tpex" | "sec" | "fred", dryRun: boolean) {
     setLoading(`${source}-${dryRun ? "dry" : "write"}`);
     try {
       const response = await fetch(`/api/admin/research/sync-${source}`, {
@@ -174,7 +174,7 @@ export default function ResearchAdminPage() {
           </section>
         ) : null}
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SourceCard
             title="臺灣證券交易所"
             description="上市公司重大訊息與每日官方成交資料。"
@@ -183,6 +183,15 @@ export default function ResearchAdminPage() {
             disabled={!secret || Boolean(loading)}
             writeDisabled={!quality?.ok}
             loading={loading.startsWith("twse")}
+          />
+          <SourceCard
+            title="證券櫃檯買賣中心"
+            description="上櫃股票每日官方成交資料。"
+            onDryRun={() => sync("tpex", true)}
+            onWrite={() => sync("tpex", false)}
+            disabled={!secret || Boolean(loading)}
+            writeDisabled={!quality?.ok}
+            loading={loading.startsWith("tpex")}
           />
           <SourceCard
             title="SEC EDGAR"

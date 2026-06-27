@@ -15,6 +15,19 @@ type RuleGroup = {
 
 const ruleGroups: RuleGroup[] = [
   {
+    key: "cpo-optical",
+    labels: ["cpo", "co-packaged optics", "面板級封裝", "矽光子", "光通訊"],
+    thesis: "CPO 與矽光子若進入量產，可提高高速光互連、光元件與封裝測試供應鏈的需求。",
+    items: [
+      { symbol: "6451.TW", companyName: "訊芯-KY", market: "TW" },
+      { symbol: "3081.TW", companyName: "聯亞", market: "TW" },
+      { symbol: "3363.TW", companyName: "上詮", market: "TW" },
+      { symbol: "3163.TW", companyName: "波若威", market: "TW" },
+      { symbol: "COHR", companyName: "Coherent", market: "US" },
+      { symbol: "LITE", companyName: "Lumentum", market: "US" },
+    ],
+  },
+  {
     key: "memory",
     labels: ["memory", "dram", "nand", "hbm", "記憶體", "內存"],
     thesis: "Memory and HBM demand may create pricing and capacity reallocation benefits.",

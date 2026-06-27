@@ -47,14 +47,13 @@ export function textMatchesTopicKeyword(text: string, keyword: string) {
   return text.includes(normalizedKeyword);
 }
 
-function articleMatchesRule(
+export function articleMatchesRule(
   article: NewsArticle,
   keywords: readonly string[],
   excludeKeywords?: readonly string[]
 ) {
-  const haystack = normalizeText(
-    `${article.title} ${article.description ?? ""}`
-  );
+  const titleText = normalizeText(article.title);
+  const haystack = normalizeText(`${article.title} ${article.description ?? ""}`);
 
   if (
     excludeKeywords?.some((keyword) =>
@@ -64,7 +63,14 @@ function articleMatchesRule(
     return false;
   }
 
-  return keywords.some((keyword) => textMatchesTopicKeyword(haystack, keyword));
+  if (keywords.some((keyword) => textMatchesTopicKeyword(titleText, keyword))) {
+    return true;
+  }
+
+  const fullTextMatches = keywords.filter((keyword) =>
+    textMatchesTopicKeyword(haystack, keyword)
+  );
+  return new Set(fullTextMatches.map(normalizeText)).size >= 2;
 }
 
 function getLatestPublishedAt(articles: NewsArticle[]) {

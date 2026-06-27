@@ -40,6 +40,10 @@ const sanityRanges: Record<string, { min: number; max: number; note: string }> =
   "3131.TW::TW": { min: 100, max: 3000, note: "弘塑台股報價合理區間" },
   "6187.TW::TW": { min: 30, max: 1000, note: "萬潤台股報價合理區間" },
   "3583.TW::TW": { min: 100, max: 3000, note: "辛耘台股報價合理區間" },
+  "6451.TW::TW": { min: 100, max: 2000, note: "訊芯-KY 台股報價合理區間" },
+  "3081.TW::TW": { min: 100, max: 5000, note: "聯亞上櫃報價合理區間" },
+  "3363.TW::TW": { min: 50, max: 2000, note: "上詮上櫃報價合理區間" },
+  "3163.TW::TW": { min: 50, max: 2000, note: "波若威上櫃報價合理區間" },
 
   "000660.KS::KR": { min: 50000, max: 600000, note: "SK Hynix KRW quote range" },
   "005930.KS::KR": { min: 30000, max: 150000, note: "Samsung Electronics KRW quote range" },

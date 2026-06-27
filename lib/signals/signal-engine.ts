@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import type { SignalEvent, SignalType } from "@/types/signals";
 
 export type SignalStrengthInput = {
@@ -173,6 +174,23 @@ export function selectHighestConviction<
     .slice(0, Math.max(0, limit));
 }
 
+export function buildEvidenceBasedHypothesis(topicTitle: string, sourceCount: number) {
+  const prefix = `截至研究時點，已有 ${sourceCount} 個獨立來源聚焦「${topicTitle}」。`;
+  if (/cpo|co-packaged optics|面板級封裝|矽光子|光通訊/i.test(topicTitle)) {
+    return `${prefix} 研究重點是 CPO、矽光子與封裝量產進度，是否進一步獲得客戶採用、公司公告及營收結構驗證。`;
+  }
+  if (/cowos|先進封裝|封裝/i.test(topicTitle)) {
+    return `${prefix} 研究重點是先進封裝產能是否持續成為 AI 晶片供應瓶頸，以及設備與封測需求能否被公司行動驗證。`;
+  }
+  if (/hbm|dram|nand|記憶體/i.test(topicTitle)) {
+    return `${prefix} 研究重點是需求、產能配置與報價是否同步變化，並由供應商公告及可靠價格資料交叉驗證。`;
+  }
+  if (/電力|電網|變壓器|資料中心電源/i.test(topicTitle)) {
+    return `${prefix} 研究重點是 AI 基礎建設瓶頸是否轉向供電、電網與電力設備，並反映在訂單及資本支出。`;
+  }
+  return `${prefix} 這仍是早期候選，需等待公司公告、產業數據與可靠價格資料確認是否形成可持續市場趨勢。`;
+}
+
 export async function detectSignalsFromTopics(asOfDate: string) {
   const supabase = getSupabaseAdmin();
   assertAsOfNotFuture(asOfDate);
@@ -235,6 +253,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
   for (const [topicId, topicArticles] of grouped) {
     const topic = topicById.get(topicId);
     if (!topic) continue;
+    if (/^(ai|科技|財經|新聞|國際)$/i.test(topic.title.trim())) continue;
 
     const articleCount24h = topicArticles.filter((article) => article.published_at && article.published_at >= since24h).length;
     const articleCount7d = topicArticles.filter((article) => article.published_at && article.published_at >= since7d).length;
@@ -242,14 +261,23 @@ export async function detectSignalsFromTopics(asOfDate: string) {
     const sourceCount = new Set(topicArticles.map((article) => article.source_name)).size;
     const expected7d = Math.max(articleCount30d * (7 / 30), 1);
     const mentionSpike = Number((articleCount7d / expected7d).toFixed(2));
+    const hypothesis = buildEvidenceBasedHypothesis(topic.title, sourceCount);
+    const mappedBeneficiaries = mapBeneficiaries({
+      topic: topic.title,
+      hypothesis,
+      signalEventId: `auto-${asOfDate}-${slugify(topic.title)}`,
+    });
+    if (mappedBeneficiaries.length === 0) continue;
 
-    if (articleCount7d < 5 || sourceCount < 3 || mentionSpike < 2) continue;
+    const highMomentum = articleCount7d >= 5 && sourceCount >= 3 && mentionSpike >= 2;
+    const emergingCrossSource = articleCount7d >= 2 && sourceCount >= 2 && mentionSpike >= 1.5;
+    if (!highMomentum && !emergingCrossSource) continue;
 
     const scoreInput = {
       mentionSpike: Math.min(mentionSpike * 20, 100),
       sourceDiversity: Math.min(sourceCount * 15, 100),
       persistence: Math.min(articleCount7d * 10, 100),
-      beneficiaryClarity: 55,
+      beneficiaryClarity: 70,
     };
     const signalStrength = calculateSignalStrength(scoreInput);
     const scoreComponents = buildSignalScoreComponents(scoreInput, {
@@ -268,7 +296,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
       signal_type: "news",
       signal_strength: signalStrength,
       confidence_score: clampScore(signalStrength * 0.85),
-      hypothesis: topic.summary || `${topic.title} is showing abnormal cross-source news momentum before ${asOfDate}.`,
+      hypothesis,
       evidence: [
         {
           topicId,
@@ -279,6 +307,8 @@ export async function detectSignalsFromTopics(asOfDate: string) {
           article_count_30d: articleCount30d,
           source_count: sourceCount,
           mention_spike: mentionSpike,
+          qualification: highMomentum ? "high_momentum" : "emerging_cross_source",
+          beneficiary_count: mappedBeneficiaries.length,
           sample_titles: topicArticles.slice(0, 5).map((article) => article.title),
           sample_articles: topicArticles.slice(0, 5).map((article) => ({
             id: article.id,
@@ -291,7 +321,7 @@ export async function detectSignalsFromTopics(asOfDate: string) {
         },
       ],
       status: "active",
-      model_version: "rule-v1",
+      model_version: "rule-v2",
       scoreComponents,
     });
   }

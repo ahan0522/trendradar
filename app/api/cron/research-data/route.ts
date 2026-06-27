@@ -5,6 +5,7 @@ import { getResearchDataQualityReport } from "@/lib/research-data/quality-report
 import { syncFredResearchData } from "@/lib/research-data/fred";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
+import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 import { generateSignalLedger } from "@/lib/signals/generate-ledger";
 
@@ -80,8 +81,9 @@ export async function GET(request: NextRequest) {
 
     const usSymbols = await getUsWatchlistSymbols();
     const fredApiKey = process.env.FRED_API_KEY?.trim();
-    const [twse, sec, fred] = await Promise.all([
+    const [twse, tpex, sec, fred] = await Promise.all([
       runSync(() => syncTwseResearchData({ dryRun: false })),
+      runSync(() => syncTpexResearchData({ dryRun: false })),
       runSync(() => syncSecResearchData({
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
@@ -105,11 +107,12 @@ export async function GET(request: NextRequest) {
       : null;
 
     return NextResponse.json({
-      ok: [twse, sec, fred].some((result) => result.status === "success"),
-      degraded: [twse, sec, fred].some((result) => result.status !== "success"),
+      ok: [twse, tpex, sec, fred].some((result) => result.status === "success"),
+      degraded: [twse, tpex, sec, fred].some((result) => result.status !== "success"),
       mode: "daily-research-data",
       durationMs: Date.now() - startedAt,
       twse,
+      tpex,
       sec,
       fred,
       quality: qualityAfter,

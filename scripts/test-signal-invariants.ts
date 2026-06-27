@@ -5,6 +5,7 @@ import {
   classifySignalStatus,
   asOfEndIso,
   assertAsOfNotFuture,
+  buildEvidenceBasedHypothesis,
   selectHighestConviction,
 } from "../lib/signals/signal-engine";
 import {
@@ -20,7 +21,10 @@ import {
   calculateReturn,
   parseStockPriceCsv,
 } from "../lib/signals/stock-prices";
-import { textMatchesTopicKeyword } from "../lib/topic-grouping";
+import {
+  articleMatchesRule,
+  textMatchesTopicKeyword,
+} from "../lib/topic-grouping";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -55,6 +59,13 @@ function testSignalScore() {
     { id: "tie-high", signal_strength: 60, confidence_score: 80 },
   ], 3);
   assert.deepEqual(selected.map((item) => item.id), ["strong", "tie-high", "tie-low"]);
+  const cpoHypothesis = buildEvidenceBasedHypothesis(
+    "訊芯具 CPO 量產能力，掌握面板級封裝商機",
+    2,
+  );
+  assert.match(cpoHypothesis, /CPO、矽光子與封裝量產/);
+  assert.match(cpoHypothesis, /2 個獨立來源/);
+  assert.doesNotMatch(cpoHypothesis, /英特爾|特斯拉/);
 }
 
 function testTopicKeywordBoundaries() {
@@ -62,6 +73,22 @@ function testTopicKeywordBoundaries() {
   assert.equal(textMatchesTopicKeyword("The company said demand rose", "ai"), false);
   assert.equal(textMatchesTopicKeyword("台積電推進人工智慧晶片", "人工智慧"), true);
   assert.equal(textMatchesTopicKeyword("防洪與地方政治新聞", "ai"), false);
+  assert.equal(articleMatchesRule({
+    id: "category-only",
+    title: "地方防洪工程進度",
+    description: "市府今日說明工程狀況",
+    sourceName: "Example",
+    category: "AI",
+    publishedAt: "2026-06-27T00:00:00Z",
+  }, ["ai", "gpu"]), false);
+  assert.equal(articleMatchesRule({
+    id: "two-description-signals",
+    title: "資料中心供應鏈更新",
+    description: "AI server 採用更多 GPU",
+    sourceName: "Example",
+    category: "科技",
+    publishedAt: "2026-06-27T00:00:00Z",
+  }, ["ai", "gpu"]), true);
 }
 
 function testVerifiedPriceGate() {
