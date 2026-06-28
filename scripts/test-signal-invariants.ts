@@ -28,6 +28,7 @@ import {
 } from "../lib/topic-grouping";
 import { calculateHeatLifecycle } from "../lib/discovery/heat-lifecycle";
 import { buildSignalResearchBrief } from "../lib/signals/research-brief";
+import { normalizeSignalFamily } from "../lib/signals/model-replay";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -271,6 +272,14 @@ function testResearchBrief() {
   assert.ok(biotech.dataGaps.some((item) => item.includes("公司曝險")));
 }
 
+function testModelReplayFamilies() {
+  assert.equal(normalizeSignalFamily("HBM / DRAM 記憶體供應鏈"), "memory");
+  assert.equal(normalizeSignalFamily("國防、軍工與地緣風險"), "defense-geopolitics");
+  assert.equal(normalizeSignalFamily("生技、醫療與新藥"), "biotech-health");
+  assert.equal(normalizeSignalFamily("半導體與先進製程"), "semiconductor");
+  assert.equal(normalizeSignalFamily("AI 資料中心電力與電網"), "power-grid");
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
@@ -280,6 +289,7 @@ function main() {
   testSignalIdentityContinuity();
   testHeatLifecycle();
   testResearchBrief();
+  testModelReplayFamilies();
   console.log("Signal research invariants: PASS");
 }
 
