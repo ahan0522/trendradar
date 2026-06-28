@@ -83,7 +83,7 @@ function isMarketResearchCandidate(topic: CandidateTopic) {
     return false;
   }
   if (
-    /開獎|彩券|便當股|可追|買進|漲停|目標價|ETF|換股|成分股|刪除台積電|納入鴻海|金曲|職棒|球賽|世足|淘汰賽|病況|停班課|紅色警戒|飛機撞/i.test(
+    /開獎|彩券|便當股|可追|買進|進場|外資|投信|法人|槓桿|台股跌|漲停|目標價|ETF|換股|成分股|刪除台積電|納入鴻海|金曲|職棒|球賽|世足|淘汰賽|病況|停班課|紅色警戒|飛機撞/i.test(
       topic.title,
     )
   ) {
