@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BarChart3, CalendarClock, FileText, Home, Map, TriangleAlert } from "lucide-react";
+import { Activity, BarChart3, CalendarClock, FileText, Home, Map, Radar, TriangleAlert } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "產品介紹", icon: Home },
+  { href: "/radar", label: "全市場雷達", icon: Radar },
   { href: "/signals", label: "市場訊號", icon: Activity },
   { href: "/signals/monthly", label: "月度訊號", icon: CalendarClock },
   { href: "/market-map", label: "市場地圖", icon: Map },

@@ -1,6 +1,13 @@
 import Link from "next/link";
-import { getNewsItems } from "@/lib/rss";
-import { discoverCandidateTopics, type CandidateTopic } from "@/lib/topic-candidates";
+import {
+  getDiscoveryArticles,
+  getRecentDiscoveryArticles,
+} from "@/lib/discovery/candidate-feed";
+import {
+  discoverCandidateTopics,
+  enrichCandidateTopicsWithHistory,
+  type CandidateTopic,
+} from "@/lib/topic-candidates";
 import { groupArticlesToHomepageTopics } from "@/lib/topic-grouping";
 import type { HomepageTopicCard } from "@/types/topic";
 
@@ -96,6 +103,9 @@ function CandidateCard({ topic }: { topic: CandidateTopic }) {
       <div className="mt-4 flex flex-wrap gap-2">
         <MetricPill>{topic.category}</MetricPill>
         <MetricPill>熱度 {topic.heatScore}</MetricPill>
+        <MetricPill>{topic.heatStateLabel}</MetricPill>
+        <MetricPill>持續分數 {topic.persistenceScore}</MetricPill>
+        <MetricPill>活躍 {topic.activeDays} 天</MetricPill>
         <MetricPill>品質 {topic.qualityScore}</MetricPill>
         <MetricPill>{topic.sourceCount} 家有效來源</MetricPill>
         <MetricPill>{topic.rawSourceCount} 個原始來源</MetricPill>
@@ -105,6 +115,10 @@ function CandidateCard({ topic }: { topic: CandidateTopic }) {
 
       <p className="mt-4 rounded-xl bg-emerald-50/70 p-3 text-sm leading-6 text-slate-700">
         {topic.summary}
+      </p>
+      <p className="mt-3 rounded-xl bg-sky-50 p-3 text-sm leading-6 text-sky-900">
+        <span className="font-bold">{topic.heatStateLabel}：</span>
+        {topic.heatReason}
       </p>
 
       {!topic.publishable && topic.rejectionReasons.length > 0 && (
@@ -176,12 +190,8 @@ export default async function AdminTopicCandidatesPage({
   }
 
   const limit = Number(params.limit ?? 240);
-  const newsItems = await getNewsItems({
-    category: "全部",
-    q: "",
-    limit,
-    refresh: true,
-  });
+  const historicalItems = await getDiscoveryArticles(Math.max(limit, 3000));
+  const newsItems = getRecentDiscoveryArticles(historicalItems, 7, limit);
 
   const articles = newsItems.map((item) => ({
     id: item.id,
@@ -200,10 +210,27 @@ export default async function AdminTopicCandidatesPage({
   }));
 
   const ruleTopics = groupArticlesToHomepageTopics(articles).slice(0, 6);
-  const candidateTopics = discoverCandidateTopics(articles, {
-    maxTopics: 6,
-    minArticles: 2,
-  });
+  const candidateTopics = enrichCandidateTopicsWithHistory(
+    discoverCandidateTopics(articles, {
+      maxTopics: 6,
+      minArticles: 2,
+    }),
+    historicalItems.map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      sourceName: item.sourceName,
+      category: item.category,
+      sourcePool: item.sourcePool,
+      sourceKind: item.sourceKind,
+      sourceTier: item.sourceTier,
+      sourceWeight: item.sourceWeight,
+      credibilityWeight: item.credibilityWeight,
+      sourceRole: item.sourceRole,
+      link: item.link,
+      publishedAt: item.publishedAt,
+    })),
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 p-6 md:p-8">

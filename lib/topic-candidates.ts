@@ -4,6 +4,10 @@ import {
   getRawSourceCount,
 } from "@/lib/source-scoring";
 import type { SourceKind, SourcePool, SourceRole, SourceTier } from "@/types/news";
+import {
+  calculateHeatLifecycle,
+  type HeatLifecycle,
+} from "@/lib/discovery/heat-lifecycle";
 
 type NewsArticle = {
   id: string;
@@ -32,6 +36,16 @@ export type CandidateTopic = {
   sourceCount: number;
   rawSourceCount: number;
   heatScore: number;
+  heatState: HeatLifecycle;
+  heatStateLabel: string;
+  heatReason: string;
+  articleCount24h: number;
+  articleCount7d: number;
+  articleCount30d: number;
+  activeDays: number;
+  persistenceScore: number;
+  velocityRatio: number;
+  firstSeenAt: string | null;
   qualityScore: number;
   publishable: boolean;
   rejectionReasons: string[];
@@ -929,10 +943,6 @@ function isLowValueTopic(title: string, keywords: string[]) {
     return true;
   }
 
-  if (/AI 伺服器零件與供應鏈/i.test(text)) {
-    return true;
-  }
-
   if (/韓職|王彥程|明星賽票選|中華職棒|mvp/i.test(text)) {
     return true;
   }
@@ -1051,6 +1061,7 @@ export function discoverCandidateTopics(
     maxTopics?: number;
     minArticles?: number;
     similarityThreshold?: number;
+    asOfDate?: string;
   }
 ): CandidateTopic[] {
   const maxTopics = options?.maxTopics ?? 6;
@@ -1143,6 +1154,11 @@ export function discoverCandidateTopics(
         embeddedSourceCount,
         articles: representativeCluster,
       });
+      const lifecycle = calculateHeatLifecycle({
+        publishedAt: cluster.map((article) => article.publishedAt),
+        sourceCount,
+        asOfDate: options?.asOfDate,
+      });
 
       return {
         id: `candidate-${index + 1}`,
@@ -1155,6 +1171,16 @@ export function discoverCandidateTopics(
         sourceCount,
         rawSourceCount,
         heatScore: computeWeightedHeatScore(cluster),
+        heatState: lifecycle.state,
+        heatStateLabel: lifecycle.label,
+        heatReason: lifecycle.reason,
+        articleCount24h: lifecycle.articleCount24h,
+        articleCount7d: lifecycle.articleCount7d,
+        articleCount30d: lifecycle.articleCount30d,
+        activeDays: lifecycle.activeDays,
+        persistenceScore: lifecycle.persistenceScore,
+        velocityRatio: lifecycle.velocityRatio,
+        firstSeenAt: lifecycle.firstSeenAt,
         qualityScore: evaluation.qualityScore,
         publishable: evaluation.publishable,
         rejectionReasons: evaluation.rejectionReasons,
@@ -1178,4 +1204,47 @@ export function discoverCandidateTopics(
       );
     })
     .slice(0, maxTopics);
+}
+
+export function enrichCandidateTopicsWithHistory(
+  candidates: CandidateTopic[],
+  historicalArticles: NewsArticle[],
+  asOfDate?: string,
+) {
+  return candidates.map((candidate) => {
+    const candidateArticleIds = new Set(candidate.articles.map((article) => article.id));
+    const usefulKeywords = candidate.keywords
+      .filter((keyword) => keyword.length >= 2)
+      .slice(0, 6);
+    const matchedArticles = historicalArticles.filter((article) => {
+      if (candidateArticleIds.has(article.id)) return true;
+      const text = normalizeText(`${article.title} ${article.description ?? ""}`);
+      const matchedKeywordCount = usefulKeywords.filter((keyword) =>
+        text.includes(normalizeText(keyword).trim()),
+      ).length;
+      if (matchedKeywordCount >= Math.min(2, usefulKeywords.length)) return true;
+      return inferTopicTitleFromSignals(
+        `${article.title} ${article.description ?? ""}`,
+      ) === candidate.title;
+    });
+    const lifecycle = calculateHeatLifecycle({
+      publishedAt: matchedArticles.map((article) => article.publishedAt),
+      sourceCount: getEffectiveSourceCount(matchedArticles),
+      asOfDate,
+    });
+
+    return {
+      ...candidate,
+      heatState: lifecycle.state,
+      heatStateLabel: lifecycle.label,
+      heatReason: lifecycle.reason,
+      articleCount24h: lifecycle.articleCount24h,
+      articleCount7d: lifecycle.articleCount7d,
+      articleCount30d: lifecycle.articleCount30d,
+      activeDays: lifecycle.activeDays,
+      persistenceScore: lifecycle.persistenceScore,
+      velocityRatio: lifecycle.velocityRatio,
+      firstSeenAt: lifecycle.firstSeenAt,
+    };
+  });
 }

@@ -14,6 +14,7 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3 text-sm font-bold">
+          <Link href="/radar" className="hover:text-white">全市場雷達</Link>
           <Link href="/signals" className="hover:text-white">市場訊號</Link>
           <Link href="/signals/monthly" className="hover:text-white">月度訊號</Link>
           <Link href="/market-map" className="hover:text-white">市場地圖</Link>

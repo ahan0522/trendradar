@@ -26,6 +26,7 @@ import {
   articleMatchesRule,
   textMatchesTopicKeyword,
 } from "../lib/topic-grouping";
+import { calculateHeatLifecycle } from "../lib/discovery/heat-lifecycle";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -184,6 +185,44 @@ function testSignalIdentityContinuity() {
   );
 }
 
+function testHeatLifecycle() {
+  const articleDates = (dates: string[]) =>
+    dates.map((date) => `${date}T08:00:00.000Z`);
+  const sustained = calculateHeatLifecycle({
+    asOfDate: "2026-06-28",
+    sourceCount: 5,
+    publishedAt: articleDates([
+      "2026-06-02", "2026-06-05", "2026-06-09", "2026-06-12",
+      "2026-06-16", "2026-06-18", "2026-06-20", "2026-06-22",
+      "2026-06-23", "2026-06-24", "2026-06-25", "2026-06-26",
+      "2026-06-27", "2026-06-28",
+    ]),
+  });
+  assert.equal(sustained.state, "sustained_high");
+  assert.ok(sustained.persistenceScore >= 70);
+
+  const breakout = calculateHeatLifecycle({
+    asOfDate: "2026-06-28",
+    sourceCount: 3,
+    publishedAt: [
+      "2026-06-28T02:00:00.000Z",
+      "2026-06-28T06:00:00.000Z",
+      "2026-06-28T10:00:00.000Z",
+    ],
+  });
+  assert.equal(breakout.state, "breaking_out");
+
+  const cooling = calculateHeatLifecycle({
+    asOfDate: "2026-06-28",
+    sourceCount: 4,
+    publishedAt: articleDates([
+      "2026-06-15", "2026-06-16", "2026-06-17", "2026-06-18",
+      "2026-06-19", "2026-06-20", "2026-06-27",
+    ]),
+  });
+  assert.equal(cooling.state, "cooling");
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
@@ -191,6 +230,7 @@ function main() {
   testCsvProvenance();
   testBacktestTimeBoundary();
   testSignalIdentityContinuity();
+  testHeatLifecycle();
   console.log("Signal research invariants: PASS");
 }
 
