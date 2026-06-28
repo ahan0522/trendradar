@@ -2,6 +2,10 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSecret } from "@/lib/admin-auth";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import {
+  fetchGoogleNewsHistoricalMonth,
+  type GoogleNewsBackfillResult,
+} from "@/lib/historical-news/google-news";
 
 type BackfillArticleInput = {
   title?: string;
@@ -20,6 +24,8 @@ type BackfillBody = {
   endDate?: string;
   queries?: string[];
   articles?: BackfillArticleInput[];
+  provider?: "manual" | "google_news";
+  dryRun?: boolean;
 };
 
 function stableId(value: string) {
@@ -27,7 +33,11 @@ function stableId(value: string) {
 }
 
 function isIsoDate(value: unknown) {
-  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function normalizeQueries(value: unknown) {
@@ -46,18 +56,12 @@ function normalizeArticle(input: BackfillArticleInput) {
     id: stableId(link),
     title,
     link,
-    source_id: "historical-backfill",
+    source_id: "historical-google-news",
     source_name: input.sourceName?.trim() || "Historical Backfill",
     category: input.category?.trim() || "AI Infrastructure",
     region: input.region?.trim() || "GLOBAL",
     description: input.description?.trim() || "",
     published_at: publishedAt.includes("T") ? publishedAt : `${publishedAt}T00:00:00+00:00`,
-    source_pool: "news_media",
-    source_kind: "historical_backfill",
-    source_tier: "secondary_analysis",
-    source_weight: 0.9,
-    credibility_weight: 0.9,
-    source_role: "historical_backfill",
     updated_at: new Date().toISOString(),
   };
 }
@@ -76,10 +80,30 @@ export async function POST(request: NextRequest) {
   const startDate = body.startDate ?? "2025-01-01";
   const endDate = body.endDate ?? new Date().toISOString().slice(0, 10);
   const queries = normalizeQueries(body.queries);
-  const articles = Array.isArray(body.articles) ? body.articles : [];
+  let articles = Array.isArray(body.articles) ? body.articles : [];
+  let providerResult: GoogleNewsBackfillResult | null = null;
 
   if (!isIsoDate(startDate) || !isIsoDate(endDate)) {
     return NextResponse.json({ ok: false, error: "startDate and endDate must use YYYY-MM-DD." }, { status: 400 });
+  }
+
+  if (articles.length === 0 && body.provider === "google_news") {
+    try {
+      providerResult = await fetchGoogleNewsHistoricalMonth({
+        startDate,
+        endDate,
+        queries,
+      });
+      articles = providerResult.articles;
+    } catch (error) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: error instanceof Error ? error.message : "Historical provider failed.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   if (articles.length === 0) {
@@ -95,7 +119,13 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const rows = articles.map(normalizeArticle).filter((row): row is NonNullable<ReturnType<typeof normalizeArticle>> => Boolean(row));
+  const rows = articles
+    .map(normalizeArticle)
+    .filter((row): row is NonNullable<ReturnType<typeof normalizeArticle>> => Boolean(row))
+    .filter((row) => {
+      const publishedDate = row.published_at.slice(0, 10);
+      return publishedDate >= startDate && publishedDate <= endDate;
+    });
 
   if (rows.length === 0) {
     return NextResponse.json(
@@ -107,6 +137,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (body.dryRun) {
+    return NextResponse.json({
+      ok: true,
+      mode: body.provider === "google_news" ? "google_news_dry_run" : "manual_dry_run",
+      imported: 0,
+      fetched: rows.length,
+      queryCount: providerResult?.queryCount ?? queries.length,
+      providerErrors: providerResult?.errors ?? [],
+      startDate,
+      endDate,
+      samples: rows.slice(0, 10),
+    });
+  }
+
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("articles").upsert(rows, { onConflict: "id" });
 
@@ -116,11 +160,13 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    mode: "manual_metadata",
+    mode: body.provider === "google_news" ? "google_news_historical" : "manual_metadata",
     imported: rows.length,
     skipped: articles.length - rows.length,
     startDate,
     endDate,
     sourceKind: "historical_backfill",
+    queryCount: providerResult?.queryCount ?? queries.length,
+    providerErrors: providerResult?.errors ?? [],
   });
 }

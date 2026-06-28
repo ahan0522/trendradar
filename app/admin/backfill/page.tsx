@@ -108,7 +108,13 @@ export default function BackfillAdminPage() {
       const response = await fetch("/api/admin/backfill/news", {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ startDate, endDate, queries, articles }),
+        body: JSON.stringify({
+          startDate,
+          endDate,
+          queries,
+          articles,
+          provider: articles.length > 0 ? "manual" : "google_news",
+        }),
       });
       setBackfillResult(await response.json());
     } catch (error) {
@@ -222,7 +228,9 @@ export default function BackfillAdminPage() {
         <section className="grid gap-5 lg:grid-cols-2">
           <div className="rounded-[2rem] border border-zinc-800 bg-zinc-950/90 p-6">
             <h2 className="text-2xl font-black">Historical News Backfill</h2>
-            <p className="mt-2 text-sm leading-6 text-zinc-500">第一版支援貼入文章 metadata JSON。若沒貼文章，API 會回傳 provider_not_configured，代表需要接歷史新聞或搜尋供應器。</p>
+            <p className="mt-2 text-sm leading-6 text-zinc-500">
+              Articles JSON 留白時，系統會用 Google News 月份搜尋自動取得歷史 metadata；貼入 JSON 時則使用手動資料。每次最多回補 31 天，所有結果都會再次檢查發布日期。
+            </p>
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               <label className="text-sm font-bold text-zinc-400">
                 Start Date
@@ -242,7 +250,7 @@ export default function BackfillAdminPage() {
               <textarea value={articlesJson} onChange={(event) => setArticlesJson(event.target.value)} placeholder={articleExample} rows={8} className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 font-mono text-sm text-white outline-none focus:border-sky-400" />
             </label>
             <button type="button" onClick={runBackfill} disabled={!adminSecret || loading === "backfill"} className="mt-5 rounded-full bg-white px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-50">
-              {loading === "backfill" ? "執行中..." : "Run Backfill"}
+              {loading === "backfill" ? "執行中..." : "執行單月歷史回補"}
             </button>
             <ResultBlock value={backfillResult} />
           </div>
