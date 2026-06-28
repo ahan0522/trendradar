@@ -30,6 +30,7 @@ import { calculateHeatLifecycle } from "../lib/discovery/heat-lifecycle";
 import { buildSignalResearchBrief } from "../lib/signals/research-brief";
 import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
+import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -313,6 +314,12 @@ function testReplayResearchReport() {
   assert.equal(report.verdict, "comparable");
   assert.match(report.executiveSummary, /52%/);
   assert.equal(report.dataQuality.completeThirtyDaySamples, 44);
+  assert.ok(report.diagnostics.recommendations.some((item) => item.includes("缺少完整驗證價格")));
+}
+
+function testReplayHorizonMaturity() {
+  assert.equal(isReplayHorizonMature("2026-03-31", 90, "2026-06-29"), false);
+  assert.equal(isReplayHorizonMature("2026-03-31", 90, "2026-06-30"), true);
 }
 
 function main() {
@@ -326,6 +333,7 @@ function main() {
   testResearchBrief();
   testModelReplayFamilies();
   testReplayResearchReport();
+  testReplayHorizonMaturity();
   console.log("Signal research invariants: PASS");
 }
 

@@ -1,4 +1,4 @@
-import { addDays, isHorizonMature, isValidBacktestWindow } from "@/lib/signals/backtest";
+import { addDays, isValidBacktestWindow } from "@/lib/signals/backtest";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import { getLatestModelReplay, type ReplaySignal } from "@/lib/signals/model-replay";
 import { calculateReturn, getPriceOnOrAfter, getPriceOnOrBefore } from "@/lib/signals/stock-prices";
@@ -69,6 +69,23 @@ function benchmarkFor(markets: MarketCode[]) {
   return { symbol: "SPY", market: "US" as MarketCode };
 }
 
+function currentTaipeiDate() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+export function isReplayHorizonMature(
+  signalDate: string,
+  horizonDays: number,
+  asOfDate = currentTaipeiDate(),
+) {
+  return addDays(signalDate, horizonDays) < asOfDate;
+}
+
 async function evaluateReplayOutcome(
   signalDate: string,
   watchlist: SignalWatchlistItem[],
@@ -78,7 +95,7 @@ async function evaluateReplayOutcome(
   const benchmark = benchmarkFor(watchlist.map((item) => item.market));
   const weights = normalizeWeights(watchlist);
 
-  if (!isHorizonMature(signalDate, horizonDays)) {
+  if (!isReplayHorizonMature(signalDate, horizonDays)) {
     return {
       horizonDays,
       basketReturn: null,
@@ -195,11 +212,11 @@ export async function evaluateReplaySignal(input: {
   for (const horizonDays of input.horizons ?? [30, 60, 90]) {
     outcomes.push(await evaluateReplayOutcome(input.asOfDate, watchlist, horizonDays));
   }
-  const missingPrices = [...new Set(outcomes.flatMap((outcome) => [
+  const matureOutcomes = outcomes.filter((outcome) => isReplayHorizonMature(input.asOfDate, outcome.horizonDays));
+  const missingPrices = [...new Set(matureOutcomes.flatMap((outcome) => [
     ...outcome.details.filter((item) => item.returnPct === null).map((item) => item.symbol),
     ...(outcome.benchmarkReturn === null ? [outcome.benchmarkSymbol] : []),
   ]))];
-  const matureOutcomes = outcomes.filter((outcome) => isHorizonMature(input.asOfDate, outcome.horizonDays));
   const mappingStatus = matureOutcomes.length === 0
     ? "pending_horizon"
     : missingPrices.length > 0

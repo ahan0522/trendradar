@@ -119,6 +119,7 @@ export async function GET(request: NextRequest) {
             maxSymbols: 1,
             horizons: [30, 60, 90],
             dryRun: false,
+            excludedSymbols: ["1519.TW", "MU", "000660.KS", "005930.KS", "2408.TW"],
           });
           const backtest = await runModelReplayBacktestForSymbols(
             prices.runId,

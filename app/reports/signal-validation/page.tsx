@@ -84,6 +84,19 @@ type HistoricalValidation = {
   };
   strongestCases: HistoricalCase[];
   failedCases: HistoricalCase[];
+  diagnostics: {
+    familyPerformance: DiagnosticGroup[];
+    strengthCalibration: DiagnosticGroup[];
+    recommendations: string[];
+  };
+};
+
+type DiagnosticGroup = {
+  key: string;
+  sampleCount: number;
+  averageExcessReturn: number | null;
+  successRate: number;
+  failureRate: number;
 };
 
 type ModelPerformance = {
@@ -412,6 +425,31 @@ function HistoricalValidationSection({ report }: { report: HistoricalValidation 
         <CaseList title="必須保留的失敗案例" cases={report.failedCases} />
       </div>
 
+      <div className="mt-6 rounded-2xl border border-sky-300/20 bg-sky-400/5 p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Model Learning</p>
+        <h3 className="mt-2 text-2xl font-black text-white">模型目前學到什麼</h3>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {report.diagnostics.familyPerformance.slice(0, 4).map((item) => (
+            <div key={item.key} className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-4">
+              <p className="font-bold text-white">{familyLabel(item.key)}</p>
+              <p className="mt-1 text-xs text-zinc-500">{item.sampleCount} 筆完整樣本</p>
+              <p className={`mt-3 font-mono text-xl font-black ${Number(item.averageExcessReturn) >= 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                {pct(item.averageExcessReturn)}
+              </p>
+              <p className="mt-1 text-xs text-zinc-600">成功率 {rate(item.successRate)}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-5 space-y-2">
+          {report.diagnostics.recommendations.map((item, index) => (
+            <p key={item} className="rounded-xl border border-white/5 bg-black/20 px-4 py-3 text-sm leading-6 text-zinc-300">
+              <span className="mr-2 font-mono font-black text-sky-300">{index + 1}</span>
+              {item}
+            </p>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/20 p-4 text-sm leading-7 text-zinc-500">
         <p>{report.methodology}</p>
         <p className="mt-1">{report.dataQuality.caveat}</p>
@@ -454,4 +492,18 @@ function CaseList({ title, cases, positive = false }: { title: string; cases: Hi
       </div>
     </div>
   );
+}
+
+const familyLabels: Record<string, string> = {
+  memory: "記憶體",
+  semiconductor: "半導體",
+  "advanced-packaging": "先進封裝",
+  "ai-compute": "AI 算力",
+  "power-grid": "電力與電網",
+  "defense-geopolitics": "國防與地緣",
+  robotics: "機器人",
+};
+
+function familyLabel(value: string) {
+  return familyLabels[value] ?? value;
 }

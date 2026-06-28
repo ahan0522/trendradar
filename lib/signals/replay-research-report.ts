@@ -44,13 +44,18 @@ export type ReplayResearchCase = {
   benchmarkReturn: number;
   excessReturn: number;
   outcome: "success" | "partial" | "failed";
+  strength: number | null;
+  confidence: number | null;
 };
 
 function round(value: number) {
   return Number(value.toFixed(2));
 }
 
-function toResearchCase(result: ReplaySignalResult): ReplayResearchCase | null {
+function toResearchCase(
+  result: ReplaySignalResult,
+  signalMetrics: Map<string, { strength: number; confidence: number }>,
+): ReplayResearchCase | null {
   const outcome = result.outcomes.find((item) => item.horizonDays === 30);
   if (
     !outcome ||
@@ -75,7 +80,33 @@ function toResearchCase(result: ReplaySignalResult): ReplayResearchCase | null {
     benchmarkReturn: round(outcome.benchmarkReturn),
     excessReturn: round(outcome.excessReturn),
     outcome: outcome.outcome,
+    strength: signalMetrics.get(`${result.modelVersion}|${result.signalId}`)?.strength ?? null,
+    confidence: signalMetrics.get(`${result.modelVersion}|${result.signalId}`)?.confidence ?? null,
   };
+}
+
+function average(values: number[]) {
+  return values.length === 0
+    ? null
+    : round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
+function groupPerformance(
+  cases: ReplayResearchCase[],
+  keyFor: (item: ReplayResearchCase) => string,
+) {
+  const groups = new Map<string, ReplayResearchCase[]>();
+  for (const item of cases) {
+    const key = keyFor(item);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups.entries()].map(([key, items]) => ({
+    key,
+    sampleCount: items.length,
+    averageExcessReturn: average(items.map((item) => item.excessReturn)),
+    successRate: round(items.filter((item) => item.outcome === "success").length / items.length),
+    failureRate: round(items.filter((item) => item.outcome === "failed").length / items.length),
+  })).sort((a, b) => b.sampleCount - a.sampleCount || Number(b.averageExcessReturn) - Number(a.averageExcessReturn));
 }
 
 export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBacktest) {
@@ -105,8 +136,15 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
         ? "新版明顯擴大研究覆蓋，但目前 30 日績效與舊版相近，尚未證明預測能力更強。"
         : "目前完整樣本仍不足，先呈現觀察結果，不對模型優劣下結論。";
 
+  const signalMetrics = new Map(
+    replay.months.flatMap((month) => [...month.baselineSignals, ...month.candidateSignals])
+      .map((signal) => [
+        `${signal.modelVersion}|${signal.id}`,
+        { strength: signal.strength, confidence: signal.confidence },
+      ]),
+  );
   const cases = backtest.results
-    .map(toResearchCase)
+    .map((result) => toResearchCase(result, signalMetrics))
     .filter((item): item is ReplayResearchCase => item !== null);
   const candidateCases = cases.filter((item) => item.modelVersion === replay.candidateModelVersion);
   const strongestCases = [...candidateCases].sort((a, b) => b.excessReturn - a.excessReturn).slice(0, 3);
@@ -114,6 +152,45 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     .sort((a, b) => a.excessReturn - b.excessReturn)
     .slice(0, 3);
   const coverageLift = Number(replay.summary.coverageBreadthLift ?? 0);
+  const familyPerformance = groupPerformance(candidateCases, (item) => item.family);
+  const strengthCalibration = groupPerformance(candidateCases, (item) => {
+    if (item.strength === null) return "unknown";
+    if (item.strength >= 50) return "50+";
+    if (item.strength >= 40) return "40-49";
+    return "<40";
+  });
+  const reliableFamilies = familyPerformance.filter((item) => item.sampleCount >= 3);
+  const bestFamily = [...reliableFamilies].sort(
+    (a, b) => Number(b.averageExcessReturn) - Number(a.averageExcessReturn),
+  )[0];
+  const weakestFamily = [...reliableFamilies].sort(
+    (a, b) => Number(a.averageExcessReturn) - Number(b.averageExcessReturn),
+  )[0];
+  const highStrength = strengthCalibration.find((item) => item.key === "50+");
+  const middleStrength = strengthCalibration.find((item) => item.key === "40-49");
+  const recommendations: string[] = [];
+  if (bestFamily) {
+    recommendations.push(
+      `${bestFamily.key} 在 ${bestFamily.sampleCount} 筆樣本中平均 Alpha 為 ${bestFamily.averageExcessReturn}%：可優先擴充證據鏈，但不能只因歷史報酬提高權重。`,
+    );
+  }
+  if (weakestFamily && weakestFamily.averageExcessReturn !== null && weakestFamily.averageExcessReturn < 0) {
+    recommendations.push(
+      `${weakestFamily.key} 平均 Alpha 為 ${weakestFamily.averageExcessReturn}%：下一版需提高來源品質、持續性或公司活動門檻。`,
+    );
+  }
+  if (
+    highStrength?.averageExcessReturn !== null &&
+    highStrength?.averageExcessReturn !== undefined &&
+    middleStrength?.averageExcessReturn !== null &&
+    middleStrength?.averageExcessReturn !== undefined &&
+    highStrength.averageExcessReturn <= middleStrength.averageExcessReturn
+  ) {
+    recommendations.push("Strength 50+ 尚未明顯優於 40-49，表示目前分數適合排序熱度，還不能直接解讀為較高報酬機率。");
+  }
+  if (backtest.summary.missingPriceCount > 0) {
+    recommendations.push(`仍有 ${backtest.summary.missingPriceCount} 個訊號缺少完整驗證價格，模型調整前需避免把缺失樣本視為失敗。`);
+  }
 
   return {
     generatedAt: new Date().toISOString(),
@@ -144,5 +221,10 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     },
     strongestCases,
     failedCases,
+    diagnostics: {
+      familyPerformance,
+      strengthCalibration,
+      recommendations,
+    },
   };
 }

@@ -27,12 +27,14 @@ export async function backfillVerifiedReplayPrices(options?: {
   horizons?: number[];
   maxSymbols?: number;
   dryRun?: boolean;
+  excludedSymbols?: string[];
 }) {
   const replay = await getLatestModelReplay(options?.runId);
   if (!replay) throw new Error("Model replay run not found");
   const backtest = await getModelReplayBacktestResults(replay.id);
   const horizons = options?.horizons ?? [30];
   const maxSymbols = Math.max(1, Math.min(options?.maxSymbols ?? 8, 50));
+  const excludedSymbols = new Set((options?.excludedSymbols ?? []).map((symbol) => symbol.toUpperCase()));
 
   const frequency = new Map<string, { symbol: string; market: MarketCode; count: number }>();
   for (const result of backtest.results) {
@@ -60,6 +62,7 @@ export async function backfillVerifiedReplayPrices(options?: {
   }
 
   const selected = [...frequency.values()]
+    .filter((item) => !excludedSymbols.has(item.symbol.toUpperCase()))
     .sort((a, b) => b.count - a.count || a.symbol.localeCompare(b.symbol))
     .slice(0, maxSymbols);
   const selectedKeys = new Set(selected.map((item) => `${item.symbol}|${item.market}`));
