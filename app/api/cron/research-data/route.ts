@@ -9,10 +9,12 @@ import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 import { generateSignalLedger } from "@/lib/signals/generate-ledger";
 import { runDailyBacktestUpdate } from "@/lib/signals/backtest";
+import { backfillVerifiedReplayPrices } from "@/lib/signals/model-replay-price-backfill";
+import { runModelReplayBacktestForSymbols } from "@/lib/signals/model-replay-backtest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type WatchlistSymbol = {
   symbol: string;
@@ -42,6 +44,13 @@ function currentTaipeiDate() {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+  }).format(new Date());
+}
+
+function currentTaipeiWeekday() {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei",
+    weekday: "short",
   }).format(new Date());
 }
 
@@ -104,6 +113,20 @@ export async function GET(request: NextRequest) {
     const qualityAfter = await getResearchDataQualityReport();
     const signalLedger = await runSync(() => generateSignalLedger(currentTaipeiDate()));
     const backtests = await runSync(() => runDailyBacktestUpdate());
+    const replayValidation = currentTaipeiWeekday() === "Sun"
+      ? await runSync(async () => {
+          const prices = await backfillVerifiedReplayPrices({
+            maxSymbols: 1,
+            horizons: [30, 60, 90],
+            dryRun: false,
+          });
+          const backtest = await runModelReplayBacktestForSymbols(
+            prices.runId,
+            prices.selectedSymbols.map((item) => item.symbol),
+          );
+          return { prices, backtest };
+        })
+      : { status: "skipped" as const, reason: "Replay validation runs on Sunday (Asia/Taipei)." };
     const finalizedMonth = currentTaipeiDay() === "01"
       ? await finalizeMonthlySignals(previousMonthEnd())
       : null;
@@ -120,6 +143,7 @@ export async function GET(request: NextRequest) {
       quality: qualityAfter,
       signalLedger,
       backtests,
+      replayValidation,
       finalizedMonth,
     });
   } catch (error) {

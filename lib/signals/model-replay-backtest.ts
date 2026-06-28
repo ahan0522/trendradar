@@ -299,6 +299,42 @@ export async function runModelReplayBacktest(runId?: string) {
   return { runId: replay.id, summary: summarize(results), results };
 }
 
+export async function runModelReplayBacktestForSymbols(runId: string, symbols: string[]) {
+  const replay = await getLatestModelReplay(runId);
+  if (!replay) throw new Error("Model replay run not found");
+  const existing = await getModelReplayBacktestResults(replay.id);
+  const symbolSet = new Set(symbols.map((symbol) => symbol.toUpperCase()));
+  const affectedKeys = new Set(
+    existing.results
+      .filter((result) => result.missingPrices.some((symbol) => symbolSet.has(symbol.toUpperCase())))
+      .map((result) => `${result.modelVersion}|${result.signalId}`),
+  );
+
+  let updatedCount = 0;
+  for (const month of replay.months) {
+    for (const signal of [...month.baselineSignals, ...month.candidateSignals]) {
+      if (!affectedKeys.has(`${signal.modelVersion}|${signal.id}`)) continue;
+      const result = await evaluateReplaySignal({
+        runId: replay.id,
+        month: month.month,
+        asOfDate: month.asOfDate,
+        signal,
+      });
+      await upsertReplayResult(result);
+      updatedCount += 1;
+    }
+  }
+
+  const refreshed = await getModelReplayBacktestResults(replay.id);
+  return {
+    runId: replay.id,
+    symbols: [...symbolSet],
+    affectedCount: affectedKeys.size,
+    updatedCount,
+    summary: refreshed.summary,
+  };
+}
+
 export async function getModelReplayBacktestResults(runId: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
