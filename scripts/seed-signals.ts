@@ -159,7 +159,7 @@ const seeds: SeedSignal[] = [
     watchlist: [
       { symbol: "GEV", companyName: "GE Vernova", market: "US" },
       { symbol: "ETN", companyName: "Eaton", market: "US" },
-      { symbol: "ABB", companyName: "ABB", market: "US" },
+      { symbol: "ABBNY", companyName: "ABB", market: "US" },
       { symbol: "2308.TW", companyName: "台達電", market: "TW" },
       { symbol: "1513.TW", companyName: "中興電", market: "TW" },
       { symbol: "1519.TW", companyName: "華城", market: "TW" },

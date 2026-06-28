@@ -55,7 +55,7 @@ const ruleGroups: RuleGroup[] = [
     labels: ["機器人", "自動化", "robotics", "協作機器人"],
     thesis: "工業自動化與機器人採用若持續擴大，運動控制、工業軟硬體與機器人平台供應商值得持續追蹤。",
     items: [
-      { symbol: "ABB", companyName: "ABB", market: "US" },
+      { symbol: "ABBNY", companyName: "ABB", market: "US" },
       { symbol: "ROK", companyName: "Rockwell Automation", market: "US" },
       { symbol: "TER", companyName: "Teradyne", market: "US" },
       { symbol: "2049.TW", companyName: "上銀", market: "TW" },
@@ -92,7 +92,7 @@ const ruleGroups: RuleGroup[] = [
     items: [
       { symbol: "GEV", companyName: "GE Vernova", market: "US" },
       { symbol: "ETN", companyName: "Eaton", market: "US" },
-      { symbol: "ABB", companyName: "ABB", market: "US" },
+      { symbol: "ABBNY", companyName: "ABB", market: "US" },
       { symbol: "2308.TW", companyName: "台達電", market: "TW" },
       { symbol: "1513.TW", companyName: "中興電", market: "TW" },
       { symbol: "1519.TW", companyName: "華城", market: "TW" },

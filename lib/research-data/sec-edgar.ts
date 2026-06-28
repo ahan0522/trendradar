@@ -86,7 +86,7 @@ export async function fetchSecCompanyActions(options?: {
   limitPerCompany?: number;
 }) {
   const symbols = [...new Set(
-    (options?.symbols ?? ["NVDA", "AMD", "MU", "GEV", "ETN", "VRT", "AMKR", "ABB"])
+    (options?.symbols ?? ["NVDA", "AMD", "MU", "GEV", "ETN", "VRT", "AMKR", "ABBNY"])
       .map((item) => item.toUpperCase()),
   )].slice(0, 8);
   const since = options?.since ?? new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);

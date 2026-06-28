@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getLatestModelReplay, type ReplaySignal } from "@/lib/signals/model-replay";
+import { getModelReplayBacktestResults } from "@/lib/signals/model-replay-backtest";
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +31,11 @@ function percentage(value: unknown) {
 
 export default async function ModelComparisonPage() {
   let report: Awaited<ReturnType<typeof getLatestModelReplay>> = null;
+  let backtest: Awaited<ReturnType<typeof getModelReplayBacktestResults>> | null = null;
   let error: string | null = null;
   try {
     report = await getLatestModelReplay();
+    if (report) backtest = await getModelReplayBacktestResults(report.id);
   } catch (caught) {
     error = caught instanceof Error ? caught.message : "讀取模型比較失敗";
   }
@@ -67,6 +70,11 @@ export default async function ModelComparisonPage() {
     newlyDiscoveredFamilies?: string[];
     monthsWithNewFamilies?: number;
   };
+  const backtestSummary = backtest?.summary;
+  const modelPerformance = [
+    { label: "舊版固定規則", value: backtestSummary?.baseline, tone: "border-zinc-800 bg-zinc-950/80" },
+    { label: "新版全市場 Discovery", value: backtestSummary?.candidate, tone: "border-sky-300/20 bg-sky-400/5" },
+  ];
 
   return (
     <main className="min-h-screen bg-[#05070d] px-4 py-8 text-white md:px-8">
@@ -122,6 +130,59 @@ export default async function ModelComparisonPage() {
           </div>
         </section>
 
+        <section className="rounded-3xl border border-violet-300/20 bg-violet-400/5 p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-300">Parallel Backtest</p>
+          <h2 className="mt-2 text-2xl font-black">平行觀察籃子驗證</h2>
+          <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-400">
+            候選訊號在月底建立觀察籃子，只使用當時以前的資訊；後續價格僅用於驗證。無法合理映射公司或缺少已驗證價格時，不計入勝率。
+          </p>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <SmallMetric label="已映射候選" value={String(backtestSummary?.mappedCount ?? 0)} />
+            <SmallMetric label="完成回測" value={String(backtestSummary?.testedCount ?? 0)} />
+            <SmallMetric label="待補價格" value={String(backtestSummary?.missingPriceCount ?? 0)} />
+            <SmallMetric label="不可硬映射" value={String(backtestSummary?.unmappedCount ?? 0)} />
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <SmallMetric
+              label="30D 平均超額報酬"
+              value={backtestSummary?.averageThirtyDayExcessReturn === null || backtestSummary?.averageThirtyDayExcessReturn === undefined
+                ? "待驗證"
+                : `${backtestSummary.averageThirtyDayExcessReturn.toFixed(2)}%`}
+            />
+            <SmallMetric
+              label="30D 成功率"
+              value={backtestSummary?.thirtyDaySuccessRate === null || backtestSummary?.thirtyDaySuccessRate === undefined
+                ? "待驗證"
+                : percentage(backtestSummary.thirtyDaySuccessRate)}
+            />
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {modelPerformance.map((model) => (
+              <div key={model.label} className={`rounded-2xl border p-5 ${model.tone}`}>
+                <p className="text-sm font-black text-white">{model.label}</p>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  <PerformanceValue label="30D 樣本" value={String(model.value?.testedCount ?? 0)} />
+                  <PerformanceValue
+                    label="平均 Alpha"
+                    value={model.value?.averageThirtyDayExcessReturn === null || model.value?.averageThirtyDayExcessReturn === undefined
+                      ? "待驗證"
+                      : `${model.value.averageThirtyDayExcessReturn.toFixed(2)}%`}
+                  />
+                  <PerformanceValue
+                    label="成功率"
+                    value={model.value?.thirtyDaySuccessRate === null || model.value?.thirtyDaySuccessRate === undefined
+                      ? "待驗證"
+                      : percentage(model.value.thirtyDaySuccessRate)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs leading-6 text-zinc-500">
+            樣本仍不足時只呈現觀察值，不宣稱新版優於舊版。成功定義為 30 日觀察籃子超額報酬至少 5%。
+          </p>
+        </section>
+
         <section className="space-y-4">
           {report.months.map((row) => (
             <article key={row.month} className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
@@ -161,6 +222,15 @@ function SmallMetric({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
       <p className="text-xs font-bold text-zinc-500">{label}</p>
       <p className="mt-2 font-mono text-2xl font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function PerformanceValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">{label}</p>
+      <p className="mt-1 font-mono text-lg font-black text-white">{value}</p>
     </div>
   );
 }
