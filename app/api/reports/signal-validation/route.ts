@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getDerivedSignalsFromTopics, pendingOutcomes } from "@/lib/signals/derived-signals";
+import { getLatestModelReplay } from "@/lib/signals/model-replay";
+import { getModelReplayBacktestResults } from "@/lib/signals/model-replay-backtest";
+import { buildReplayResearchReport } from "@/lib/signals/replay-research-report";
 
 type SignalRow = {
   id: string;
@@ -65,6 +68,17 @@ function reportPayload(signals: SignalRow[], watchlists: WatchlistRow[], outcome
 }
 
 export async function GET() {
+  let historicalValidation = null;
+  try {
+    const replay = await getLatestModelReplay();
+    if (replay) {
+      const backtest = await getModelReplayBacktestResults(replay.id);
+      historicalValidation = buildReplayResearchReport(replay, backtest);
+    }
+  } catch {
+    historicalValidation = null;
+  }
+
   try {
     const supabase = getSupabaseAdmin();
     const [{ data: signals, error: signalError }, { data: watchlists, error: watchlistError }, { data: outcomes, error: outcomeError }] =
@@ -91,7 +105,10 @@ export async function GET() {
     if (outcomeError) throw outcomeError;
     if ((signals ?? []).length === 0) throw new Error("No signal table rows yet");
 
-    return NextResponse.json(reportPayload(signals ?? [], watchlists ?? [], outcomes ?? [], "signal_tables"));
+    return NextResponse.json({
+      ...reportPayload(signals ?? [], watchlists ?? [], outcomes ?? [], "signal_tables"),
+      historicalValidation,
+    });
   } catch (error) {
     try {
       const derivedSignals = await getDerivedSignalsFromTopics();
@@ -107,7 +124,10 @@ export async function GET() {
         status: signal.status,
       }));
       const outcomes = derivedSignals.flatMap((signal) => pendingOutcomes(signal.id));
-      return NextResponse.json(reportPayload(signals, [], outcomes, "derived_topics"));
+      return NextResponse.json({
+        ...reportPayload(signals, [], outcomes, "derived_topics"),
+        historicalValidation,
+      });
     } catch (fallbackError) {
       const message = fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "Unknown error";
       return NextResponse.json({ ok: false, error: message, summary: null, signals: [], watchlists: [], outcomes: [] }, { status: 200 });

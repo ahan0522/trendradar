@@ -41,6 +41,57 @@ type ReportResponse = {
   signals: SignalRow[];
   watchlists: WatchlistRow[];
   outcomes: OutcomeRow[];
+  historicalValidation?: HistoricalValidation | null;
+};
+
+type HistoricalCase = {
+  signalId: string;
+  modelVersion: string;
+  month: string;
+  topic: string;
+  family: string;
+  watchlist: Array<{ symbol: string; companyName: string; market: string }>;
+  basketReturn: number;
+  benchmarkReturn: number;
+  excessReturn: number;
+  outcome: "success" | "partial" | "failed";
+};
+
+type HistoricalValidation = {
+  period: string;
+  methodology: string;
+  verdict: string;
+  verdictText: string;
+  executiveSummary: string;
+  coverage: {
+    baselineSignals: number;
+    candidateSignals: number;
+    coverageBreadthLift: number;
+  };
+  performance: {
+    baseline: ModelPerformance;
+    candidate: ModelPerformance;
+    alphaDelta: number | null;
+    successRateDelta: number | null;
+  };
+  dataQuality: {
+    totalSignals: number;
+    mappedSignals: number;
+    completeThirtyDaySamples: number;
+    missingPriceSignals: number;
+    unmappedSignals: number;
+    caveat: string;
+  };
+  strongestCases: HistoricalCase[];
+  failedCases: HistoricalCase[];
+};
+
+type ModelPerformance = {
+  signalCount: number;
+  mappedCount: number;
+  testedCount: number;
+  averageThirtyDayExcessReturn: number | null;
+  thirtyDaySuccessRate: number | null;
 };
 
 type PublicWatchlist = {
@@ -81,6 +132,11 @@ function pct(value: number | null | undefined) {
   if (value === null || value === undefined) return "待驗證";
   const number = Number(value);
   return `${number > 0 ? "+" : ""}${number.toFixed(2)}%`;
+}
+
+function rate(value: number | null | undefined) {
+  if (value === null || value === undefined) return "待驗證";
+  return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
 const monthLabels: Record<string, string> = {
@@ -139,7 +195,9 @@ export default function SignalValidationReportPage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">AI 驅動市場研究平台</p>
               <h1 className="mt-3 text-4xl font-black tracking-tight md:text-6xl">市場訊號驗證報告</h1>
-              <p className="mt-4 text-xl font-bold text-zinc-300">2026 年 3 月至 6 月</p>
+              <p className="mt-4 text-xl font-bold text-zinc-300">
+                {data ? (data.historicalValidation?.period ?? "持續更新") : "載入驗證資料中"}
+              </p>
             </div>
             <Link href="/signals" className="rounded-full bg-white px-5 py-3 text-sm font-black text-zinc-950 transition hover:bg-sky-100">
               查看市場訊號資料庫
@@ -150,10 +208,10 @@ export default function SignalValidationReportPage() {
         {data?.error ? <div className="rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 text-amber-200">{data.error}</div> : null}
 
         <section className="grid gap-3 md:grid-cols-4">
-          <MetricCard label="訊號數量" value={String(data?.summary?.signalCount ?? signals.length)} tone="text-white" />
-          <MetricCard label="已驗證結果" value={String(data?.summary?.validatedOutcomeCount ?? 0)} tone="text-emerald-300" />
-          <MetricCard label="成功率" value={pct(data?.summary?.successRate)} tone="text-sky-300" />
-          <MetricCard label="平均超額報酬" value={pct(data?.summary?.averageExcessReturn)} tone="text-amber-300" />
+          <MetricCard label="訊號數量" value={data ? String(data.summary?.signalCount ?? signals.length) : "—"} tone="text-white" />
+          <MetricCard label="已驗證結果" value={data ? String(data.summary?.validatedOutcomeCount ?? 0) : "—"} tone="text-emerald-300" />
+          <MetricCard label="成功率" value={data ? pct(data.summary?.successRate) : "—"} tone="text-sky-300" />
+          <MetricCard label="平均超額報酬" value={data ? pct(data.summary?.averageExcessReturn) : "—"} tone="text-amber-300" />
         </section>
 
         <ReportSection index="1" title="執行摘要">
@@ -163,6 +221,10 @@ export default function SignalValidationReportPage() {
         <ReportSection index="2" title="研究方法">
           Time Machine Simulation（時間機模擬）：每個訊號只能使用 as_of_date 之前的資料產生。as_of_date 之後的資料只能用於結果驗證，避免把未來資訊混入訊號形成階段。
         </ReportSection>
+
+        {data?.historicalValidation ? (
+          <HistoricalValidationSection report={data.historicalValidation} />
+        ) : null}
 
         {publicSignals.length > 0 ? (
           <section className="rounded-3xl border border-sky-400/20 bg-sky-400/10 p-6">
@@ -309,5 +371,87 @@ function ReportSection({ index, title, children }: { index: string; title: strin
       <h2 className="mt-2 text-2xl font-black">{title}</h2>
       <p className="mt-4 max-w-4xl text-base leading-8 text-zinc-400">{children}</p>
     </section>
+  );
+}
+
+function HistoricalValidationSection({ report }: { report: HistoricalValidation }) {
+  const models = [
+    { label: "舊版固定規則", data: report.performance.baseline, tone: "border-zinc-800 bg-zinc-950/80" },
+    { label: "新版全市場 Discovery", data: report.performance.candidate, tone: "border-sky-300/20 bg-sky-400/5" },
+  ];
+
+  return (
+    <section className="rounded-3xl border border-violet-300/20 bg-violet-400/5 p-6">
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-300">Historical Validation</p>
+      <h2 className="mt-2 text-3xl font-black">歷史重播得出的研究結論</h2>
+      <p className="mt-4 max-w-5xl text-base leading-8 text-zinc-300">{report.executiveSummary}</p>
+
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <MetricCard label="唯一訊號" value={String(report.dataQuality.totalSignals)} tone="text-white" />
+        <MetricCard label="30D 完整樣本" value={String(report.dataQuality.completeThirtyDaySamples)} tone="text-emerald-300" />
+        <MetricCard label="覆蓋增幅" value={rate(report.coverage.coverageBreadthLift)} tone="text-sky-300" />
+        <MetricCard label="待補價格" value={String(report.dataQuality.missingPriceSignals)} tone="text-amber-300" />
+        <MetricCard label="不硬映射" value={String(report.dataQuality.unmappedSignals)} tone="text-zinc-300" />
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        {models.map((model) => (
+          <article key={model.label} className={`rounded-2xl border p-5 ${model.tone}`}>
+            <p className="font-black text-white">{model.label}</p>
+            <div className="mt-4 grid grid-cols-3 gap-3">
+              <ResearchMetric label="30D 樣本" value={String(model.data.testedCount)} />
+              <ResearchMetric label="平均 Alpha" value={pct(model.data.averageThirtyDayExcessReturn)} />
+              <ResearchMetric label="成功率" value={rate(model.data.thirtyDaySuccessRate)} />
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="mt-6 grid gap-5 xl:grid-cols-2">
+        <CaseList title="目前表現較強的研究案例" cases={report.strongestCases} positive />
+        <CaseList title="必須保留的失敗案例" cases={report.failedCases} />
+      </div>
+
+      <div className="mt-5 rounded-2xl border border-zinc-800 bg-black/20 p-4 text-sm leading-7 text-zinc-500">
+        <p>{report.methodology}</p>
+        <p className="mt-1">{report.dataQuality.caveat}</p>
+      </div>
+    </section>
+  );
+}
+
+function ResearchMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">{label}</p>
+      <p className="mt-1 font-mono text-lg font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function CaseList({ title, cases, positive = false }: { title: string; cases: HistoricalCase[]; positive?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/80 p-5">
+      <h3 className="font-black text-white">{title}</h3>
+      <div className="mt-4 space-y-3">
+        {cases.map((item) => (
+          <article key={`${item.modelVersion}-${item.signalId}`} className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold text-zinc-500">{item.month} · {item.family}</p>
+                <p className="mt-1 font-bold text-white">{item.topic}</p>
+              </div>
+              <p className={`shrink-0 font-mono text-lg font-black ${positive ? "text-emerald-300" : "text-rose-300"}`}>
+                {pct(item.excessReturn)}
+              </p>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-zinc-500">
+              觀察標的：{item.watchlist.map((watch) => watch.symbol).join("、")}
+            </p>
+          </article>
+        ))}
+        {cases.length === 0 ? <p className="py-3 text-sm text-zinc-600">目前沒有足夠完整的案例。</p> : null}
+      </div>
+    </div>
   );
 }

@@ -29,6 +29,7 @@ import {
 import { calculateHeatLifecycle } from "../lib/discovery/heat-lifecycle";
 import { buildSignalResearchBrief } from "../lib/signals/research-brief";
 import { normalizeSignalFamily } from "../lib/signals/model-replay";
+import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -280,6 +281,40 @@ function testModelReplayFamilies() {
   assert.equal(normalizeSignalFamily("AI 資料中心電力與電網"), "power-grid");
 }
 
+function testReplayResearchReport() {
+  const modelPerformance = {
+    signalCount: 30,
+    mappedCount: 24,
+    testedCount: 22,
+    averageThirtyDayExcessReturn: 8,
+    thirtyDaySuccessRate: 0.5,
+  };
+  const report = buildReplayResearchReport({
+    id: "run-1",
+    startMonth: "2025-01",
+    endMonth: "2025-12",
+    baselineModelVersion: "monthly-signal-v2",
+    candidateModelVersion: "monthly-full-market-v1",
+    summary: { coverageBreadthLift: 0.52 },
+    months: [],
+  }, {
+    summary: {
+      signalCount: 60,
+      mappedCount: 48,
+      testedCount: 44,
+      unmappedCount: 12,
+      missingPriceCount: 4,
+      thirtyDayTestCount: 44,
+      baseline: modelPerformance,
+      candidate: { ...modelPerformance, averageThirtyDayExcessReturn: 8.4 },
+    },
+    results: [],
+  });
+  assert.equal(report.verdict, "comparable");
+  assert.match(report.executiveSummary, /52%/);
+  assert.equal(report.dataQuality.completeThirtyDaySamples, 44);
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
@@ -290,6 +325,7 @@ function main() {
   testHeatLifecycle();
   testResearchBrief();
   testModelReplayFamilies();
+  testReplayResearchReport();
   console.log("Signal research invariants: PASS");
 }
 
