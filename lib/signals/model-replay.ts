@@ -165,7 +165,7 @@ export async function replayModelMonth(month: string): Promise<ModelReplayMonth>
   if (error) throw error;
 
   const baselineSignals = (data ?? []).map(mapBaselineSignal);
-  const candidateSignals = (await getMonthlyDiscoverySignals(asOfDate)).map((signal) => {
+  const discoveredSignals = (await getMonthlyDiscoverySignals(asOfDate)).map((signal) => {
     const metric = readEvidenceMetric(signal.evidence);
     return {
       id: signal.id,
@@ -179,6 +179,9 @@ export async function replayModelMonth(month: string): Promise<ModelReplayMonth>
       modelVersion: signal.modelVersion ?? "monthly-full-market-v1",
     };
   });
+  const candidateSignals = [...new Map(
+    discoveredSignals.map((signal) => [signal.id, signal]),
+  ).values()];
 
   return {
     month,
