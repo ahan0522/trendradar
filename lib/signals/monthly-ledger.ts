@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
+import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
 
 type MonthlyEvidence = {
   sample_titles?: string[];
@@ -44,7 +44,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) throw new Error("asOfDate must use YYYY-MM-DD");
   if (asOfDate > currentTaipeiDate()) throw new Error("Cannot finalize a future month");
 
-  const signals = await getCurrentMonthlySignals(asOfDate);
+  const signals = await getMonthlyDiscoverySignals(asOfDate);
   if (signals.length === 0) {
     return { ok: true, asOfDate, signalCount: 0, watchlistCount: 0, evidenceCount: 0, componentCount: 0 };
   }
@@ -61,7 +61,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
     hypothesis: signal.hypothesis,
     evidence: signal.evidence,
     status: "active",
-    model_version: "monthly-signal-v2",
+    model_version: signal.modelVersion ?? "monthly-full-market-v1",
     updated_at: new Date().toISOString(),
   }));
   const { error: signalError } = await supabase

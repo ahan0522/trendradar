@@ -8,11 +8,16 @@ type OutcomeKey = "success" | "partial" | "failed" | "pending";
 
 async function main() {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const signalIds = process.argv.slice(2).filter((value) => !value.startsWith("--"));
+  let query = supabase
     .from("signal_events")
     .select("id, signal_date")
     .like("id", "monthly-%")
-    .order("signal_date", { ascending: true })
+    .order("signal_date", { ascending: true });
+  if (signalIds.length > 0) {
+    query = query.in("id", signalIds);
+  }
+  const { data, error } = await query
     .returns<Array<{ id: string; signal_date: string }>>();
   if (error) throw error;
 

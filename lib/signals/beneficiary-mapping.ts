@@ -15,6 +15,53 @@ type RuleGroup = {
 
 const ruleGroups: RuleGroup[] = [
   {
+    key: "semiconductor",
+    labels: ["半導體", "先進製程", "semiconductor", "晶圓代工", "晶片設備"],
+    thesis: "半導體與先進製程需求若持續擴張，晶圓代工、微影、製程設備與封裝測試供應鏈值得持續追蹤。",
+    items: [
+      { symbol: "2330.TW", companyName: "台積電", market: "TW" },
+      { symbol: "3711.TW", companyName: "日月光投控", market: "TW" },
+      { symbol: "ASML", companyName: "ASML", market: "US" },
+      { symbol: "AMAT", companyName: "Applied Materials", market: "US" },
+      { symbol: "LRCX", companyName: "Lam Research", market: "US" },
+    ],
+  },
+  {
+    key: "ai-compute",
+    labels: ["ai 算力", "ai算力", "ai data center", "ai資料中心", "ai 基礎建設", "ai基礎建設"],
+    thesis: "AI 算力與資料中心擴張若持續，GPU、先進製程、伺服器組裝與雲端基礎建設供應鏈值得持續追蹤。",
+    items: [
+      { symbol: "NVDA", companyName: "NVIDIA", market: "US" },
+      { symbol: "AMD", companyName: "Advanced Micro Devices", market: "US" },
+      { symbol: "2330.TW", companyName: "台積電", market: "TW" },
+      { symbol: "2317.TW", companyName: "鴻海", market: "TW" },
+      { symbol: "6669.TW", companyName: "緯穎", market: "TW" },
+    ],
+  },
+  {
+    key: "defense",
+    labels: ["國防", "軍工", "軍售", "無人機", "飛彈", "地緣風險"],
+    thesis: "國防支出與地緣風險若持續升高，航太、飛彈防禦、軍用電子與無人系統供應商值得持續追蹤。",
+    items: [
+      { symbol: "LMT", companyName: "Lockheed Martin", market: "US" },
+      { symbol: "RTX", companyName: "RTX", market: "US" },
+      { symbol: "NOC", companyName: "Northrop Grumman", market: "US" },
+      { symbol: "GD", companyName: "General Dynamics", market: "US" },
+      { symbol: "2634.TW", companyName: "漢翔", market: "TW" },
+    ],
+  },
+  {
+    key: "robotics",
+    labels: ["機器人", "自動化", "robotics", "協作機器人"],
+    thesis: "工業自動化與機器人採用若持續擴大，運動控制、工業軟硬體與機器人平台供應商值得持續追蹤。",
+    items: [
+      { symbol: "ABB", companyName: "ABB", market: "US" },
+      { symbol: "ROK", companyName: "Rockwell Automation", market: "US" },
+      { symbol: "TER", companyName: "Teradyne", market: "US" },
+      { symbol: "2049.TW", companyName: "上銀", market: "TW" },
+    ],
+  },
+  {
     key: "cpo-optical",
     labels: ["cpo", "co-packaged optics", "面板級封裝", "矽光子", "光通訊"],
     thesis: "CPO 與矽光子若進入量產，可提高高速光互連、光元件與封裝測試供應鏈的需求。",
@@ -28,7 +75,7 @@ const ruleGroups: RuleGroup[] = [
   {
     key: "memory",
     labels: ["memory", "dram", "nand", "hbm", "記憶體", "內存"],
-    thesis: "Memory and HBM demand may create pricing and capacity reallocation benefits.",
+    thesis: "若 HBM 與記憶體需求持續擴張，DRAM／NAND 報價、產能重新配置與供應商稼動率值得持續追蹤。",
     items: [
       { symbol: "MU", companyName: "Micron", market: "US" },
       { symbol: "000660.KS", companyName: "SK Hynix", market: "KR" },
@@ -41,7 +88,7 @@ const ruleGroups: RuleGroup[] = [
   {
     key: "ai-power",
     labels: ["ai power", "grid", "data center power", "power infrastructure", "電力", "電網", "資料中心電力", "變壓器"],
-    thesis: "AI data center expansion can increase demand for power generation, grid equipment and power systems.",
+    thesis: "若 AI 資料中心持續擴建，發電、電網設備、變壓器與資料中心電力系統需求值得持續追蹤。",
     items: [
       { symbol: "GEV", companyName: "GE Vernova", market: "US" },
       { symbol: "ETN", companyName: "Eaton", market: "US" },
@@ -54,7 +101,7 @@ const ruleGroups: RuleGroup[] = [
   {
     key: "ai-cooling",
     labels: ["ai cooling", "liquid cooling", "thermal", "散熱", "液冷", "熱管理"],
-    thesis: "Higher AI server rack density can accelerate demand for liquid cooling and advanced thermal management.",
+    thesis: "若 AI 伺服器機櫃功率密度持續提高，液冷與高階熱管理需求值得持續追蹤。",
     items: [
       { symbol: "VRT", companyName: "Vertiv", market: "US" },
       { symbol: "3017.TW", companyName: "奇鋐", market: "TW" },
@@ -65,7 +112,7 @@ const ruleGroups: RuleGroup[] = [
   {
     key: "advanced-packaging",
     labels: ["cowos", "advanced packaging", "semiconductor packaging", "先進封裝", "封裝"],
-    thesis: "Advanced packaging capacity can become a bottleneck in AI accelerator supply chains.",
+    thesis: "若先進封裝產能持續成為 AI 加速器供應瓶頸，封測產能、設備與材料供應鏈值得持續追蹤。",
     items: [
       { symbol: "2330.TW", companyName: "台積電", market: "TW" },
       { symbol: "3711.TW", companyName: "日月光投控", market: "TW" },

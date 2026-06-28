@@ -6,6 +6,7 @@ import {
   type SignalStrengthInput,
 } from "@/lib/signals/signal-engine";
 import type { MarketCode } from "@/types/signals";
+import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
 
 type ArticleRow = {
   id: string;
@@ -732,7 +733,7 @@ export async function getMonthlySignalReport(options?: {
       const signals = finalizedSignals.length > 0
         ? finalizedSignals
         : count && count > 0
-          ? await getCurrentMonthlySignals(asOfDate)
+          ? await getMonthlyDiscoverySignals(asOfDate)
           : [];
       return {
         month,

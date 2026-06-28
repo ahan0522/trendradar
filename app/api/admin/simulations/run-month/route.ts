@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSecret } from "@/lib/admin-auth";
-import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
+import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
 
 type RunMonthBody = {
   year?: number;
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const asOfDate = lastDayOfMonth(year, month);
 
   try {
-    const signals = await getCurrentMonthlySignals(asOfDate);
+    const signals = await getMonthlyDiscoverySignals(asOfDate);
     return NextResponse.json({
       ok: true,
       mode: "time_machine_monthly_simulation",
