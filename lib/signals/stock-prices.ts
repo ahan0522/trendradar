@@ -10,6 +10,7 @@ type StockPriceRow = {
   volume: number | null;
   quality_status?: string | null;
   provider?: string | null;
+  verification_provider?: string | null;
 };
 
 function parseNumber(value: string | undefined) {
@@ -135,11 +136,12 @@ export async function getPriceOnOrAfter(
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("stock_prices")
-    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider")
+    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, verification_provider")
     .eq("symbol", symbol)
     .eq("market", market)
     .eq("quality_status", "verified")
     .gte("price_date", date);
+  if (market === "TW") query = query.like("verification_provider", "%yahoo-adjustment-v1%");
   if (maxDate) query = query.lte("price_date", maxDate);
   const { data, error } = await query
     .order("price_date", { ascending: true })
@@ -160,11 +162,12 @@ export async function getPriceOnOrBefore(
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("stock_prices")
-    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider")
+    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, verification_provider")
     .eq("symbol", symbol)
     .eq("market", market)
     .eq("quality_status", "verified")
     .lte("price_date", date);
+  if (market === "TW") query = query.like("verification_provider", "%yahoo-adjustment-v1%");
   if (minDate) query = query.gte("price_date", minDate);
   const { data, error } = await query
     .order("price_date", { ascending: false })

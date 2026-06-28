@@ -271,7 +271,7 @@ export async function upsertSignalOutcome(result: Awaited<ReturnType<typeof eval
 }
 
 export async function runBacktestForSignal(signalEventId: string) {
-  const horizons = [7, 14, 30, 60];
+  const horizons = [7, 14, 30, 60, 90];
   const results = [];
   for (const horizonDays of horizons) {
     const result = await evaluateSignalOutcome(signalEventId, horizonDays);

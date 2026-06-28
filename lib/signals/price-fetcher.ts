@@ -1,7 +1,8 @@
 import type { MarketCode, StockPrice } from "@/types/signals";
 import { upsertStockPrices } from "@/lib/signals/stock-prices";
+import { assessLatestPrice } from "@/lib/signals/price-quality";
 
-export type PriceSourceProvider = "twse" | "manual_required";
+export type PriceSourceProvider = "twse" | "tpex" | "yahoo_chart" | "manual_required";
 
 export type StockPriceFetchRequest = {
   symbol: string;
@@ -25,6 +26,38 @@ type TwseStockDayResponse = {
   date?: string;
   title?: string;
   data?: string[][];
+};
+
+type YahooChartResponse = {
+  chart?: {
+    result?: Array<{
+      meta?: {
+        symbol?: string;
+        currency?: string;
+        exchangeName?: string;
+      };
+      timestamp?: number[];
+      indicators?: {
+        quote?: Array<{
+          close?: Array<number | null>;
+          volume?: Array<number | null>;
+        }>;
+        adjclose?: Array<{
+          adjclose?: Array<number | null>;
+        }>;
+      };
+    }>;
+    error?: {
+      code?: string;
+      description?: string;
+    } | null;
+  };
+};
+
+type TpexTradingStockResponse = {
+  tables?: Array<{
+    data?: string[][];
+  }>;
 };
 
 function normalizeSymbol(symbol: string) {
@@ -58,8 +91,319 @@ function parseTwseRocDate(value: string) {
   return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+function parseTpexDate(value: string) {
+  return parseTwseRocDate(value);
+}
+
+async function fetchTpexPrice(
+  symbol: string,
+  requestedDate: string,
+  direction: "after" | "before",
+  rangeDays: number,
+): Promise<StockPriceFetchResult> {
+  const stockNo = stockNoFromTwSymbol(symbol);
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const edgeDate = addDays(requestedDate, direction === "after" ? rangeDays : -rangeDays);
+  const monthStarts = new Set([`${requestedDate.slice(0, 8)}01`, `${edgeDate.slice(0, 8)}01`]);
+  const candidates: StockPrice[] = [];
+
+  for (const monthStart of monthStarts) {
+    const queryDate = monthStart.replaceAll("-", "%2F");
+    const url = `https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?code=${encodeURIComponent(stockNo)}&date=${queryDate}&id=&response=json`;
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "TrendRadar/1.0 stock price validation",
+      },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      warnings.push(`TPEx request failed for ${stockNo} ${monthStart}: HTTP ${response.status}`);
+      continue;
+    }
+    const payload = (await response.json()) as TpexTradingStockResponse;
+    const rows = payload.tables?.[0]?.data ?? [];
+    for (const row of rows) {
+      const priceDate = parseTpexDate(row[0]);
+      const close = parseTwseNumber(row[6]);
+      if (!priceDate || close === null) continue;
+      if (direction === "after" && (priceDate < requestedDate || priceDate > edgeDate)) continue;
+      if (direction === "before" && (priceDate > requestedDate || priceDate < edgeDate)) continue;
+      candidates.push({
+        symbol: normalizeSymbol(symbol),
+        market: "TW",
+        priceDate,
+        close,
+        adjClose: close,
+        provider: "tpex-official",
+        sourceUrl: url,
+        fetchedAt: new Date().toISOString(),
+        qualityStatus: "verified",
+        verificationProvider: "tpex-official",
+      });
+    }
+  }
+
+  candidates.sort((a, b) =>
+    direction === "after"
+      ? a.priceDate.localeCompare(b.priceDate)
+      : b.priceDate.localeCompare(a.priceDate),
+  );
+  const price = candidates[0] ?? null;
+  if (!price) {
+    return {
+      symbol: normalizeSymbol(symbol),
+      market: "TW",
+      requestedDate,
+      provider: "tpex",
+      status: "skipped",
+      price: null,
+      warnings,
+      errors: [`No TPEx price found for ${symbol} ${direction === "after" ? "on or after" : "on or before"} ${requestedDate}.`],
+    };
+  }
+
+  if (direction === "after") validateFetchedPriceOnOrAfter(price, requestedDate, warnings, errors);
+  else validateFetchedPrice(price, requestedDate, warnings, errors);
+  return {
+    symbol: normalizeSymbol(symbol),
+    market: "TW",
+    requestedDate,
+    provider: "tpex",
+    status: errors.length > 0 ? "error" : "fetched",
+    price: errors.length > 0 ? null : price,
+    warnings,
+    errors,
+  };
+}
+
 function stockNoFromTwSymbol(symbol: string) {
   return normalizeSymbol(symbol).replace(".TW", "").replace(".TWO", "");
+}
+
+function yahooExpectedCurrency(market: MarketCode) {
+  if (market === "US") return "USD";
+  if (market === "TW") return "TWD";
+  if (market === "KR") return "KRW";
+  if (market === "JP") return "JPY";
+  return null;
+}
+
+function yahooPeriod(date: string, offsetDays: number) {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + offsetDays);
+  return Math.floor(value.getTime() / 1000);
+}
+
+async function fetchYahooPrice(
+  providerSymbol: string,
+  market: MarketCode,
+  requestedDate: string,
+  direction: "after" | "before",
+  rangeDays: number,
+  outputSymbol = providerSymbol,
+): Promise<StockPriceFetchResult> {
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const period1 = direction === "after"
+    ? yahooPeriod(requestedDate, -1)
+    : yahooPeriod(requestedDate, -rangeDays - 1);
+  const period2 = direction === "after"
+    ? yahooPeriod(requestedDate, rangeDays + 2)
+    : yahooPeriod(requestedDate, 2);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(providerSymbol)}?period1=${period1}&period2=${period2}&interval=1d&events=history`;
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "user-agent": "TrendRadar/1.0 historical price validation",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return {
+      symbol: outputSymbol,
+      market,
+      requestedDate,
+      provider: "yahoo_chart",
+      status: "error",
+      price: null,
+      warnings,
+      errors: [`Yahoo chart request failed: HTTP ${response.status}`],
+    };
+  }
+
+  const payload = (await response.json()) as YahooChartResponse;
+  const result = payload.chart?.result?.[0];
+  if (!result) {
+    return {
+      symbol: outputSymbol,
+      market,
+      requestedDate,
+      provider: "yahoo_chart",
+      status: "skipped",
+      price: null,
+      warnings,
+      errors: [payload.chart?.error?.description ?? "Yahoo chart returned no price data."],
+    };
+  }
+
+  if (normalizeSymbol(result.meta?.symbol ?? "") !== providerSymbol) {
+    errors.push(`Provider symbol mismatch: expected ${providerSymbol}, received ${result.meta?.symbol ?? "unknown"}`);
+  }
+  const expectedCurrency = yahooExpectedCurrency(market);
+  if (expectedCurrency && result.meta?.currency !== expectedCurrency) {
+    errors.push(`Provider currency mismatch: expected ${expectedCurrency}, received ${result.meta?.currency ?? "unknown"}`);
+  }
+
+  const timestamps = result.timestamp ?? [];
+  const closes = result.indicators?.quote?.[0]?.close ?? [];
+  const adjusted = result.indicators?.adjclose?.[0]?.adjclose ?? [];
+  const volumes = result.indicators?.quote?.[0]?.volume ?? [];
+  const candidates: StockPrice[] = [];
+
+  for (let index = 0; index < timestamps.length; index += 1) {
+    const close = closes[index];
+    if (close === null || close === undefined || !Number.isFinite(close) || close <= 0) continue;
+    const priceDate = new Date(timestamps[index] * 1000).toISOString().slice(0, 10);
+    if (direction === "after" && priceDate < requestedDate) continue;
+    if (direction === "before" && priceDate > requestedDate) continue;
+    const adjClose = adjusted[index];
+    const volume = volumes[index];
+    candidates.push({
+      symbol: outputSymbol,
+      market,
+      priceDate,
+      close,
+      adjClose: adjClose !== null && adjClose !== undefined && adjClose > 0 ? adjClose : close,
+      volume: volume !== null && volume !== undefined && volume >= 0 ? volume : undefined,
+      provider: "yahoo-chart",
+      sourceUrl: url,
+      fetchedAt: new Date().toISOString(),
+      qualityStatus: "verified",
+      verificationProvider: "yahoo-chart-structural-v1",
+    });
+  }
+
+  candidates.sort((a, b) =>
+    direction === "after"
+      ? a.priceDate.localeCompare(b.priceDate)
+      : b.priceDate.localeCompare(a.priceDate),
+  );
+  const price = candidates[0] ?? null;
+  if (!price) {
+    return {
+      symbol: outputSymbol,
+      market,
+      requestedDate,
+      provider: "yahoo_chart",
+      status: "skipped",
+      price: null,
+      warnings,
+      errors: [`No ${market} price found ${direction === "after" ? "on or after" : "on or before"} ${requestedDate}.`],
+    };
+  }
+
+  if (direction === "after") validateFetchedPriceOnOrAfter(price, requestedDate, warnings, errors);
+  else validateFetchedPrice(price, requestedDate, warnings, errors);
+
+  if (price.adjClose && Math.abs(price.adjClose / price.close - 1) > 0.5) {
+    warnings.push("Adjusted close differs from close by more than 50%; retained for split/dividend adjustment review.");
+  }
+
+  const quality = assessLatestPrice(outputSymbol, market, {
+    priceDate: price.priceDate,
+    close: price.close,
+    adjClose: price.adjClose ?? null,
+    volume: price.volume ?? null,
+    qualityStatus: price.qualityStatus,
+    provider: price.provider,
+    sourceUrl: price.sourceUrl,
+  });
+  if (quality.status !== "verified") {
+    errors.push(quality.reason ?? "Price failed sanity validation.");
+  }
+
+  return {
+    symbol: outputSymbol,
+    market,
+    requestedDate,
+    provider: "yahoo_chart",
+    status: errors.length > 0 ? "error" : "fetched",
+    price: errors.length > 0 ? null : price,
+    warnings,
+    errors,
+  };
+}
+
+async function verifyTwPriceAdjustment(
+  official: StockPriceFetchResult,
+  requestedDate: string,
+  direction: "after" | "before",
+  rangeDays: number,
+  providerSymbol: string,
+): Promise<StockPriceFetchResult> {
+  if (!official.price) return official;
+
+  const adjusted = await fetchYahooPrice(
+    providerSymbol,
+    "TW",
+    requestedDate,
+    direction,
+    rangeDays,
+    official.symbol,
+  );
+  if (!adjusted.price) {
+    return {
+      ...official,
+      status: "skipped",
+      price: null,
+      warnings: [...official.warnings, ...adjusted.warnings],
+      errors: [
+        ...official.errors,
+        ...adjusted.errors,
+        "Official close could not be paired with an adjusted close.",
+      ],
+    };
+  }
+
+  if (adjusted.price.priceDate !== official.price.priceDate) {
+    return {
+      ...official,
+      status: "error",
+      price: null,
+      errors: [
+        ...official.errors,
+        `Cross-source date mismatch: official ${official.price.priceDate}, adjusted ${adjusted.price.priceDate}`,
+      ],
+    };
+  }
+
+  const closeDifference = Math.abs(adjusted.price.close / official.price.close - 1);
+  if (closeDifference > 0.03) {
+    return {
+      ...official,
+      status: "error",
+      price: null,
+      errors: [
+        ...official.errors,
+        `Cross-source close mismatch: official ${official.price.close}, Yahoo ${adjusted.price.close}`,
+      ],
+    };
+  }
+
+  return {
+    ...official,
+    status: "fetched",
+    price: {
+      ...official.price,
+      adjClose: adjusted.price.adjClose ?? adjusted.price.close,
+      provider: `${official.price.provider}+yahoo-chart`,
+      verificationProvider: `${official.price.verificationProvider}+yahoo-adjustment-v1`,
+    },
+    warnings: [...official.warnings, ...adjusted.warnings],
+  };
 }
 
 function validateFetchedPrice(price: StockPrice, requestedDate: string, warnings: string[], errors: string[]) {
@@ -295,7 +639,24 @@ export async function fetchValidatedStockPriceOnOrBefore(
   }
 
   if (request.market === "TW") {
-    return fetchTwseListedPriceOnOrBefore(symbol, date, lookbackDays);
+    const twse = await fetchTwseListedPriceOnOrBefore(symbol, date, lookbackDays);
+    if (twse.price) {
+      return verifyTwPriceAdjustment(twse, date, "before", lookbackDays, symbol);
+    }
+    const tpex = await fetchTpexPrice(symbol, date, "before", lookbackDays);
+    return tpex.price
+      ? verifyTwPriceAdjustment(
+          { ...tpex, warnings: [...twse.warnings, ...tpex.warnings] },
+          date,
+          "before",
+          lookbackDays,
+          symbol.replace(/\.TW$/, ".TWO"),
+        )
+      : { ...tpex, warnings: [...twse.warnings, ...tpex.warnings], errors: [...twse.errors, ...tpex.errors] };
+  }
+
+  if (request.market === "US" || request.market === "KR" || request.market === "JP") {
+    return fetchYahooPrice(symbol, request.market, date, "before", lookbackDays);
   }
 
   return {
@@ -330,7 +691,25 @@ export async function fetchValidatedStockPriceOnOrAfter(
       errors: [`Date must use YYYY-MM-DD format: ${request.date}`],
     };
   }
-  if (request.market === "TW") return fetchTwseListedPriceOnOrAfter(symbol, date, lookforwardDays);
+  if (request.market === "TW") {
+    const twse = await fetchTwseListedPriceOnOrAfter(symbol, date, lookforwardDays);
+    if (twse.price) {
+      return verifyTwPriceAdjustment(twse, date, "after", lookforwardDays, symbol);
+    }
+    const tpex = await fetchTpexPrice(symbol, date, "after", lookforwardDays);
+    return tpex.price
+      ? verifyTwPriceAdjustment(
+          { ...tpex, warnings: [...twse.warnings, ...tpex.warnings] },
+          date,
+          "after",
+          lookforwardDays,
+          symbol.replace(/\.TW$/, ".TWO"),
+        )
+      : { ...tpex, warnings: [...twse.warnings, ...tpex.warnings], errors: [...twse.errors, ...tpex.errors] };
+  }
+  if (request.market === "US" || request.market === "KR" || request.market === "JP") {
+    return fetchYahooPrice(symbol, request.market, date, "after", lookforwardDays);
+  }
   return {
     symbol,
     market: request.market,

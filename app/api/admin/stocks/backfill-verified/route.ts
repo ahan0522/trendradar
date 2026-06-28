@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSecret } from "@/lib/admin-auth";
-import { backfillVerifiedTwsePrices } from "@/lib/signals/verified-price-backfill";
+import { backfillVerifiedSignalPrices } from "@/lib/signals/verified-price-backfill";
 
 type RequestBody = {
   signalEventId?: string;
+  signalIdPrefix?: string;
   signalLimit?: number;
   dryRun?: boolean;
 };
@@ -14,8 +15,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json().catch(() => ({}))) as RequestBody;
-    return NextResponse.json(await backfillVerifiedTwsePrices({
+    return NextResponse.json(await backfillVerifiedSignalPrices({
       signalEventId: body.signalEventId,
+      signalIdPrefix: body.signalIdPrefix,
       signalLimit: body.signalLimit,
       dryRun: body.dryRun ?? true,
     }));

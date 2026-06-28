@@ -66,6 +66,40 @@ type CommodityQuoteRow = {
   quality_status: string;
 };
 
+type OutcomeRow = {
+  signal_event_id: string;
+  horizon_days: number;
+  basket_return: number;
+  benchmark_return: number;
+  excess_return: number;
+  outcome: "success" | "partial" | "failed" | "pending";
+};
+
+type LedgerSignalRow = {
+  id: string;
+  signal_date: string;
+  as_of_date: string;
+  topic: string;
+  signal_type: "news" | "price" | "supply_chain" | "company_action" | "mixed";
+  signal_strength: number;
+  confidence_score: number;
+  hypothesis: string;
+  evidence: unknown[];
+  status: "active" | "validated" | "partial" | "failed";
+  model_version: string | null;
+};
+
+type LedgerWatchlistRow = {
+  id: string;
+  signal_event_id: string;
+  symbol: string;
+  company_name: string;
+  market: MarketCode;
+  thesis: string;
+  weight: number;
+  source: string | null;
+};
+
 type WatchItem = {
   symbol: string;
   companyName: string;
@@ -430,6 +464,31 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
   }
 
   const month = asOfDate.slice(0, 7);
+  const signalIds = candidates.map((candidate) => `monthly-${month}-${candidate.rule.key}`);
+  const { data: outcomeRows, error: outcomeError } =
+    signalIds.length > 0
+      ? await supabase
+          .from("signal_outcomes")
+          .select("signal_event_id, horizon_days, basket_return, benchmark_return, excess_return, outcome")
+          .in("signal_event_id", signalIds)
+          .order("horizon_days", { ascending: true })
+          .returns<OutcomeRow[]>()
+      : { data: [] as OutcomeRow[], error: null };
+  if (outcomeError) throw outcomeError;
+
+  const outcomesBySignal = new Map<string, OutcomeRow[]>();
+  for (const outcome of outcomeRows ?? []) {
+    const rows = outcomesBySignal.get(outcome.signal_event_id) ?? [];
+    rows.push({
+      ...outcome,
+      horizon_days: Number(outcome.horizon_days),
+      basket_return: Number(outcome.basket_return),
+      benchmark_return: Number(outcome.benchmark_return),
+      excess_return: Number(outcome.excess_return),
+    });
+    outcomesBySignal.set(outcome.signal_event_id, rows);
+  }
+
   return candidates.map((candidate) => {
     const articleCount = candidate.articles.length;
     const sourceCount = candidate.sourceNames.size;
@@ -442,6 +501,13 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       published_at: article.published_at,
     }));
     const signalId = `monthly-${month}-${candidate.rule.key}`;
+    const signalOutcomes = outcomesBySignal.get(signalId) ?? [];
+    const completedOutcomes = signalOutcomes.filter((item) => item.outcome !== "pending");
+    const latestOutcome = completedOutcomes.at(-1) ?? null;
+    const bestOutcome = completedOutcomes.reduce<OutcomeRow | null>(
+      (best, item) => !best || item.excess_return > best.excess_return ? item : best,
+      null,
+    );
     const candidateSymbols = new Set(candidate.rule.watchlist.map((item) => item.symbol));
     const relevantCompanyActions = (companyActions ?? [])
       .filter((item) => candidateSymbols.has(item.company_symbol))
@@ -532,8 +598,9 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           priceQuality: publishable.priceQuality,
         };
       }),
-      latestOutcome: null,
-      bestOutcome: null,
+      outcomes: signalOutcomes,
+      latestOutcome,
+      bestOutcome,
     };
   });
 }
@@ -548,6 +615,104 @@ export async function getMonthlySignalReport(options?: {
   const endMonth = options?.endMonth ?? today.slice(0, 7);
   const supabase = getSupabaseAdmin();
   const months = monthRange(startMonth, endMonth);
+  const reportEndDate = asOfDateForMonth(endMonth, today);
+  const { data: ledgerRows, error: ledgerError } = await supabase
+    .from("signal_events")
+    .select("id, signal_date, as_of_date, topic, signal_type, signal_strength, confidence_score, hypothesis, evidence, status, model_version")
+    .like("id", "monthly-%")
+    .gte("signal_date", `${startMonth}-01`)
+    .lte("signal_date", reportEndDate)
+    .order("signal_date", { ascending: true })
+    .returns<LedgerSignalRow[]>();
+  if (ledgerError) throw ledgerError;
+
+  const ledgerIds = (ledgerRows ?? []).map((item) => item.id);
+  const [{ data: ledgerWatchlists, error: ledgerWatchlistError }, { data: ledgerOutcomes, error: ledgerOutcomeError }] =
+    ledgerIds.length > 0
+      ? await Promise.all([
+          supabase
+            .from("signal_watchlists")
+            .select("id, signal_event_id, symbol, company_name, market, thesis, weight, source")
+            .in("signal_event_id", ledgerIds)
+            .order("weight", { ascending: false })
+            .returns<LedgerWatchlistRow[]>(),
+          supabase
+            .from("signal_outcomes")
+            .select("signal_event_id, horizon_days, basket_return, benchmark_return, excess_return, outcome")
+            .in("signal_event_id", ledgerIds)
+            .order("horizon_days", { ascending: true })
+            .returns<OutcomeRow[]>(),
+        ])
+      : [
+          { data: [] as LedgerWatchlistRow[], error: null },
+          { data: [] as OutcomeRow[], error: null },
+        ];
+  if (ledgerWatchlistError) throw ledgerWatchlistError;
+  if (ledgerOutcomeError) throw ledgerOutcomeError;
+
+  const watchlistsBySignal = new Map<string, LedgerWatchlistRow[]>();
+  for (const item of ledgerWatchlists ?? []) {
+    const rows = watchlistsBySignal.get(item.signal_event_id) ?? [];
+    rows.push(item);
+    watchlistsBySignal.set(item.signal_event_id, rows);
+  }
+  const ledgerOutcomesBySignal = new Map<string, OutcomeRow[]>();
+  for (const item of ledgerOutcomes ?? []) {
+    const rows = ledgerOutcomesBySignal.get(item.signal_event_id) ?? [];
+    rows.push({
+      ...item,
+      horizon_days: Number(item.horizon_days),
+      basket_return: Number(item.basket_return),
+      benchmark_return: Number(item.benchmark_return),
+      excess_return: Number(item.excess_return),
+    });
+    ledgerOutcomesBySignal.set(item.signal_event_id, rows);
+  }
+
+  const ledgerByMonth = new Map<string, ReturnType<typeof mapLedgerSignal>[]>();
+  function mapLedgerSignal(item: LedgerSignalRow) {
+    const outcomes = ledgerOutcomesBySignal.get(item.id) ?? [];
+    const completed = outcomes.filter((outcome) => outcome.outcome !== "pending");
+    const latestOutcome = completed.at(-1) ?? null;
+    const bestOutcome = completed.reduce<OutcomeRow | null>(
+      (best, outcome) => !best || outcome.excess_return > best.excess_return ? outcome : best,
+      null,
+    );
+    const watchlists = (watchlistsBySignal.get(item.id) ?? []).map((watchlist) => ({
+      symbol: watchlist.symbol,
+      companyName: watchlist.company_name,
+      market: watchlist.market,
+      thesis: watchlist.thesis,
+      weight: Number(watchlist.weight),
+      source: watchlist.source ?? "monthly-rule-based",
+      latestPrice: null,
+      priceQuality: { status: "needs_review" as const, reason: "歷史封存頁不顯示目前價格" },
+    }));
+    return {
+      id: item.id,
+      signalDate: item.signal_date,
+      asOfDate: item.as_of_date,
+      topic: item.topic,
+      signalType: item.signal_type,
+      signalStrength: Number(item.signal_strength),
+      confidenceScore: Number(item.confidence_score),
+      hypothesis: item.hypothesis,
+      evidence: item.evidence,
+      status: item.status,
+      modelVersion: item.model_version ?? "monthly-signal-v2",
+      watchlistCount: watchlists.length,
+      watchlists,
+      outcomes,
+      latestOutcome,
+      bestOutcome,
+    };
+  }
+  for (const item of ledgerRows ?? []) {
+    const month = item.signal_date.slice(0, 7);
+    const rows = ledgerByMonth.get(month) ?? [];
+    rows.push(mapLedgerSignal(item));
+    ledgerByMonth.set(month, rows);
+  }
 
   const rows = await Promise.all(
     months.map(async (month) => {
@@ -563,7 +728,12 @@ export async function getMonthlySignalReport(options?: {
 
       if (error) throw error;
 
-      const signals = count && count > 0 ? await getCurrentMonthlySignals(asOfDate) : [];
+      const finalizedSignals = ledgerByMonth.get(month) ?? [];
+      const signals = finalizedSignals.length > 0
+        ? finalizedSignals
+        : count && count > 0
+          ? await getCurrentMonthlySignals(asOfDate)
+          : [];
       return {
         month,
         asOfDate,

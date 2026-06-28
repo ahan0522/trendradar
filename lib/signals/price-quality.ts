@@ -24,7 +24,10 @@ const sanityRanges: Record<string, { min: number; max: number; note: string }> =
   "VRT::US": { min: 20, max: 300, note: "Vertiv normal USD quote range" },
   "ABB::US": { min: 20, max: 120, note: "ABB ADR normal USD quote range" },
   "AMKR::US": { min: 5, max: 80, note: "Amkor normal USD quote range" },
+  "SPY::US": { min: 100, max: 1200, note: "SPY split-adjusted USD quote range" },
+  "QQQ::US": { min: 100, max: 1200, note: "QQQ split-adjusted USD quote range" },
 
+  "0050.TW::TW": { min: 20, max: 350, note: "元大台灣50除權息調整後合理區間" },
   "2330.TW::TW": { min: 300, max: 3000, note: "台積電台股報價合理區間" },
   "2317.TW::TW": { min: 30, max: 500, note: "鴻海台股報價合理區間" },
   "6669.TW::TW": { min: 500, max: 8000, note: "緯穎台股報價合理區間" },

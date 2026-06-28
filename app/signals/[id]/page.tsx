@@ -303,7 +303,7 @@ function buildTimeline(signal: NonNullable<ApiResponse["signal"]>, watchlistCoun
     { label: signal.signalDate, title: "偵測到訊號", body: `TrendRadar 僅使用 ${signal.asOfDate} 以前可取得的資訊形成這個候選訊號。`, state: "done" },
     { label: "證據", title: "建立初步證據", body: "整理主題熱度、來源多樣性與當時可取得的市場脈絡。", state: "done" },
     { label: "標的", title: "建立觀察籃子", body: watchlistCount > 0 ? `已映射 ${watchlistCount} 檔相關標的，等待後續驗證。` : "尚未建立受惠標的觀察籃子。", state: watchlistCount > 0 ? "done" : "pending" },
-    { label: "7/14/30/60D", title: "前瞻回測", body: outcomeCount > 0 ? `目前共有 ${outcomeCount} 個驗證期間。` : "股價資料完整後，才會驗證訊號日之後的報酬。", state: outcomeCount > 0 ? "done" : "pending" },
+    { label: "7/14/30/60/90D", title: "前瞻回測", body: outcomeCount > 0 ? `目前共有 ${outcomeCount} 個驗證期間。` : "股價資料完整後，才會驗證訊號日之後的報酬。", state: outcomeCount > 0 ? "done" : "pending" },
     { label: "驗證", title: "研究復盤", body: outcomeCount > 0 ? "將觀察籃子與 benchmark 比較，判斷訊號是否產生超額報酬。" : "等待觀察籃子與 benchmark 資料完整。", state: outcomeCount > 0 ? "done" : "pending" },
   ];
 }
@@ -600,6 +600,7 @@ export default function SignalDetailPage() {
                   <th className="px-6 py-4">14D</th>
                   <th className="px-6 py-4">30D</th>
                   <th className="px-6 py-4">60D</th>
+                  <th className="px-6 py-4">90D</th>
                 </tr>
               </thead>
               <tbody>
@@ -612,6 +613,7 @@ export default function SignalDetailPage() {
                     <td className="px-6 py-4 font-mono text-zinc-400">{pct(row.returns[14])}</td>
                     <td className="px-6 py-4 font-mono text-zinc-400">{pct(row.returns[30])}</td>
                     <td className="px-6 py-4 font-mono text-zinc-400">{pct(row.returns[60])}</td>
+                    <td className="px-6 py-4 font-mono text-zinc-400">{pct(row.returns[90])}</td>
                   </tr>
                 ))}
                 {returnRows.length === 0 ? (

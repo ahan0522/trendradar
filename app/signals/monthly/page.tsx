@@ -41,6 +41,18 @@ function evidenceText(signal: MonthlySignal) {
   };
 }
 
+function formatPct(value: number) {
+  const normalized = Number(value);
+  return `${normalized >= 0 ? "+" : ""}${normalized.toFixed(2)}%`;
+}
+
+function outcomeLabel(value: string) {
+  if (value === "success") return "成立";
+  if (value === "partial") return "部分成立";
+  if (value === "failed") return "未成立";
+  return "待驗證";
+}
+
 export default async function MonthlySignalsPage() {
   const report = await getMonthlySignalReport({
     startMonth: "2025-01",
@@ -123,6 +135,21 @@ export default async function MonthlySignalsPage() {
                           <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Strength {signal.signalStrength} · Confidence {signal.confidenceScore}</p>
                           <h3 className="mt-2 text-2xl font-black text-white">{signal.topic}</h3>
                           <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-400">{signal.hypothesis}</p>
+                          {signal.latestOutcome ? (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <span className="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-xs font-black text-emerald-200">
+                                {signal.latestOutcome.horizon_days}D {outcomeLabel(signal.latestOutcome.outcome)}
+                              </span>
+                              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs font-bold text-zinc-300">
+                                Basket {formatPct(signal.latestOutcome.basket_return)}
+                              </span>
+                              <span className="rounded-full border border-zinc-700 bg-zinc-950 px-3 py-1 text-xs font-bold text-zinc-300">
+                                Alpha {formatPct(signal.latestOutcome.excess_return)}
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="mt-4 text-xs font-bold text-amber-300">價格與基準資料尚待驗證</p>
+                          )}
                         </div>
                         <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-400">
                           <p>當月文章：<span className="font-black text-white">{evidence.articleCount}</span></p>
@@ -154,6 +181,11 @@ export default async function MonthlySignalsPage() {
                             ))}
                           </div>
                         </div>
+                      </div>
+                      <div className="mt-5 border-t border-zinc-800 pt-4">
+                        <Link href={`/signals/${signal.id}`} className="text-sm font-black text-sky-300 transition hover:text-sky-200">
+                          查看完整證據、觀察籃子與回測 →
+                        </Link>
                       </div>
                     </div>
                   );

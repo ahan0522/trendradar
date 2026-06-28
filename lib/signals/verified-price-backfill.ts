@@ -9,6 +9,7 @@ import type { MarketCode, StockPrice } from "@/types/signals";
 type SignalRow = {
   id: string;
   signal_date: string;
+  signal_type: string;
 };
 
 type WatchlistRow = {
@@ -32,19 +33,29 @@ function currentTaipeiDate() {
   }).format(new Date());
 }
 
-export async function backfillVerifiedTwsePrices(options?: {
+function benchmarkFor(signalType: string, markets: MarketCode[]) {
+  if (markets.length > 0 && markets.every((market) => market === "TW")) {
+    return { symbol: "0050.TW", market: "TW" as MarketCode };
+  }
+  if (signalType === "mixed") return { symbol: "QQQ", market: "US" as MarketCode };
+  return { symbol: "SPY", market: "US" as MarketCode };
+}
+
+export async function backfillVerifiedSignalPrices(options?: {
   signalEventId?: string;
+  signalIdPrefix?: string;
   signalLimit?: number;
   dryRun?: boolean;
 }) {
   const supabase = getSupabaseAdmin();
-  const signalLimit = Math.max(1, Math.min(options?.signalLimit ?? 10, 50));
+  const signalLimit = Math.max(1, Math.min(options?.signalLimit ?? 10, 100));
   let signalQuery = supabase
     .from("signal_events")
-    .select("id, signal_date")
+    .select("id, signal_date, signal_type")
     .order("signal_date", { ascending: false })
     .limit(signalLimit);
   if (options?.signalEventId) signalQuery = signalQuery.eq("id", options.signalEventId);
+  if (options?.signalIdPrefix) signalQuery = signalQuery.like("id", `${options.signalIdPrefix}%`);
 
   const { data: signals, error: signalError } = await signalQuery.returns<SignalRow[]>();
   if (signalError) throw signalError;
@@ -55,7 +66,6 @@ export async function backfillVerifiedTwsePrices(options?: {
     .from("signal_watchlists")
     .select("signal_event_id, symbol, market")
     .in("signal_event_id", signalIds)
-    .eq("market", "TW")
     .returns<WatchlistRow[]>();
   if (watchlistError) throw watchlistError;
 
@@ -63,40 +73,68 @@ export async function backfillVerifiedTwsePrices(options?: {
   const today = currentTaipeiDate();
   const requests = new Map<string, { symbol: string; market: MarketCode; date: string; direction: "after" | "before" }>();
 
+  const watchlistsBySignal = new Map<string, WatchlistRow[]>();
   for (const item of watchlists ?? []) {
-    const signal = signalById.get(item.signal_event_id);
-    if (!signal) continue;
-    requests.set(`${item.symbol}|${signal.signal_date}|after`, {
-      symbol: item.symbol,
-      market: "TW",
-      date: signal.signal_date,
+    const rows = watchlistsBySignal.get(item.signal_event_id) ?? [];
+    rows.push(item);
+    watchlistsBySignal.set(item.signal_event_id, rows);
+  }
+
+  const queueItem = (symbol: string, market: MarketCode, signalDate: string) => {
+    requests.set(`${symbol}|${market}|${signalDate}|after`, {
+      symbol,
+      market,
+      date: signalDate,
       direction: "after",
     });
-    for (const horizon of [7, 14, 30, 60]) {
-      const evaluationDate = addDays(signal.signal_date, horizon);
+    for (const horizon of [7, 14, 30, 60, 90]) {
+      const evaluationDate = addDays(signalDate, horizon);
       if (evaluationDate > today) continue;
-      requests.set(`${item.symbol}|${evaluationDate}|before`, {
-        symbol: item.symbol,
-        market: "TW",
+      requests.set(`${symbol}|${market}|${evaluationDate}|before`, {
+        symbol,
+        market,
         date: evaluationDate,
         direction: "before",
       });
     }
+  };
+
+  for (const item of watchlists ?? []) {
+    const signal = signalById.get(item.signal_event_id);
+    if (!signal) continue;
+    queueItem(item.symbol, item.market, signal.signal_date);
+  }
+
+  for (const signal of signals ?? []) {
+    const markets = (watchlistsBySignal.get(signal.id) ?? []).map((item) => item.market);
+    const benchmark = benchmarkFor(signal.signal_type, markets);
+    queueItem(benchmark.symbol, benchmark.market, signal.signal_date);
   }
 
   const prices: StockPrice[] = [];
   const skipped: Array<{ symbol: string; date: string; direction: string; reason: string }> = [];
-  for (const request of requests.values()) {
-    const result = request.direction === "after"
-      ? await fetchValidatedStockPriceOnOrAfter(request)
-      : await fetchValidatedStockPriceOnOrBefore(request);
-    if (result.price) prices.push(result.price);
-    else skipped.push({
-      symbol: request.symbol,
-      date: request.date,
-      direction: request.direction,
-      reason: [...result.errors, ...result.warnings].join(" ") || "No verified price",
-    });
+  const pendingRequests = [...requests.values()];
+  const batchSize = 4;
+  for (let offset = 0; offset < pendingRequests.length; offset += batchSize) {
+    const batch = pendingRequests.slice(offset, offset + batchSize);
+    const results = await Promise.all(
+      batch.map((request) =>
+        request.direction === "after"
+          ? fetchValidatedStockPriceOnOrAfter(request)
+          : fetchValidatedStockPriceOnOrBefore(request),
+      ),
+    );
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const request = batch[index];
+      if (result.price) prices.push(result.price);
+      else skipped.push({
+        symbol: request.symbol,
+        date: request.date,
+        direction: request.direction,
+        reason: [...result.errors, ...result.warnings].join(" ") || "No verified price",
+      });
+    }
   }
 
   const uniquePrices = [...new Map(prices.map((item) => [`${item.symbol}|${item.market}|${item.priceDate}`, item])).values()];
@@ -112,3 +150,5 @@ export async function backfillVerifiedTwsePrices(options?: {
     samples: uniquePrices.slice(0, 5),
   };
 }
+
+export const backfillVerifiedTwsePrices = backfillVerifiedSignalPrices;
