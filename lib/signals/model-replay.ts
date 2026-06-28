@@ -226,7 +226,7 @@ export async function runModelReplayRange(options: {
 
   const { error: runError } = await supabase.from("model_replay_runs").upsert({
     id: runId,
-    candidate_model_version: "monthly-full-market-v1",
+    candidate_model_version: "monthly-full-market-v2",
     baseline_model_version: "monthly-signal-v2",
     start_month: options.startMonth,
     end_month: options.endMonth,

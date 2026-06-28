@@ -11,6 +11,25 @@ export type SignalStrengthInput = {
   beneficiaryClarity?: number;
 };
 
+export type SignalHeatInput = {
+  mentionSpike?: number;
+  velocity?: number;
+  articleVolume?: number;
+  sourceDiversity?: number;
+  persistence?: number;
+};
+
+export type ResearchConfidenceInput = {
+  sourceQuality?: number;
+  sourceDiversity?: number;
+  evidenceDepth?: number;
+  persistence?: number;
+  companyActivity?: number;
+  beneficiaryClarity?: number;
+  priceConfirmation?: number;
+  contradictionPenalty?: number;
+};
+
 export type SignalConvictionStatus = "high_conviction" | "rising" | "watch" | "weak";
 
 export type SignalScoreComponent = {
@@ -134,6 +153,29 @@ export function calculateSignalStrength(input: SignalStrengthInput) {
     (input.companyActivity ?? 0) * 0.1 +
     (input.beneficiaryClarity ?? 0) * 0.15;
 
+  return clampScore(score);
+}
+
+export function calculateSignalHeat(input: SignalHeatInput) {
+  const score =
+    (input.mentionSpike ?? 0) * 0.3 +
+    (input.velocity ?? 0) * 0.25 +
+    (input.articleVolume ?? 0) * 0.15 +
+    (input.sourceDiversity ?? 0) * 0.15 +
+    (input.persistence ?? 0) * 0.15;
+  return clampScore(score);
+}
+
+export function calculateResearchConfidence(input: ResearchConfidenceInput) {
+  const score =
+    (input.sourceQuality ?? 0) * 0.25 +
+    (input.sourceDiversity ?? 0) * 0.15 +
+    (input.evidenceDepth ?? 0) * 0.15 +
+    (input.persistence ?? 0) * 0.15 +
+    (input.companyActivity ?? 0) * 0.1 +
+    (input.beneficiaryClarity ?? 0) * 0.1 +
+    (input.priceConfirmation ?? 0) * 0.1 -
+    (input.contradictionPenalty ?? 0) * 0.2;
   return clampScore(score);
 }
 

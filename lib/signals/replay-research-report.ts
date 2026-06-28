@@ -153,11 +153,17 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     .slice(0, 3);
   const coverageLift = Number(replay.summary.coverageBreadthLift ?? 0);
   const familyPerformance = groupPerformance(candidateCases, (item) => item.family);
-  const strengthCalibration = groupPerformance(candidateCases, (item) => {
+  const heatCalibration = groupPerformance(candidateCases, (item) => {
     if (item.strength === null) return "unknown";
     if (item.strength >= 50) return "50+";
     if (item.strength >= 40) return "40-49";
     return "<40";
+  });
+  const confidenceCalibration = groupPerformance(candidateCases, (item) => {
+    if (item.confidence === null) return "unknown";
+    if (item.confidence >= 65) return "65+";
+    if (item.confidence >= 55) return "55-64";
+    return "<55";
   });
   const reliableFamilies = familyPerformance.filter((item) => item.sampleCount >= 3);
   const bestFamily = [...reliableFamilies].sort(
@@ -166,8 +172,10 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
   const weakestFamily = [...reliableFamilies].sort(
     (a, b) => Number(a.averageExcessReturn) - Number(b.averageExcessReturn),
   )[0];
-  const highStrength = strengthCalibration.find((item) => item.key === "50+");
-  const middleStrength = strengthCalibration.find((item) => item.key === "40-49");
+  const highStrength = heatCalibration.find((item) => item.key === "50+");
+  const middleStrength = heatCalibration.find((item) => item.key === "40-49");
+  const highConfidence = confidenceCalibration.find((item) => item.key === "65+");
+  const middleConfidence = confidenceCalibration.find((item) => item.key === "55-64");
   const recommendations: string[] = [];
   if (bestFamily) {
     recommendations.push(
@@ -186,7 +194,20 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     middleStrength?.averageExcessReturn !== undefined &&
     highStrength.averageExcessReturn <= middleStrength.averageExcessReturn
   ) {
-    recommendations.push("Strength 50+ 尚未明顯優於 40-49，表示目前分數適合排序熱度，還不能直接解讀為較高報酬機率。");
+    recommendations.push("Heat 50+ 尚未明顯優於 Heat 40-49；Heat 只描述市場升溫程度，不應解讀為較高報酬機率。");
+  }
+  if (
+    highConfidence?.sampleCount &&
+    middleConfidence?.sampleCount &&
+    highConfidence.sampleCount >= 5 &&
+    middleConfidence.sampleCount >= 5
+  ) {
+    const successDelta = highConfidence.successRate - middleConfidence.successRate;
+    recommendations.push(
+      Math.abs(successDelta) < 0.05
+        ? "高研究信心組與中研究信心組的成功率仍接近；需要加入公司行動與價格確認，才能提高信心分數的辨識力。"
+        : `研究信心 65+ 的成功率較 55-64 組${successDelta > 0 ? "高" : "低"} ${Math.abs(successDelta * 100).toFixed(1)} 個百分點，先視為校準線索而非定論。`,
+    );
   }
   if (backtest.summary.missingPriceCount > 0) {
     recommendations.push(`仍有 ${backtest.summary.missingPriceCount} 個訊號缺少完整驗證價格，模型調整前需避免把缺失樣本視為失敗。`);
@@ -223,7 +244,8 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     failedCases,
     diagnostics: {
       familyPerformance,
-      strengthCalibration,
+      heatCalibration,
+      confidenceCalibration,
       recommendations,
     },
   };

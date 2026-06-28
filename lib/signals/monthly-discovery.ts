@@ -11,7 +11,8 @@ import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import {
   buildEvidenceBasedHypothesis,
   buildSignalScoreComponents,
-  calculateSignalStrength,
+  calculateResearchConfidence,
+  calculateSignalHeat,
 } from "@/lib/signals/signal-engine";
 
 type ArticleRow = {
@@ -72,6 +73,34 @@ function stableSlug(value: string) {
     .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 64);
+}
+
+function sourceCredibilityScore(sourceName: string) {
+  if (/政府|部會|證交所|公開資訊觀測站|公司公告|法說|Reuters|Bloomberg|路透|彭博/i.test(sourceName)) {
+    return 95;
+  }
+  if (/中央社|CNA|經濟日報|工商時報|科技新報|TechNews|TrendForce|DIGITIMES|日經|Nikkei|金融時報|Financial Times|華爾街日報|Wall Street Journal/i.test(sourceName)) {
+    return 85;
+  }
+  if (/聯合|UDN|自由|中時|公視|商業周刊|今周刊|財訊|MoneyDJ|鉅亨網|TechCrunch|The Verge|Engadget/i.test(sourceName)) {
+    return 72;
+  }
+  if (/Google News|Yahoo|LINE TODAY|MSN|CMoney|鉅亨號|PChome|蕃新聞|商傳媒|投資網誌/i.test(sourceName)) {
+    return 42;
+  }
+  return 58;
+}
+
+function candidateSourceQuality(candidate: CandidateTopic) {
+  const uniqueSources = new Map<string, number>();
+  for (const article of candidate.articles) {
+    const sourceName = article.sourceName.trim();
+    if (!sourceName) continue;
+    uniqueSources.set(sourceName, sourceCredibilityScore(sourceName));
+  }
+  const scores = [...uniqueSources.values()];
+  if (scores.length === 0) return 40;
+  return Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(2));
 }
 
 function candidateFamily(candidate: CandidateTopic) {
@@ -317,19 +346,34 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
       hypothesis,
       signalEventId: signalId,
     });
-    const scoreInput = {
+    const heatInput = {
       mentionSpike: Math.min(Math.max(candidate.velocityRatio, 1) * 24, 100),
+      velocity: Math.min(Math.max(candidate.velocityRatio, 0) * 30, 100),
+      articleVolume: Math.min(candidate.articleCount * 8, 100),
       sourceDiversity: Math.min(candidate.sourceCount * 16, 100),
       persistence: candidate.persistenceScore,
-      beneficiaryClarity: watchlists.length > 0 ? 75 : 20,
     };
-    const signalStrength = calculateSignalStrength(scoreInput);
+    const confidenceInput = {
+      sourceQuality: candidateSourceQuality(candidate),
+      sourceDiversity: Math.min(candidate.sourceCount * 10, 100),
+      evidenceDepth: Math.min(candidate.articleCount * 5, 100),
+      persistence: candidate.persistenceScore,
+      companyActivity: 0,
+      beneficiaryClarity: watchlists.length > 0 ? 60 : 10,
+      priceConfirmation: 0,
+    };
+    const signalStrength = calculateSignalHeat(heatInput);
     const confidenceScore = Math.min(
-      watchlists.length > 0 ? 90 : 72,
-      Math.round(25 + candidate.qualityScore * 0.35 + candidate.sourceCount * 4 + candidate.articleCount * 1.5),
+      watchlists.length > 0 ? 75 : 60,
+      calculateResearchConfidence(confidenceInput),
     );
-    const scoreComponents = buildSignalScoreComponents(scoreInput, {
-      discovery_mode: "monthly-full-market-v1",
+    const scoreComponents = buildSignalScoreComponents({
+      mentionSpike: heatInput.mentionSpike,
+      sourceDiversity: heatInput.sourceDiversity,
+      persistence: heatInput.persistence,
+      beneficiaryClarity: confidenceInput.beneficiaryClarity,
+    }, {
+      discovery_mode: "monthly-full-market-v2",
       heat_state: candidate.heatState,
       quality_score: candidate.qualityScore,
       article_count: candidate.articleCount,
@@ -349,7 +393,7 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
       hypothesis,
       evidence: [{
         source: "monthly-full-market-discovery",
-        discovery_mode: "monthly-full-market-v1",
+        discovery_mode: "monthly-full-market-v2",
         month,
         as_of_date: asOfDate,
         category: candidate.category,
@@ -376,11 +420,14 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
           source_url: article.link,
           published_at: article.publishedAt,
         })),
-        score_input: scoreInput,
+        heat_input: heatInput,
+        confidence_input: confidenceInput,
+        heat_model: "signal-heat-v1",
+        confidence_model: "research-confidence-v1",
         score_components: scoreComponents,
       }],
       status: "active" as const,
-      modelVersion: "monthly-full-market-v1",
+      modelVersion: "monthly-full-market-v2",
       watchlistCount: watchlists.length,
       watchlists: watchlists.map((item) => ({
         symbol: item.symbol,

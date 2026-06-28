@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import {
   buildSignalScoreComponents,
   calculateSignalStrength,
+  calculateSignalHeat,
+  calculateResearchConfidence,
   classifySignalStatus,
   asOfEndIso,
   assertAsOfNotFuture,
@@ -47,6 +49,26 @@ function testSignalScore() {
   assert.equal(classifySignalStatus(70), "rising");
   assert.equal(classifySignalStatus(50), "watch");
   assert.equal(classifySignalStatus(49.99), "weak");
+  assert.equal(calculateSignalHeat({
+    mentionSpike: 100,
+    velocity: 100,
+    articleVolume: 100,
+    sourceDiversity: 100,
+    persistence: 100,
+  }), 100);
+  assert.equal(calculateResearchConfidence({
+    sourceQuality: 100,
+    sourceDiversity: 100,
+    evidenceDepth: 100,
+    persistence: 100,
+    companyActivity: 100,
+    beneficiaryClarity: 100,
+    priceConfirmation: 100,
+  }), 100);
+  assert.equal(calculateResearchConfidence({
+    sourceQuality: 100,
+    contradictionPenalty: 100,
+  }), 5);
 
   const components = buildSignalScoreComponents({
     mentionSpike: 50,
@@ -315,6 +337,7 @@ function testReplayResearchReport() {
   assert.match(report.executiveSummary, /52%/);
   assert.equal(report.dataQuality.completeThirtyDaySamples, 44);
   assert.ok(report.diagnostics.recommendations.some((item) => item.includes("缺少完整驗證價格")));
+  assert.deepEqual(report.diagnostics.confidenceCalibration, []);
 }
 
 function testReplayHorizonMaturity() {

@@ -86,7 +86,8 @@ type HistoricalValidation = {
   failedCases: HistoricalCase[];
   diagnostics: {
     familyPerformance: DiagnosticGroup[];
-    strengthCalibration: DiagnosticGroup[];
+    heatCalibration: DiagnosticGroup[];
+    confidenceCalibration: DiagnosticGroup[];
     recommendations: string[];
   };
 };
@@ -428,6 +429,9 @@ function HistoricalValidationSection({ report }: { report: HistoricalValidation 
       <div className="mt-6 rounded-2xl border border-sky-300/20 bg-sky-400/5 p-5">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Model Learning</p>
         <h3 className="mt-2 text-2xl font-black text-white">模型目前學到什麼</h3>
+        <p className="mt-2 text-sm leading-6 text-zinc-500">
+          Heat 衡量市場升溫；研究信心衡量證據完整度。以下績效只用來校準模型，不把歷史報酬寫回當時分數。
+        </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {report.diagnostics.familyPerformance.slice(0, 4).map((item) => (
             <div key={item.key} className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-4">
@@ -439,6 +443,20 @@ function HistoricalValidationSection({ report }: { report: HistoricalValidation 
               <p className="mt-1 text-xs text-zinc-600">成功率 {rate(item.successRate)}</p>
             </div>
           ))}
+        </div>
+        <div className="mt-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">Research Confidence Calibration</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {report.diagnostics.confidenceCalibration.map((item) => (
+              <div key={item.key} className="rounded-xl border border-zinc-800 bg-black/20 p-4">
+                <p className="text-xs font-bold text-zinc-500">信心 {item.key}</p>
+                <p className="mt-2 font-mono text-xl font-black text-white">{item.sampleCount} 筆</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  成功率 {rate(item.successRate)} · Alpha {pct(item.averageExcessReturn)}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="mt-5 space-y-2">
           {report.diagnostics.recommendations.map((item, index) => (

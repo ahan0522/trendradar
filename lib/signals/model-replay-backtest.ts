@@ -277,6 +277,10 @@ function summarize(results: ReplaySignalResult[]) {
         : Number((outcomes.filter((item) => item.outcome === "success").length / outcomes.length).toFixed(3)),
     };
   };
+  const baselineModelVersion = "monthly-signal-v2";
+  const candidateModelVersion = [...new Set(results.map((item) => item.modelVersion))]
+    .find((version) => version !== baselineModelVersion && version.startsWith("monthly-full-market"))
+    ?? "monthly-full-market-v2";
 
   return {
     signalCount: results.length,
@@ -290,8 +294,10 @@ function summarize(results: ReplaySignalResult[]) {
     thirtyDaySuccessRate: thirtyDay.length === 0
       ? null
       : Number((thirtyDay.filter((item) => item.outcome === "success").length / thirtyDay.length).toFixed(3)),
-    baseline: modelStats("monthly-signal-v2"),
-    candidate: modelStats("monthly-full-market-v1"),
+    baselineModelVersion,
+    candidateModelVersion,
+    baseline: modelStats(baselineModelVersion),
+    candidate: modelStats(candidateModelVersion),
   };
 }
 

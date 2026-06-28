@@ -103,8 +103,8 @@ function sourceLabel(value?: string) {
 function stageLabel(signal: SignalRow) {
   if (signal.bestOutcome?.outcome === "success") return "已驗證";
   if (signal.bestOutcome?.outcome === "failed") return "需修正";
-  if (signal.signalStrength >= 85) return "高信念";
-  if (signal.signalStrength >= 70) return "升溫中";
+  if (signal.signalStrength >= 70) return "高熱度";
+  if (signal.signalStrength >= 50) return "升溫中";
   return "觀察中";
 }
 
@@ -168,7 +168,7 @@ function splitWatchlists(watchlists: Watchlist[] = []) {
 
 function ScoreBadge({ score }: { score: number }) {
   const tone = score >= 85 ? "border-emerald-300/30 bg-emerald-400/10 text-emerald-200" : score >= 70 ? "border-sky-300/30 bg-sky-400/10 text-sky-200" : "border-amber-300/30 bg-amber-400/10 text-amber-200";
-  return <span className={`rounded-full border px-3 py-1 text-xs font-black ${tone}`}>Strength {score}</span>;
+  return <span className={`rounded-full border px-3 py-1 text-xs font-black ${tone}`}>Heat {score}</span>;
 }
 
 export default function SignalsPage() {
@@ -185,11 +185,11 @@ export default function SignalsPage() {
 
   const signals = useMemo(() => data?.signals ?? [], [data?.signals]);
   const sortedSignals = useMemo(
-    () => [...signals].sort((a, b) => b.signalStrength - a.signalStrength || b.confidenceScore - a.confidenceScore),
+    () => [...signals].sort((a, b) => b.confidenceScore - a.confidenceScore || b.signalStrength - a.signalStrength),
     [signals],
   );
   const researchSignals = useMemo(() => {
-    const strong = sortedSignals.filter((signal) => signal.signalStrength >= 70).slice(0, 3);
+    const strong = sortedSignals.filter((signal) => signal.confidenceScore >= 55 && signal.signalStrength >= 40).slice(0, 3);
     return strong.length > 0 ? strong : sortedSignals.slice(0, 1);
   }, [sortedSignals]);
   const watchPool = sortedSignals.filter((signal) => !researchSignals.some((item) => item.id === signal.id));
@@ -204,7 +204,7 @@ export default function SignalsPage() {
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-sky-300">Signal Research Radar</p>
               <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-tight md:text-6xl">目前最值得追蹤的市場訊號</h1>
               <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">
-                這頁不再把所有訊號攤開。TrendRadar 只挑出 1-3 個強度夠高、可形成研究假設的候選，並列出你可以追蹤的蛛絲馬跡與台股/美股觀察標的。
+                這頁不再把所有訊號攤開。Heat 代表市場討論是否升溫；研究信心代表證據是否足以形成假設。兩者同時達標，才列為優先研究候選。
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
@@ -258,7 +258,7 @@ export default function SignalsPage() {
                     <p className="line-clamp-1 font-black text-white">{signal.topic}</p>
                     <p className="mt-1 text-xs text-zinc-600">{signalTypeLabel(signal.signalType)} · {inferResearchLane(signal)}</p>
                   </div>
-                  <span className="font-mono text-sm font-black text-zinc-400">{signal.signalStrength}</span>
+                  <span className="font-mono text-sm font-black text-zinc-400">Heat {signal.signalStrength}</span>
                 </div>
               </Link>
             ))}
@@ -290,7 +290,7 @@ function ResearchSignalCard({ signal, rank }: { signal: SignalRow; rank: number 
 
           <h2 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">{signal.topic}</h2>
           <p className="mt-3 text-sm text-zinc-500">
-            Signal created {signal.signalDate} · {signalTypeLabel(signal.signalType)} · confidence {signal.confidenceScore}
+            建立於 {signal.signalDate} · {signalTypeLabel(signal.signalType)} · 研究信心 {signal.confidenceScore}
           </p>
 
           <div className="mt-6 rounded-3xl border border-sky-400/20 bg-sky-400/10 p-5">

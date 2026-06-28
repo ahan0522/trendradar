@@ -160,8 +160,8 @@ function signalStage(signal: NonNullable<ApiResponse["signal"]>, outcomes: Outco
   if (outcomes.some((item) => item.outcome === "success")) return "已驗證";
   if (outcomes.some((item) => item.outcome === "failed")) return "需修正";
   if (signal.status === "validated") return "已確認";
-  if (signal.signalStrength >= 85 && signal.confidenceScore >= 75) return "成長中";
-  if (signal.signalStrength >= 65) return "形成中";
+  if (signal.signalStrength >= 70 && signal.confidenceScore >= 65) return "高熱度研究";
+  if (signal.signalStrength >= 50) return "升溫觀察";
   return "早期觀察";
 }
 
@@ -414,7 +414,7 @@ export default function SignalDetailPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-4">
-          <MetricCard label="訊號強度" value={`${data.signal.signalStrength}/100`} tone="text-sky-300" />
+          <MetricCard label="市場熱度" value={`${data.signal.signalStrength}/100`} tone="text-sky-300" />
           <MetricCard label="研究信心" value={`${confidenceLabel(data.signal.confidenceScore)} · ${data.signal.confidenceScore}`} tone="text-emerald-300" />
           <MetricCard label="證據品質" value={evidenceLevel} tone="text-amber-300" />
           <MetricCard label="驗證狀態" value={validationLabel(outcomes)} tone="text-zinc-100" />

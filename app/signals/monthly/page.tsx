@@ -141,7 +141,7 @@ export default async function MonthlySignalsPage() {
                     <div key={signal.id} className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Strength {signal.signalStrength} · Confidence {signal.confidenceScore}</p>
+                          <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-300">Heat {signal.signalStrength} · 研究信心 {signal.confidenceScore}</p>
                           <h3 className="mt-2 text-2xl font-black text-white">{signal.topic}</h3>
                           <p className="mt-3 max-w-4xl text-sm leading-7 text-zinc-400">{signal.hypothesis}</p>
                           {evidence.heatStateLabel ? (
