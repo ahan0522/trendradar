@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import type { SignalResearchBrief } from "@/types/signals";
 
 type Watchlist = {
   symbol: string;
@@ -113,6 +114,7 @@ type ApiResponse = {
   timelineEvents?: TimelineEvent[];
   lessons?: Lesson[];
   scoreComponents?: ScoreComponent[];
+  researchBrief?: SignalResearchBrief;
 };
 
 type EvidenceMetric = {
@@ -360,6 +362,7 @@ export default function SignalDetailPage() {
   const evidenceItems = data?.evidenceItems ?? [];
   const lessons = data?.lessons ?? [];
   const scoreComponents = data?.scoreComponents ?? [];
+  const researchBrief = data?.researchBrief;
 
   if (loading) {
     return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-zinc-400">正在整理研究報告...</main>;
@@ -404,7 +407,7 @@ export default function SignalDetailPage() {
               <p className="mt-3 max-w-4xl text-base leading-8 text-zinc-200">{data.signal.hypothesis}</p>
               <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">為什麼值得注意</p>
-                <p className="mt-2 text-sm font-bold leading-7 text-white">{whyItMatters(data.signal)}</p>
+                <p className="mt-2 text-sm font-bold leading-7 text-white">{researchBrief?.whyNow ?? whyItMatters(data.signal)}</p>
               </div>
             </div>
           </div>
@@ -416,6 +419,52 @@ export default function SignalDetailPage() {
           <MetricCard label="證據品質" value={evidenceLevel} tone="text-amber-300" />
           <MetricCard label="驗證狀態" value={validationLabel(outcomes)} tone="text-zinc-100" />
         </section>
+
+        {researchBrief ? (
+          <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="rounded-3xl border border-emerald-300/20 bg-emerald-400/5 p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Research Brief</p>
+              <h2 className="mt-2 text-2xl font-black">先讀這裡：目前能得出什麼？</h2>
+              <div className="mt-5 space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-zinc-500">證據判斷</p>
+                  <p className="mt-1 font-black text-white">{researchBrief.evidenceAssessment.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">{researchBrief.evidenceAssessment.summary}</p>
+                </div>
+                <div className="border-t border-emerald-300/10 pt-4">
+                  <p className="text-xs font-bold text-zinc-500">目前驗證結果</p>
+                  <p className="mt-1 font-black text-white">{researchBrief.validationSummary.label}</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-400">{researchBrief.validationSummary.summary}</p>
+                </div>
+                <div className="border-t border-emerald-300/10 pt-4">
+                  <p className="text-xs font-bold text-zinc-500">為何是這些標的</p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-300">{researchBrief.beneficiaryLogic}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Causal Chain</p>
+              <h2 className="mt-2 text-2xl font-black">這個訊號如何影響公司？</h2>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                {researchBrief.causalChain.map((item, index) => (
+                  <div key={item} className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                    <span className="font-mono text-xs font-black text-sky-300">STEP {index + 1}</span>
+                    <p className="mt-2 text-sm font-bold leading-6 text-zinc-200">{item}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-400/5 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-300">目前資料缺口</p>
+                <ul className="mt-3 space-y-2">
+                  {researchBrief.dataGaps.map((item) => (
+                    <li key={item} className="text-sm leading-6 text-zinc-400">• {item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
@@ -480,8 +529,8 @@ export default function SignalDetailPage() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <Checklist title="接下來要驗證什麼" items={trackingChecklist(data.signal)} tone="emerald" />
-              <Checklist title="什麼情況代表判斷可能錯了" items={invalidationChecklist(data.signal)} tone="rose" />
+              <Checklist title="接下來要驗證什麼" items={researchBrief?.trackingIndicators ?? trackingChecklist(data.signal)} tone="emerald" />
+              <Checklist title="什麼情況代表判斷可能錯了" items={researchBrief?.invalidationConditions ?? invalidationChecklist(data.signal)} tone="rose" />
             </div>
           </div>
 

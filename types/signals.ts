@@ -99,3 +99,25 @@ export type SignalLesson = {
   description?: string;
   impact?: string;
 };
+
+export type SignalResearchBrief = {
+  lane: string;
+  whyNow: string;
+  causalChain: string[];
+  trackingIndicators: string[];
+  invalidationConditions: string[];
+  evidenceAssessment: {
+    level: "high" | "medium" | "early";
+    label: string;
+    summary: string;
+    knownEvidenceCount: number;
+    primaryEvidenceCount: number;
+    independentSourceCount: number;
+  };
+  beneficiaryLogic: string;
+  dataGaps: string[];
+  validationSummary: {
+    label: string;
+    summary: string;
+  };
+};

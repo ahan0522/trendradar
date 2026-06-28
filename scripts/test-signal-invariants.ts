@@ -27,6 +27,7 @@ import {
   textMatchesTopicKeyword,
 } from "../lib/topic-grouping";
 import { calculateHeatLifecycle } from "../lib/discovery/heat-lifecycle";
+import { buildSignalResearchBrief } from "../lib/signals/research-brief";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -223,6 +224,53 @@ function testHeatLifecycle() {
   assert.equal(cooling.state, "cooling");
 }
 
+function testResearchBrief() {
+  const signal = {
+    topic: "2026-05 半導體與先進製程",
+    hypothesis: "先進製程需求正在擴散到設備與封測供應鏈。",
+    signalStrength: 70,
+    confidenceScore: 82,
+    asOfDate: "2026-05-31",
+    evidence: [{ source_count: 4, article_count: 12 }],
+  };
+  const brief = buildSignalResearchBrief({
+    signal,
+    evidenceItems: [
+      { sourceName: "A", sourceType: "news", knownAtSignalTime: true },
+      { sourceName: "B", sourceType: "news", knownAtSignalTime: true },
+      { sourceName: "C", sourceType: "company_action", knownAtSignalTime: true },
+    ],
+    watchlists: [{ symbol: "2330.TW", thesis: "先進製程曝險" }],
+    outcomes: [{ horizon_days: 30, excess_return: 8.25, outcome: "success" }],
+    scoreComponents: [{ componentName: "companyActivity", normalizedScore: 80 }],
+  });
+  assert.equal(brief.lane, "semiconductor");
+  assert.equal(brief.causalChain.length, 4);
+  assert.match(brief.validationSummary.summary, /30 日/);
+  assert.match(brief.validationSummary.summary, /\+8\.25%/);
+  assert.ok(brief.invalidationConditions.some((item) => item.includes("訂單")));
+
+  const biotech = buildSignalResearchBrief({
+    signal: {
+      ...signal,
+      topic: "生技、醫療與新藥",
+      hypothesis: "多個醫療議題正在升溫。",
+      evidence: [{ source_count: 5, article_count: 11 }],
+    },
+    evidenceItems: [
+      { sourceName: "A", sourceType: "news", knownAtSignalTime: true },
+      { sourceName: "B", sourceType: "news", knownAtSignalTime: true },
+      { sourceName: "C", sourceType: "news", knownAtSignalTime: true },
+    ],
+    watchlists: [],
+    outcomes: [],
+    scoreComponents: [],
+  });
+  assert.equal(biotech.lane, "biotech");
+  assert.match(biotech.beneficiaryLogic, /不建立股票映射/);
+  assert.ok(biotech.dataGaps.some((item) => item.includes("公司曝險")));
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
@@ -231,6 +279,7 @@ function main() {
   testBacktestTimeBoundary();
   testSignalIdentityContinuity();
   testHeatLifecycle();
+  testResearchBrief();
   console.log("Signal research invariants: PASS");
 }
 

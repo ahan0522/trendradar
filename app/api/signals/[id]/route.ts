@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getSignalReturnDetails } from "@/lib/signals/backtest";
 import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
+import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
 import { publishableLatestPrice } from "@/lib/signals/price-quality";
+import { buildSignalResearchBrief } from "@/lib/signals/research-brief";
 import {
   derivedEvidenceItems,
   derivedLessons,
@@ -126,13 +128,15 @@ function currentTaipeiDate() {
 }
 
 async function getMonthlySignalDetail(id: string) {
-  const match = /^monthly-(\d{4}-\d{2})-/.exec(id);
+  const match = /^monthly-(?:discovery-)?(\d{4}-\d{2})-/.exec(id);
   if (!match) return null;
 
   const month = match[1];
   const today = currentTaipeiDate();
   const asOfDate = month === today.slice(0, 7) ? today : lastDayOfMonth(month);
-  const signals = await getCurrentMonthlySignals(asOfDate);
+  const signals = id.startsWith("monthly-discovery-")
+    ? await getMonthlyDiscoverySignals(asOfDate)
+    : await getCurrentMonthlySignals(asOfDate);
   return signals.find((signal) => signal.id === id) ?? null;
 }
 
@@ -280,10 +284,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       readCaseStudyParts(supabase, id),
     ]);
 
-    return NextResponse.json({
-      ok: true,
-      source: "signal_tables",
-      signal: {
+    const mappedSignal = {
         id: signal.id,
         signalDate: signal.signal_date,
         asOfDate: signal.as_of_date,
@@ -295,8 +296,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         evidence: signal.evidence,
         status: signal.status,
         modelVersion: signal.model_version,
-      },
-      watchlists: (watchlists ?? []).map((item) => {
+      };
+    const mappedWatchlists = (watchlists ?? []).map((item) => {
         const latestPrice = latestPrices.get(`${item.symbol}::${item.market}`);
         const rawLatestPrice = latestPrice
           ? {
@@ -323,13 +324,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           latestPrice: publishable.latestPrice,
           priceQuality: publishable.priceQuality,
         };
-      }),
-      outcomes: outcomes ?? [],
-      stockReturnDetails,
-      evidenceItems: caseStudyParts.evidenceItems.map(mapEvidenceItem),
-      timelineEvents: caseStudyParts.timelineEvents.map(mapTimelineEvent),
-      lessons: caseStudyParts.lessons.map(mapLesson),
-      scoreComponents: caseStudyParts.scoreComponents.map((item) => ({
+      });
+    const mappedEvidenceItems = caseStudyParts.evidenceItems.map(mapEvidenceItem);
+    const mappedScoreComponents = caseStudyParts.scoreComponents.map((item) => ({
         componentName: item.component_name,
         rawValue: Number(item.raw_value),
         normalizedScore: Number(item.normalized_score),
@@ -338,7 +335,27 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         calculationVersion: item.calculation_version,
         inputSnapshot: item.input_snapshot,
         calculatedAt: item.calculated_at,
-      })),
+      }));
+    const mappedOutcomes = outcomes ?? [];
+
+    return NextResponse.json({
+      ok: true,
+      source: "signal_tables",
+      signal: mappedSignal,
+      watchlists: mappedWatchlists,
+      outcomes: mappedOutcomes,
+      stockReturnDetails,
+      evidenceItems: mappedEvidenceItems,
+      timelineEvents: caseStudyParts.timelineEvents.map(mapTimelineEvent),
+      lessons: caseStudyParts.lessons.map(mapLesson),
+      scoreComponents: mappedScoreComponents,
+      researchBrief: buildSignalResearchBrief({
+        signal: mappedSignal,
+        evidenceItems: mappedEvidenceItems,
+        watchlists: mappedWatchlists,
+        outcomes: mappedOutcomes,
+        scoreComponents: mappedScoreComponents,
+      }),
     });
   } catch (error) {
     try {
@@ -464,13 +481,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           ...commodityEvidence,
           ...newsEvidence,
         ];
+        const monthlyOutcomes = pendingOutcomes(monthlySignal.id);
+        const monthlyScoreComponents = (metric.score_components ?? []).map((item) => ({
+          ...item,
+          calculatedAt: `${monthlySignal.asOfDate}T23:59:59.000Z`,
+        }));
 
         return NextResponse.json({
           ok: true,
           source: "monthly_current",
           signal: monthlySignal,
           watchlists: monthlySignal.watchlists,
-          outcomes: pendingOutcomes(monthlySignal.id),
+          outcomes: monthlyOutcomes,
           stockReturnDetails: emptyStockReturnDetails(),
           evidenceItems,
           timelineEvents: [
@@ -504,27 +526,40 @@ export async function GET(_request: NextRequest, context: RouteContext) {
               impact: "價格與 benchmark 資料完整後，再判斷訊號是否成立。",
             },
           ],
-          scoreComponents: (metric.score_components ?? []).map((item) => ({
-            ...item,
-            calculatedAt: `${monthlySignal.asOfDate}T23:59:59.000Z`,
-          })),
+          scoreComponents: monthlyScoreComponents,
+          researchBrief: buildSignalResearchBrief({
+            signal: monthlySignal,
+            evidenceItems,
+            watchlists: monthlySignal.watchlists,
+            outcomes: monthlyOutcomes,
+            scoreComponents: monthlyScoreComponents,
+          }),
         });
       }
 
       const signal = await getDerivedSignalById(id);
       if (!signal) return NextResponse.json({ ok: false, error: "Signal not found" }, { status: 404 });
+      const derivedEvidence = derivedEvidenceItems(signal);
+      const derivedOutcomes = pendingOutcomes(signal.id);
 
       return NextResponse.json({
         ok: true,
         source: "derived_topics",
         signal,
         watchlists: [],
-        outcomes: pendingOutcomes(signal.id),
+        outcomes: derivedOutcomes,
         stockReturnDetails: emptyStockReturnDetails(),
-        evidenceItems: derivedEvidenceItems(signal),
+        evidenceItems: derivedEvidence,
         timelineEvents: derivedTimelineEvents(signal),
         lessons: derivedLessons(signal),
         scoreComponents: [],
+        researchBrief: buildSignalResearchBrief({
+          signal,
+          evidenceItems: derivedEvidence,
+          watchlists: [],
+          outcomes: derivedOutcomes,
+          scoreComponents: [],
+        }),
       });
     } catch (fallbackError) {
       const message = fallbackError instanceof Error ? fallbackError.message : error instanceof Error ? error.message : "Unknown error";
