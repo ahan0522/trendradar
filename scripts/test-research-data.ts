@@ -4,6 +4,11 @@ import { parseTwsePublishedAt } from "../lib/research-data/twse";
 import { parseFredObservationValue } from "../lib/research-data/fred";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
 import { researchEvidenceRelevance } from "../lib/signals/evidence-materialization";
+import {
+  assessEvidenceCoverage,
+  detectSignalFamilies,
+  getEvidenceRequirementsForSignal,
+} from "../lib/signals/evidence-source-registry";
 
 function testTwseTimeParsing() {
   assert.equal(
@@ -77,4 +82,27 @@ assert.equal(researchEvidenceRelevance("AI 資料中心電力與電網", "indust
 assert.equal(researchEvidenceRelevance("AI 電力與資料中心", "commodity", "Henry Hub 天然氣現貨價格"), true);
 assert.equal(researchEvidenceRelevance("電網與變壓器", "commodity", "銅與銅合金棒材生產者物價指數"), true);
 assert.equal(researchEvidenceRelevance("生技新藥", "commodity", "Henry Hub 天然氣現貨價格"), false);
+assert.deepEqual(detectSignalFamilies({ topic: "HBM / DRAM 記憶體供應鏈" }), ["memory"]);
+assert.deepEqual(detectSignalFamilies({ topic: "AI 資料中心電力與電網" }), ["ai_compute", "ai_power_grid"]);
+assert.equal(
+  getEvidenceRequirementsForSignal({ topic: "AI 晶片與算力供應鏈" }).requirements.some((item) => item.key === "compute_shipments"),
+  true,
+);
+const memoryCoverage = assessEvidenceCoverage({
+  topic: "HBM / DRAM 記憶體供應鏈",
+  evidenceItems: [
+    { sourceType: "commodity", title: "DRAM contract price rises" },
+    { sourceType: "industry", title: "Memory capacity utilization improves" },
+  ],
+});
+assert.equal(memoryCoverage.totalRequiredCount, 2);
+assert.equal(memoryCoverage.missingRequired.length, 0);
+const powerCoverage = assessEvidenceCoverage({
+  topic: "電網與變壓器",
+  evidenceItems: [
+    { sourceType: "industry", title: "Transformer PPI rises" },
+  ],
+});
+assert.equal(powerCoverage.totalRequiredCount, 2);
+assert.equal(powerCoverage.missingRequired.length, 1);
 console.log("Research data invariants: PASS");
