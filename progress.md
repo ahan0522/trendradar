@@ -1,6 +1,6 @@
 # TrendRadar Development Progress
 
-Last updated: 2026-06-29  
+Last updated: 2026-06-30  
 Production: https://trendradar-prod.vercel.app  
 Latest verified commit: `92d1a6b`
 
@@ -196,6 +196,27 @@ Verified research evidence can be materialized into signals through:
 
 - `lib/signals/evidence-materialization.ts`
 - `POST /api/admin/signals/materialize-evidence`
+
+Evidence source requirements are now defined in:
+
+- `lib/signals/evidence-source-registry.ts`
+
+The registry currently covers:
+
+- Memory / HBM / DRAM
+- AI Compute / AI Server
+- AI Power / Grid
+- AI Cooling / Thermal
+- CoWoS / Advanced Packaging
+- Optical Networking / CPO
+
+It can detect which evidence families a signal belongs to, list required non-news evidence, and identify missing required evidence. Tests enforce that generic industry data cannot satisfy every evidence requirement by source type alone.
+
+Recent verified industry-series expansion added:
+
+- semiconductor and related component producer price index
+- semiconductor and other electronic component industrial production index
+- power and specialty transformer producer price index
 
 Production materialization currently added:
 
@@ -424,4 +445,3 @@ The next milestone is complete when:
 - Do not publish unverified prices.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.
-
