@@ -36,6 +36,13 @@ import { buildSignalResearchBrief } from "../lib/signals/research-brief";
 import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
+import { classifyMonthCoverage } from "../lib/signals/data-coverage";
+import {
+  taipeiDateForTimestamp,
+  taipeiMonthForTimestamp,
+  taipeiMonthStartIso,
+  taipeiNextMonthStartIso,
+} from "../lib/time/taipei";
 
 function testSignalScore() {
   assert.equal(calculateSignalStrength({}), 0);
@@ -208,6 +215,50 @@ function testBacktestTimeBoundary() {
   assert.equal(isPlausibleBasketReturn(100.01), false);
 }
 
+function testMonthCoverageStatus() {
+  const base = {
+    articleCount: 0,
+    effectiveSourceCount: 0,
+    stockPriceCount: 0,
+    marketPriceSeriesCount: 0,
+    industryObservationCount: 0,
+    commodityQuoteCount: 0,
+    companyActionCount: 0,
+  };
+  assert.equal(classifyMonthCoverage(base).code, "backfill_required");
+  assert.equal(classifyMonthCoverage({
+    ...base,
+    articleCount: 8,
+    effectiveSourceCount: 4,
+  }).code, "discovery_limited");
+  assert.equal(classifyMonthCoverage({
+    ...base,
+    articleCount: 30,
+    effectiveSourceCount: 6,
+  }).code, "discovery_ready");
+  assert.equal(classifyMonthCoverage({
+    ...base,
+    articleCount: 30,
+    effectiveSourceCount: 6,
+    stockPriceCount: 50,
+  }).code, "validation_ready");
+  assert.equal(classifyMonthCoverage({
+    ...base,
+    articleCount: 30,
+    effectiveSourceCount: 6,
+    stockPriceCount: 50,
+    companyActionCount: 2,
+  }).code, "multi_evidence_ready");
+}
+
+function testTaipeiMonthBoundary() {
+  assert.equal(taipeiMonthStartIso("2026-05"), "2026-05-01T00:00:00+08:00");
+  assert.equal(taipeiNextMonthStartIso("2026-05-31"), "2026-06-01T00:00:00+08:00");
+  assert.equal(taipeiMonthForTimestamp("2026-05-31T15:59:59.999Z"), "2026-05");
+  assert.equal(taipeiMonthForTimestamp("2026-05-31T16:00:00.000Z"), "2026-06");
+  assert.equal(taipeiDateForTimestamp("2026-05-31T16:00:00.000Z"), "2026-06-01");
+}
+
 function testSignalIdentityContinuity() {
   const existing = [{
     id: "auto-2026-06-27-cpo",
@@ -372,6 +423,8 @@ function main() {
   testVerifiedPriceGate();
   testCsvProvenance();
   testBacktestTimeBoundary();
+  testMonthCoverageStatus();
+  testTaipeiMonthBoundary();
   testSignalIdentityContinuity();
   testHeatLifecycle();
   testResearchBrief();

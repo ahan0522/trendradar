@@ -8,12 +8,14 @@ type MonthlySignal = Awaited<ReturnType<typeof getMonthlySignalReport>>["rows"][
 function statusLabel(status: string) {
   if (status === "candidate_ready") return "已有月度候選";
   if (status === "no_candidate") return "有資料但未成訊號";
-  return "Backfill Required";
+  if (status === "insufficient_data") return "資料偏薄";
+  return "尚未回補";
 }
 
 function statusTone(status: string) {
   if (status === "candidate_ready") return "border-emerald-300/30 bg-emerald-400/10 text-emerald-200";
   if (status === "no_candidate") return "border-amber-300/30 bg-amber-400/10 text-amber-200";
+  if (status === "insufficient_data") return "border-orange-300/30 bg-orange-400/10 text-orange-200";
   return "border-amber-300/30 bg-amber-400/10 text-amber-200";
 }
 
@@ -66,6 +68,7 @@ export default async function MonthlySignalsPage() {
   });
   const readyRows = report.rows.filter((row) => row.status === "candidate_ready");
   const missingRows = report.rows.filter((row) => row.status === "no_data");
+  const thinRows = report.rows.filter((row) => row.status === "insufficient_data");
 
   return (
     <main className="min-h-screen bg-[#05070d] px-4 py-8 text-white md:px-8">
@@ -76,10 +79,11 @@ export default async function MonthlySignalsPage() {
           <p className="mt-4 max-w-4xl text-sm leading-7 text-zinc-400">
             每個月份都只使用該月截至 asOfDate 已經發布的資訊，不使用未來資料。月份結束後，這些候選訊號才會進入 30D / 60D / 90D / 180D 回測。
           </p>
-          <div className="mt-6 grid gap-3 md:grid-cols-4">
+          <div className="mt-6 grid gap-3 md:grid-cols-5">
             <MiniMetric label="月份範圍" value={`${report.startMonth} → ${report.endMonth}`} />
             <MiniMetric label="有候選月份" value={String(readyRows.length)} tone="text-emerald-300" />
-            <MiniMetric label="需 Backfill 月份" value={String(missingRows.length)} tone="text-amber-300" />
+            <MiniMetric label="資料偏薄月份" value={String(thinRows.length)} tone="text-orange-300" />
+            <MiniMetric label="尚未回補月份" value={String(missingRows.length)} tone="text-amber-300" />
             <MiniMetric label="資料日期" value={report.generatedAt.slice(0, 10)} />
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -101,7 +105,7 @@ export default async function MonthlySignalsPage() {
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-zinc-500">Coverage</p>
               <h2 className="mt-2 text-2xl font-black">月份資料狀態</h2>
             </div>
-            <p className="text-sm text-zinc-600">Backfill Required 代表目前 Supabase 尚未補齊該月歷史資料，不代表資料不存在。</p>
+            <p className="text-sm text-zinc-600">尚未回補、資料偏薄與未形成訊號分開標示，避免把缺資料誤認為市場沒有訊號。</p>
           </div>
           <div className="mt-6 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
             {report.rows.map((row) => (

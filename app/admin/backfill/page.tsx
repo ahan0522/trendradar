@@ -11,8 +11,14 @@ type CoverageMetric = {
 type CoverageRow = {
   month: string;
   articles: CoverageMetric;
+  effectiveSources: CoverageMetric;
   stockPrices: CoverageMetric;
   marketPriceSeries: CoverageMetric;
+  researchStatus: {
+    code: string;
+    label: string;
+    reason: string;
+  };
 };
 
 type CoverageResponse = {
@@ -21,6 +27,7 @@ type CoverageResponse = {
   rows?: CoverageRow[];
   totals?: {
     articles: number;
+    effectiveSources: number;
     stockPrices: number;
     marketPriceSeries: number;
   };
@@ -173,8 +180,9 @@ export default function BackfillAdminPage() {
 
           <div className="rounded-[2rem] border border-zinc-800 bg-zinc-950/90 p-6">
             <h2 className="text-2xl font-black">覆蓋率總覽</h2>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
               <Metric label="Articles" value={String(coverage?.totals?.articles ?? "-")} />
+              <Metric label="Effective Sources" value={String(coverage?.totals?.effectiveSources ?? "-")} />
               <Metric label="Stock Prices" value={String(coverage?.totals?.stockPrices ?? "-")} />
               <Metric label="Market Series" value={String(coverage?.totals?.marketPriceSeries ?? "-")} />
             </div>
@@ -197,6 +205,7 @@ export default function BackfillAdminPage() {
                   <tr>
                     <th className="px-4 py-2">Month</th>
                     <th className="px-4 py-2">Articles</th>
+                    <th className="px-4 py-2">Effective Sources</th>
                     <th className="px-4 py-2">Stock Prices</th>
                     <th className="px-4 py-2">Market Series</th>
                     <th className="px-4 py-2">Status</th>
@@ -204,16 +213,17 @@ export default function BackfillAdminPage() {
                 </thead>
                 <tbody>
                   {coverage.rows.map((row) => {
-                    const needsBackfill = (row.articles.count ?? 0) === 0;
+                    const needsBackfill = row.researchStatus.code === "backfill_required";
                     return (
                       <tr key={row.month} className="bg-zinc-900/70">
                         <td className="rounded-l-2xl px-4 py-3 font-mono font-black text-white">{row.month}</td>
                         <td className="px-4 py-3 text-zinc-300">{metricText(row.articles)}</td>
+                        <td className="px-4 py-3 text-zinc-300">{metricText(row.effectiveSources)}</td>
                         <td className="px-4 py-3 text-zinc-300">{metricText(row.stockPrices)}</td>
                         <td className="px-4 py-3 text-zinc-300">{metricText(row.marketPriceSeries)}</td>
                         <td className="rounded-r-2xl px-4 py-3">
-                          <span className={`rounded-full px-3 py-1 text-xs font-black ${needsBackfill ? "bg-amber-400/10 text-amber-200" : "bg-emerald-400/10 text-emerald-200"}`}>
-                            {needsBackfill ? "Backfill Required" : "Has Data"}
+                          <span className={`rounded-full px-3 py-1 text-xs font-black ${needsBackfill ? "bg-amber-400/10 text-amber-200" : "bg-emerald-400/10 text-emerald-200"}`} title={row.researchStatus.reason}>
+                            {row.researchStatus.label}
                           </span>
                         </td>
                       </tr>

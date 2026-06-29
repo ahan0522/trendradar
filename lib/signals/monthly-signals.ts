@@ -7,6 +7,10 @@ import {
 } from "@/lib/signals/signal-engine";
 import type { MarketCode } from "@/types/signals";
 import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
+import {
+  taipeiMonthStartIso,
+  taipeiNextMonthStartIso,
+} from "@/lib/time/taipei";
 
 type ArticleRow = {
   id: string;
@@ -260,12 +264,6 @@ function monthStart(asOfDate: string) {
   return `${asOfDate.slice(0, 7)}-01`;
 }
 
-function nextMonthStart(asOfDate: string) {
-  const date = new Date(`${monthStart(asOfDate)}T00:00:00.000Z`);
-  date.setUTCMonth(date.getUTCMonth() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
 function currentTaipeiDate() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Taipei",
@@ -377,12 +375,11 @@ function relevantResearchData(
 export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
   const supabase = getSupabaseAdmin();
   const start = monthStart(asOfDate);
-  const end = nextMonthStart(asOfDate);
   const { data: articles, error } = await supabase
     .from("articles")
     .select("id, title, link, description, source_name, category, published_at")
-    .gte("published_at", `${start}T00:00:00+00:00`)
-    .lt("published_at", `${end}T00:00:00+00:00`)
+    .gte("published_at", taipeiMonthStartIso(start))
+    .lt("published_at", taipeiNextMonthStartIso(start))
     .lte("published_at", `${asOfDate}T23:59:59+08:00`)
     .order("published_at", { ascending: false })
     .limit(5000)
@@ -432,7 +429,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           .from("company_actions")
           .select("id, company_symbol, company_name, action_type, title, summary, known_at, source_url, quality_status")
           .in("company_symbol", companySymbols)
-          .gte("known_at", `${start}T00:00:00+00:00`)
+          .gte("known_at", taipeiMonthStartIso(start))
           .lte("known_at", `${asOfDate}T23:59:59+08:00`)
           .eq("quality_status", "verified")
           .order("known_at", { ascending: false })
@@ -719,12 +716,11 @@ export async function getMonthlySignalReport(options?: {
     months.map(async (month) => {
       const asOfDate = asOfDateForMonth(month, today);
       const start = monthStart(asOfDate);
-      const end = nextMonthStart(asOfDate);
       const { count, error } = await supabase
         .from("articles")
         .select("id", { count: "exact", head: true })
-        .gte("published_at", `${start}T00:00:00+00:00`)
-        .lt("published_at", `${end}T00:00:00+00:00`)
+        .gte("published_at", taipeiMonthStartIso(start))
+        .lt("published_at", taipeiNextMonthStartIso(start))
         .lte("published_at", `${asOfDate}T23:59:59+08:00`);
 
       if (error) throw error;
@@ -740,7 +736,13 @@ export async function getMonthlySignalReport(options?: {
         asOfDate,
         articleCount: count ?? 0,
         signalCount: signals.length,
-        status: count && count > 0 ? (signals.length > 0 ? "candidate_ready" : "no_candidate") : "no_data",
+        status: signals.length > 0
+          ? "candidate_ready"
+          : !count
+            ? "no_data"
+            : count < 10
+              ? "insufficient_data"
+              : "no_candidate",
         signals,
       };
     }),

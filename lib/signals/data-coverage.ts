@@ -1,4 +1,10 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getCanonicalSourceName, isPlatformSourceName } from "@/lib/source-scoring";
+import {
+  taipeiMonthForTimestamp,
+  taipeiMonthStartIso,
+  taipeiNextMonthStartIso,
+} from "@/lib/time/taipei";
 
 export type CoverageMetric = {
   available: boolean;
@@ -9,11 +15,33 @@ export type CoverageMetric = {
 export type DataCoverageRow = {
   month: string;
   articles: CoverageMetric;
+  effectiveSources: CoverageMetric;
   stockPrices: CoverageMetric;
   marketPriceSeries: CoverageMetric;
   industryObservations: CoverageMetric;
   commodityQuotes: CoverageMetric;
   companyActions: CoverageMetric;
+  researchStatus: MonthResearchStatus;
+};
+
+export type MonthResearchStatusCode =
+  | "backfill_required"
+  | "discovery_limited"
+  | "discovery_ready"
+  | "validation_ready"
+  | "multi_evidence_ready";
+
+export type MonthResearchStatus = {
+  code: MonthResearchStatusCode;
+  label: string;
+  reason: string;
+};
+
+type ArticleSourceRow = {
+  source_name: string;
+  title: string;
+  description: string | null;
+  published_at: string;
 };
 
 function currentTaipeiMonth() {
@@ -44,11 +72,11 @@ function nextMonth(month: string) {
 }
 
 function asTimestampStart(month: string) {
-  return `${month}-01T00:00:00+00:00`;
+  return taipeiMonthStartIso(month);
 }
 
 function asTimestampEnd(month: string) {
-  return `${nextMonth(month)}-01T00:00:00+00:00`;
+  return taipeiNextMonthStartIso(month);
 }
 
 function asDateStart(month: string) {
@@ -80,10 +108,98 @@ async function countRows(table: string, dateColumn: string, start: string, end: 
   }
 }
 
+async function getEffectiveSourcesByMonth(startMonth: string, endMonth: string) {
+  const supabase = getSupabaseAdmin();
+  const sourceSets = new Map<string, Set<string>>();
+  const pageSize = 1000;
+
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("articles")
+      .select("source_name, title, description, published_at")
+      .gte("published_at", asTimestampStart(startMonth))
+      .lt("published_at", asTimestampEnd(endMonth))
+      .order("published_at", { ascending: true })
+      .range(offset, offset + pageSize - 1)
+      .returns<ArticleSourceRow[]>();
+    if (error) throw error;
+
+    for (const article of data ?? []) {
+      const month = taipeiMonthForTimestamp(article.published_at);
+      const canonical = getCanonicalSourceName({
+        sourceName: article.source_name,
+        title: article.title,
+        description: article.description ?? undefined,
+      });
+      if (!canonical || isPlatformSourceName(canonical)) continue;
+      const sources = sourceSets.get(month) ?? new Set<string>();
+      sources.add(canonical);
+      sourceSets.set(month, sources);
+    }
+
+    if ((data ?? []).length < pageSize) break;
+  }
+
+  return sourceSets;
+}
+
+export function classifyMonthCoverage(input: {
+  articleCount: number;
+  effectiveSourceCount: number;
+  stockPriceCount: number;
+  marketPriceSeriesCount: number;
+  industryObservationCount: number;
+  commodityQuoteCount: number;
+  companyActionCount: number;
+}): MonthResearchStatus {
+  if (input.articleCount === 0) {
+    return {
+      code: "backfill_required",
+      label: "尚未回補",
+      reason: "本月資料庫沒有文章，不能判定為沒有市場訊號。",
+    };
+  }
+  if (input.articleCount < 10 || input.effectiveSourceCount < 3) {
+    return {
+      code: "discovery_limited",
+      label: "資料偏薄",
+      reason: `目前只有 ${input.articleCount} 篇文章、${input.effectiveSourceCount} 個有效來源，僅供觀察。`,
+    };
+  }
+
+  const hasPrices = input.stockPriceCount > 0 || input.marketPriceSeriesCount > 0;
+  const evidenceTypes = [
+    input.industryObservationCount,
+    input.commodityQuoteCount,
+    input.companyActionCount,
+  ].filter((count) => count > 0).length;
+
+  if (!hasPrices) {
+    return {
+      code: "discovery_ready",
+      label: "可做主題發現",
+      reason: "新聞與有效來源足以執行Discovery，但尚無價格資料可驗證結果。",
+    };
+  }
+  if (evidenceTypes === 0) {
+    return {
+      code: "validation_ready",
+      label: "可做價格驗證",
+      reason: "新聞與價格資料已就緒，產業、商品或公司證據仍待補強。",
+    };
+  }
+  return {
+    code: "multi_evidence_ready",
+    label: "多類證據已就緒",
+    reason: `新聞、價格及 ${evidenceTypes} 類非新聞證據可用。`,
+  };
+}
+
 export async function getDataCoverage(options?: { startMonth?: string; endMonth?: string }) {
   const startMonth = options?.startMonth ?? "2025-01";
   const endMonth = options?.endMonth ?? currentTaipeiMonth();
   const months = monthRange(startMonth, endMonth);
+  const sourcesByMonth = await getEffectiveSourcesByMonth(startMonth, endMonth);
 
   const rows: DataCoverageRow[] = await Promise.all(
     months.map(async (month) => {
@@ -96,13 +212,38 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
         countRows("company_actions", "known_at", asTimestampStart(month), asTimestampEnd(month)),
       ]);
 
-      return { month, articles, stockPrices, marketPriceSeries, industryObservations, commodityQuotes, companyActions };
+      const effectiveSources = {
+        available: true,
+        count: sourcesByMonth.get(month)?.size ?? 0,
+      };
+      const researchStatus = classifyMonthCoverage({
+        articleCount: articles.count ?? 0,
+        effectiveSourceCount: effectiveSources.count,
+        stockPriceCount: stockPrices.count ?? 0,
+        marketPriceSeriesCount: marketPriceSeries.count ?? 0,
+        industryObservationCount: industryObservations.count ?? 0,
+        commodityQuoteCount: commodityQuotes.count ?? 0,
+        companyActionCount: companyActions.count ?? 0,
+      });
+
+      return {
+        month,
+        articles,
+        effectiveSources,
+        stockPrices,
+        marketPriceSeries,
+        industryObservations,
+        commodityQuotes,
+        companyActions,
+        researchStatus,
+      };
     }),
   );
 
   const totals = rows.reduce(
     (acc, row) => {
       acc.articles += row.articles.count ?? 0;
+      acc.effectiveSources += row.effectiveSources.count ?? 0;
       acc.stockPrices += row.stockPrices.count ?? 0;
       acc.marketPriceSeries += row.marketPriceSeries.count ?? 0;
       acc.industryObservations += row.industryObservations.count ?? 0;
@@ -112,6 +253,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
     },
     {
       articles: 0,
+      effectiveSources: 0,
       stockPrices: 0,
       marketPriceSeries: 0,
       industryObservations: 0,

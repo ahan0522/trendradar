@@ -14,6 +14,10 @@ import {
   calculateResearchConfidence,
   calculateSignalHeat,
 } from "@/lib/signals/signal-engine";
+import {
+  taipeiDateForTimestamp,
+  taipeiMonthStartIso,
+} from "@/lib/time/taipei";
 
 type ArticleRow = {
   id: string;
@@ -291,7 +295,7 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
   const { data, error } = await supabase
     .from("articles")
     .select("id, title, link, description, source_name, category, published_at")
-    .gte("published_at", `${historyStart}T00:00:00+00:00`)
+    .gte("published_at", taipeiMonthStartIso(historyStart))
     .lte("published_at", `${asOfDate}T23:59:59+08:00`)
     .order("published_at", { ascending: false })
     .limit(10000)
@@ -302,7 +306,10 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
     .filter((article) => !marketNoise.test(`${article.title} ${article.description ?? ""}`))
     .map(toDiscoveryArticle);
   const currentArticles = historicalArticles.filter(
-    (article) => article.publishedAt && article.publishedAt.slice(0, 10) >= currentStart,
+    (article) =>
+      article.publishedAt &&
+      taipeiDateForTimestamp(article.publishedAt) >= currentStart &&
+      taipeiDateForTimestamp(article.publishedAt) <= asOfDate,
   );
   const categoryBuckets = new Map<string, typeof currentArticles>();
   for (const article of currentArticles) {
