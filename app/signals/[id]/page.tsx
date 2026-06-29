@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { SignalResearchBrief } from "@/types/signals";
+import type { SignalEvidencePanelItem, SignalResearchBrief } from "@/types/signals";
 
 type Watchlist = {
   symbol: string;
@@ -114,6 +114,7 @@ type ApiResponse = {
   timelineEvents?: TimelineEvent[];
   lessons?: Lesson[];
   scoreComponents?: ScoreComponent[];
+  evidencePanel?: SignalEvidencePanelItem[];
   researchBrief?: SignalResearchBrief;
 };
 
@@ -363,6 +364,7 @@ export default function SignalDetailPage() {
   const lessons = data?.lessons ?? [];
   const scoreComponents = data?.scoreComponents ?? [];
   const researchBrief = data?.researchBrief;
+  const evidencePanel = data?.evidencePanel ?? [];
 
   if (loading) {
     return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-zinc-400">正在整理研究報告...</main>;
@@ -419,6 +421,42 @@ export default function SignalDetailPage() {
           <MetricCard label="證據品質" value={evidenceLevel} tone="text-amber-300" />
           <MetricCard label="驗證狀態" value={validationLabel(outcomes)} tone="text-zinc-100" />
         </section>
+
+        {evidencePanel.length > 0 ? (
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-950/90 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">Evidence Framework</p>
+            <div className="mt-2 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <h2 className="text-2xl font-black">為什麼值得研究？證據目前到哪裡？</h2>
+              <p className="text-sm text-zinc-500">缺少資料會明確標示，不以新聞熱度代替產業證據。</p>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {evidencePanel.map((item) => {
+                const tone = {
+                  confirmed: "border-emerald-300/25 bg-emerald-400/5 text-emerald-300",
+                  partial: "border-amber-300/25 bg-amber-400/5 text-amber-300",
+                  missing: "border-zinc-800 bg-zinc-900/60 text-zinc-500",
+                  contradicted: "border-rose-300/25 bg-rose-400/5 text-rose-300",
+                }[item.status];
+                const statusLabel = {
+                  confirmed: "已支持",
+                  partial: "部分支持",
+                  missing: "待補資料",
+                  contradicted: "出現反證",
+                }[item.status];
+                return (
+                  <div key={item.category} className={`rounded-2xl border p-4 ${tone}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-black text-white">{item.label}</h3>
+                      <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-black">{statusLabel}</span>
+                    </div>
+                    <p className="mt-3 font-mono text-2xl font-black">{item.score}</p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">{item.summary}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
 
         {researchBrief ? (
           <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">

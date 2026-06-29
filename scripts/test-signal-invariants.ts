@@ -37,6 +37,7 @@ import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
+import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
   dedupeArticlesByEvent,
@@ -551,6 +552,24 @@ function testPublicationGate() {
   assert.ok(rejected.gates.filter((item) => item.required && !item.passed).length >= 4);
 }
 
+function testEvidencePanel() {
+  const panel = buildSignalEvidencePanel({
+    evidenceItems: [
+      { sourceType: "news", sourceName: "A", knownAtSignalTime: true },
+      { sourceType: "news", sourceName: "B", knownAtSignalTime: true },
+      { sourceType: "news", sourceName: "C", knownAtSignalTime: true },
+      { sourceType: "company_action", sourceName: "SEC", knownAtSignalTime: true },
+      { sourceType: "commodity", title: "DRAM 報價", knownAtSignalTime: false },
+    ],
+    scoreComponents: [{ componentName: "priceSpike", normalizedScore: 72 }],
+    outcomes: [],
+  });
+  assert.equal(panel.find((item) => item.category === "news")?.status, "partial");
+  assert.equal(panel.find((item) => item.category === "company")?.evidenceCount, 1);
+  assert.equal(panel.find((item) => item.category === "commodity")?.status, "missing");
+  assert.equal(panel.find((item) => item.category === "market")?.status, "confirmed");
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
@@ -568,6 +587,7 @@ function main() {
   testReplayResearchReport();
   testReplayHorizonMaturity();
   testPublicationGate();
+  testEvidencePanel();
   console.log("Signal research invariants: PASS");
 }
 

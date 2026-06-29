@@ -5,6 +5,7 @@ import { getCurrentMonthlySignals } from "@/lib/signals/monthly-signals";
 import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
 import { publishableLatestPrice } from "@/lib/signals/price-quality";
 import { buildSignalResearchBrief } from "@/lib/signals/research-brief";
+import { buildSignalEvidencePanel } from "@/lib/signals/evidence-panel";
 import {
   derivedEvidenceItems,
   derivedLessons,
@@ -349,6 +350,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       timelineEvents: caseStudyParts.timelineEvents.map(mapTimelineEvent),
       lessons: caseStudyParts.lessons.map(mapLesson),
       scoreComponents: mappedScoreComponents,
+      evidencePanel: buildSignalEvidencePanel({
+        evidenceItems: mappedEvidenceItems,
+        scoreComponents: mappedScoreComponents,
+        outcomes: mappedOutcomes,
+      }),
       researchBrief: buildSignalResearchBrief({
         signal: mappedSignal,
         evidenceItems: mappedEvidenceItems,
@@ -527,6 +533,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             },
           ],
           scoreComponents: monthlyScoreComponents,
+          evidencePanel: buildSignalEvidencePanel({
+            evidenceItems,
+            scoreComponents: monthlyScoreComponents,
+            outcomes: monthlyOutcomes,
+          }),
           researchBrief: buildSignalResearchBrief({
             signal: monthlySignal,
             evidenceItems,
@@ -553,6 +564,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         timelineEvents: derivedTimelineEvents(signal),
         lessons: derivedLessons(signal),
         scoreComponents: [],
+        evidencePanel: buildSignalEvidencePanel({
+          evidenceItems: derivedEvidence,
+          scoreComponents: [],
+          outcomes: derivedOutcomes,
+        }),
         researchBrief: buildSignalResearchBrief({
           signal,
           evidenceItems: derivedEvidence,

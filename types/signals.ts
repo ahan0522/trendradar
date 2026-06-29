@@ -72,11 +72,28 @@ export type SignalEvidenceItem = {
   evidenceDate?: string;
   sourceName?: string;
   sourceUrl?: string;
-  sourceType: "news" | "price" | "supply_chain" | "company_action" | "official" | "other";
+  sourceType: "news" | "price" | "industry" | "commodity" | "market" | "supply_chain" | "company_action" | "official" | "other";
   title: string;
   summary?: string;
   whyItMatters?: string;
   knownAtSignalTime: boolean;
+};
+
+export type SignalEvidenceCategory =
+  | "news"
+  | "industry"
+  | "commodity"
+  | "company"
+  | "supply_chain"
+  | "market";
+
+export type SignalEvidencePanelItem = {
+  category: SignalEvidenceCategory;
+  label: string;
+  status: "confirmed" | "partial" | "missing" | "contradicted";
+  score: number;
+  evidenceCount: number;
+  summary: string;
 };
 
 export type SignalTimelineEvent = {
