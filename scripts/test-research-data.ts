@@ -3,6 +3,7 @@ import { parseGoogleNewsHistoricalRss } from "../lib/historical-news/google-news
 import { parseTwsePublishedAt } from "../lib/research-data/twse";
 import { parseFredObservationValue } from "../lib/research-data/fred";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
+import { researchEvidenceRelevance } from "../lib/signals/evidence-materialization";
 
 function testTwseTimeParsing() {
   assert.equal(
@@ -70,4 +71,8 @@ testTwseTimeParsing();
 testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
+assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), true);
+assert.equal(researchEvidenceRelevance("AI 電力與資料中心", "commodity", "Henry Hub 天然氣現貨價格"), true);
+assert.equal(researchEvidenceRelevance("電網與變壓器", "commodity", "銅與銅合金棒材生產者物價指數"), true);
+assert.equal(researchEvidenceRelevance("生技新藥", "commodity", "Henry Hub 天然氣現貨價格"), false);
 console.log("Research data invariants: PASS");
