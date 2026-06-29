@@ -36,6 +36,7 @@ import { buildSignalResearchBrief } from "../lib/signals/research-brief";
 import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
+import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
   dedupeArticlesByEvent,
@@ -502,6 +503,54 @@ function testReplayHorizonMaturity() {
   assert.equal(isReplayHorizonMature("2026-03-31", 90, "2026-06-30"), true);
 }
 
+function testPublicationGate() {
+  const eligible = evaluateSignalForPublication({
+    signal: {
+      id: "signal-1",
+      asOfDate: "2026-06-28",
+      topic: "2026-06 記憶體供需循環",
+      signalStrength: 72,
+      confidenceScore: 68,
+      hypothesis: "記憶體產能配置與需求正在改變。",
+      evidence: [{ source_count: 5, event_count: 12 }],
+    },
+    watchlists: [{
+      symbol: "MU",
+      companyName: "Micron",
+      market: "US",
+      thesis: "直接生產 DRAM 與 HBM，可用報價、庫存與毛利率驗證假設。",
+    }],
+    evidenceItems: [
+      { sourceName: "A", sourceType: "news", knownAtSignalTime: true },
+      { sourceName: "B", sourceType: "news", knownAtSignalTime: true },
+      { sourceName: "C", sourceType: "company_action", knownAtSignalTime: true },
+    ],
+    outcomes: [],
+    scoreComponents: [],
+  });
+  assert.equal(eligible.eligible, true);
+  assert.equal(eligible.publishingBrief.attentionDirections[0].symbol, "MU");
+  assert.ok(eligible.qualityScore >= 90);
+
+  const rejected = evaluateSignalForPublication({
+    signal: {
+      id: "signal-2",
+      asOfDate: "2026-06-28",
+      topic: "單一新聞事件",
+      signalStrength: 40,
+      confidenceScore: 30,
+      hypothesis: "資料不足。",
+      evidence: [{ source_count: 1, event_count: 1 }],
+    },
+    watchlists: [],
+    evidenceItems: [{ sourceName: "A", sourceType: "news", knownAtSignalTime: true }],
+    outcomes: [],
+    scoreComponents: [],
+  });
+  assert.equal(rejected.eligible, false);
+  assert.ok(rejected.gates.filter((item) => item.required && !item.passed).length >= 4);
+}
+
 function main() {
   testSignalScore();
   testTopicKeywordBoundaries();
@@ -518,6 +567,7 @@ function main() {
   testModelReplayFamilies();
   testReplayResearchReport();
   testReplayHorizonMaturity();
+  testPublicationGate();
   console.log("Signal research invariants: PASS");
 }
 

@@ -121,3 +121,51 @@ export type SignalResearchBrief = {
     summary: string;
   };
 };
+
+export type SignalPublicationStatus =
+  | "draft"
+  | "reviewed"
+  | "approved"
+  | "rejected"
+  | "published";
+
+export type PublicationGateResult = {
+  key: string;
+  label: string;
+  passed: boolean;
+  required: boolean;
+  value: number | string | boolean;
+  reason: string;
+};
+
+export type SignalPublishingBrief = {
+  signalEventId: string;
+  asOfDate: string;
+  headline: string;
+  whyItMatters: string;
+  evidenceSummary: string;
+  attentionDirections: Array<{
+    symbol: string;
+    companyName: string;
+    market: MarketCode;
+    reason: string;
+  }>;
+  trackingIndicators: string[];
+  invalidationConditions: string[];
+  validationSummary: string;
+  disclosure: string;
+};
+
+export type SignalPublicationReview = {
+  id: string;
+  signalEventId: string;
+  version: number;
+  status: SignalPublicationStatus;
+  qualityScore: number;
+  eligible: boolean;
+  gateResults: PublicationGateResult[];
+  publishingBrief: SignalPublishingBrief;
+  reviewNote?: string;
+  reviewedBy?: string;
+  createdAt: string;
+};
