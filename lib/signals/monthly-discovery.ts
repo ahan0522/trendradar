@@ -4,7 +4,10 @@ import {
   enrichCandidateTopicsWithHistory,
   type CandidateTopic,
 } from "@/lib/topic-candidates";
-import { dedupeArticlesByEvent } from "@/lib/article-dedupe";
+import {
+  dedupeArticlesByEventWindow,
+  dedupeArticlesByFingerprintWindow,
+} from "@/lib/article-dedupe";
 import { calculateHeatLifecycle } from "@/lib/discovery/heat-lifecycle";
 import { getEffectiveSourceCount, getRawSourceCount } from "@/lib/source-scoring";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
@@ -182,6 +185,7 @@ function selectDiverseCandidates(candidates: CandidateTopic[], limit = 5) {
     if (nonInvestableCategory.test(candidate.category)) continue;
     if (!isInvestableCandidate(candidate)) continue;
     if (marketNoise.test(`${candidate.title} ${candidate.summary}`)) continue;
+    if (candidate.sourceCount < 3) continue;
     const family = candidateFamily(candidate);
     if (selected.some(
       (item) => candidateFamily(item) === family && isRelatedCandidate(item, candidate),
@@ -212,7 +216,7 @@ function buildLensCandidates(
       (!lens.requiredContext || lens.requiredContext.test(article.title)) &&
       !lens.exclude?.test(article.title),
     );
-    const representative = dedupeArticlesByEvent(currentMatches);
+    const representative = dedupeArticlesByEventWindow(currentMatches);
     const sourceCount = getEffectiveSourceCount(currentMatches);
     if (representative.length < 3 || sourceCount < 3) return [];
 
@@ -221,8 +225,9 @@ function buildLensCandidates(
       (!lens.requiredContext || lens.requiredContext.test(article.title)) &&
       !lens.exclude?.test(article.title),
     );
+    const representativeHistory = dedupeArticlesByFingerprintWindow(historyMatches);
     const lifecycle = calculateHeatLifecycle({
-      publishedAt: historyMatches.map((article) => article.publishedAt),
+      publishedAt: representativeHistory.map((article) => article.publishedAt),
       sourceCount: getEffectiveSourceCount(historyMatches),
       asOfDate,
     });
@@ -245,6 +250,7 @@ function buildLensCandidates(
       category: lens.category,
       keywords: lens.label.split(/[、與\s]+/).filter((value) => value.length >= 2),
       articleCount: representative.length,
+      rawArticleCount: currentMatches.length,
       sourceCount,
       rawSourceCount: getRawSourceCount(currentMatches),
       heatScore,
@@ -292,17 +298,23 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
   const supabase = getSupabaseAdmin();
   const currentStart = monthStart(asOfDate);
   const historyStart = addDays(currentStart, -30);
-  const { data, error } = await supabase
-    .from("articles")
-    .select("id, title, link, description, source_name, category, published_at")
-    .gte("published_at", taipeiMonthStartIso(historyStart))
-    .lte("published_at", `${asOfDate}T23:59:59+08:00`)
-    .order("published_at", { ascending: false })
-    .limit(10000)
-    .returns<ArticleRow[]>();
-  if (error) throw error;
+  const rows: ArticleRow[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from("articles")
+      .select("id, title, link, description, source_name, category, published_at")
+      .gte("published_at", taipeiMonthStartIso(historyStart))
+      .lte("published_at", `${asOfDate}T23:59:59+08:00`)
+      .order("published_at", { ascending: false })
+      .range(offset, offset + pageSize - 1)
+      .returns<ArticleRow[]>();
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < pageSize) break;
+  }
 
-  const historicalArticles = (data ?? [])
+  const historicalArticles = rows
     .filter((article) => !marketNoise.test(`${article.title} ${article.description ?? ""}`))
     .map(toDiscoveryArticle);
   const currentArticles = historicalArticles.filter(
@@ -406,6 +418,19 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
         category: candidate.category,
         keywords: candidate.keywords,
         article_count: candidate.articleCount,
+        event_count: candidate.articleCount,
+        raw_article_count: candidate.rawArticleCount ?? candidate.articleCount,
+        duplicate_rate:
+          (candidate.rawArticleCount ?? candidate.articleCount) > 0
+            ? Number(
+                (
+                  (((candidate.rawArticleCount ?? candidate.articleCount) -
+                    candidate.articleCount) /
+                    (candidate.rawArticleCount ?? candidate.articleCount)) *
+                  100
+                ).toFixed(1),
+              )
+            : 0,
         source_count: candidate.sourceCount,
         raw_source_count: candidate.rawSourceCount,
         heat_score: candidate.heatScore,

@@ -180,3 +180,48 @@ export function dedupeArticlesByEvent<T extends DedupeArticleInput>(
     .map(getRepresentative)
     .sort((left, right) => getPublishedTime(right) - getPublishedTime(left));
 }
+
+function getTaipeiDate(value?: string | null) {
+  if (!value) return "unknown";
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return "unknown";
+  return new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+export function dedupeArticlesByEventWindow<T extends DedupeArticleInput>(
+  articles: T[]
+) {
+  const dailyBuckets = new Map<string, T[]>();
+  for (const article of articles) {
+    const date = getTaipeiDate(article.publishedAt);
+    const bucket = dailyBuckets.get(date) ?? [];
+    bucket.push(article);
+    dailyBuckets.set(date, bucket);
+  }
+
+  return [...dailyBuckets.values()]
+    .flatMap((bucket) => dedupeArticlesByEvent(bucket))
+    .sort((left, right) => getPublishedTime(right) - getPublishedTime(left));
+}
+
+export function dedupeArticlesByFingerprintWindow<T extends DedupeArticleInput>(
+  articles: T[]
+) {
+  const representatives = new Map<string, T>();
+  for (const article of articles) {
+    const fingerprint =
+      getArticleEventFingerprint(article) ||
+      normalizeArticleUrl(article.link) ||
+      `${article.title}:${article.publishedAt ?? ""}`;
+    const key = `${getTaipeiDate(article.publishedAt)}:${fingerprint}`;
+    const current = representatives.get(key);
+    representatives.set(
+      key,
+      current ? getRepresentative([current, article]) : article
+    );
+  }
+
+  return [...representatives.values()].sort(
+    (left, right) => getPublishedTime(right) - getPublishedTime(left)
+  );
+}

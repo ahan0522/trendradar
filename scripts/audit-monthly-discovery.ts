@@ -18,17 +18,23 @@ type ArticleRow = {
 async function main() {
   const asOfDate = process.argv[2] ?? new Date().toISOString().slice(0, 10);
   const startDate = `${asOfDate.slice(0, 7)}-01`;
-  const { data, error } = await getSupabaseAdmin()
-    .from("articles")
-    .select("id, title, source_name, category, link, published_at")
-    .gte("published_at", `${startDate}T00:00:00+00:00`)
-    .lte("published_at", `${asOfDate}T23:59:59+08:00`)
-    .order("published_at", { ascending: false })
-    .limit(10000)
-    .returns<ArticleRow[]>();
-  if (error) throw error;
+  const rows: ArticleRow[] = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await getSupabaseAdmin()
+      .from("articles")
+      .select("id, title, source_name, category, link, published_at")
+      .gte("published_at", `${startDate}T00:00:00+08:00`)
+      .lte("published_at", `${asOfDate}T23:59:59+08:00`)
+      .order("published_at", { ascending: false })
+      .range(offset, offset + pageSize - 1)
+      .returns<ArticleRow[]>();
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < pageSize) break;
+  }
 
-  const articles = (data ?? []).map((row) => ({
+  const articles = rows.map((row) => ({
     id: row.id,
     title: row.title,
     sourceName: row.source_name,

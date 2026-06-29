@@ -8,6 +8,10 @@ import {
   calculateHeatLifecycle,
   type HeatLifecycle,
 } from "@/lib/discovery/heat-lifecycle";
+import {
+  dedupeArticlesByEventWindow,
+  dedupeArticlesByFingerprintWindow,
+} from "@/lib/article-dedupe";
 
 type NewsArticle = {
   id: string;
@@ -33,6 +37,7 @@ export type CandidateTopic = {
   category: string;
   keywords: string[];
   articleCount: number;
+  rawArticleCount?: number;
   sourceCount: number;
   rawSourceCount: number;
   heatScore: number;
@@ -231,45 +236,8 @@ function getArticleTokens(article: NewsArticle) {
   );
 }
 
-function normalizeContentFingerprint(value: string) {
-  return normalizeText(value)
-    .replace(/google news|yahoo|中央社|自由時報|中時新聞網|聯合新聞網/gi, " ")
-    .replace(/記者|編譯|報導|快訊|獨家/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function getArticleFingerprint(article: NewsArticle) {
-  const text = normalizeContentFingerprint(
-    `${cleanTitle(article.title)} ${article.description ?? ""}`
-  );
-  const tokens = tokenize(text)
-    .filter((token) => token.length >= 2)
-    .slice(0, 18);
-
-  return tokens.join("|") || text.slice(0, 80);
-}
-
 function dedupeClusterArticles(articles: NewsArticle[]) {
-  const groups = new Map<string, NewsArticle[]>();
-
-  articles.forEach((article) => {
-    const fingerprint = getArticleFingerprint(article);
-    groups.set(fingerprint, [...(groups.get(fingerprint) ?? []), article]);
-  });
-
-  return [...groups.values()].map((group) =>
-    [...group].sort((a, b) => {
-      const aTime = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
-      const bTime = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
-
-      if (bTime !== aTime) return bTime - aTime;
-
-      const aWeight = (a.sourceWeight ?? 1) * (a.credibilityWeight ?? 1);
-      const bWeight = (b.sourceWeight ?? 1) * (b.credibilityWeight ?? 1);
-      return bWeight - aWeight;
-    })[0]
-  );
+  return dedupeArticlesByEventWindow(articles);
 }
 
 function getEmbeddedSourceCount(article: NewsArticle) {
@@ -1069,9 +1037,20 @@ export function discoverCandidateTopics(
   const similarityThreshold = options?.similarityThreshold ?? 0.18;
 
   const articleTokens = new Map<string, Set<string>>();
+  const articlesById = new Map<string, NewsArticle>();
   articles.forEach((article) => {
     articleTokens.set(article.id, getArticleTokens(article));
+    articlesById.set(article.id, article);
   });
+  const tokenIndex = new Map<string, Set<string>>();
+  for (const [articleId, tokens] of articleTokens) {
+    for (const token of tokens) {
+      const ids = tokenIndex.get(token) ?? new Set<string>();
+      ids.add(articleId);
+      tokenIndex.set(token, ids);
+    }
+  }
+  const maxTokenFrequency = Math.max(40, Math.ceil(articles.length * 0.12));
 
   const unused = new Set(articles.map((article) => article.id));
   const clusters: NewsArticle[][] = [];
@@ -1084,8 +1063,18 @@ export function discoverCandidateTopics(
     const cluster = [seed];
     unused.delete(seed.id);
 
-    for (const candidate of articles) {
-      if (!unused.has(candidate.id)) continue;
+    const comparableIds = new Set<string>();
+    for (const token of seedTokens) {
+      const ids = tokenIndex.get(token);
+      if (!ids || ids.size > maxTokenFrequency) continue;
+      for (const id of ids) {
+        if (unused.has(id)) comparableIds.add(id);
+      }
+    }
+
+    for (const candidateId of comparableIds) {
+      const candidate = articlesById.get(candidateId);
+      if (!candidate || !unused.has(candidate.id)) continue;
 
       const candidateTokens = articleTokens.get(candidate.id) ?? new Set<string>();
       const similarity = jaccardSimilarity(seedTokens, candidateTokens);
@@ -1155,7 +1144,7 @@ export function discoverCandidateTopics(
         articles: representativeCluster,
       });
       const lifecycle = calculateHeatLifecycle({
-        publishedAt: cluster.map((article) => article.publishedAt),
+        publishedAt: representativeCluster.map((article) => article.publishedAt),
         sourceCount,
         asOfDate: options?.asOfDate,
       });
@@ -1168,9 +1157,10 @@ export function discoverCandidateTopics(
         category,
         keywords,
         articleCount: representativeCluster.length,
+        rawArticleCount: cluster.length,
         sourceCount,
         rawSourceCount,
-        heatScore: computeWeightedHeatScore(cluster),
+        heatScore: computeWeightedHeatScore(representativeCluster),
         heatState: lifecycle.state,
         heatStateLabel: lifecycle.label,
         heatReason: lifecycle.reason,
@@ -1227,8 +1217,9 @@ export function enrichCandidateTopicsWithHistory(
         `${article.title} ${article.description ?? ""}`,
       ) === candidate.title;
     });
+    const representativeHistory = dedupeArticlesByFingerprintWindow(matchedArticles);
     const lifecycle = calculateHeatLifecycle({
-      publishedAt: matchedArticles.map((article) => article.publishedAt),
+      publishedAt: representativeHistory.map((article) => article.publishedAt),
       sourceCount: getEffectiveSourceCount(matchedArticles),
       asOfDate,
     });

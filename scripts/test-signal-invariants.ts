@@ -39,6 +39,8 @@ import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
   dedupeArticlesByEvent,
+  dedupeArticlesByEventWindow,
+  dedupeArticlesByFingerprintWindow,
   normalizeArticleUrl,
   normalizeComparableText,
 } from "../lib/article-dedupe";
@@ -287,6 +289,36 @@ function testArticleEventDedupe() {
   ]);
   assert.equal(articles.length, 2);
   assert.equal(articles[0].title, "另一則完全不同的市場新聞");
+  assert.equal(
+    dedupeArticlesByEventWindow([
+      {
+        title: "同一事件",
+        sourceName: "中央社",
+        publishedAt: "2026-06-28T15:30:00Z",
+      },
+      {
+        title: "同一事件",
+        sourceName: "自由時報",
+        publishedAt: "2026-06-28T16:30:00Z",
+      },
+    ]).length,
+    2,
+  );
+  assert.equal(
+    dedupeArticlesByFingerprintWindow([
+      {
+        title: "同一事件 - 中央社",
+        sourceName: "中央社",
+        publishedAt: "2026-06-28T01:00:00Z",
+      },
+      {
+        title: "同一事件 | 自由時報",
+        sourceName: "自由時報",
+        publishedAt: "2026-06-28T02:00:00Z",
+      },
+    ]).length,
+    1,
+  );
 }
 
 function testTaipeiMonthBoundary() {
