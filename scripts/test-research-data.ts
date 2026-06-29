@@ -72,6 +72,8 @@ testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), true);
+assert.equal(researchEvidenceRelevance("AI 晶片與算力供應鏈", "industry", "Semiconductor / Compute 半導體與其他電子元件工業生產指數"), true);
+assert.equal(researchEvidenceRelevance("AI 資料中心電力與電網", "industry", "AI Power / Grid 電力與特殊變壓器製造生產者物價指數"), true);
 assert.equal(researchEvidenceRelevance("AI 電力與資料中心", "commodity", "Henry Hub 天然氣現貨價格"), true);
 assert.equal(researchEvidenceRelevance("電網與變壓器", "commodity", "銅與銅合金棒材生產者物價指數"), true);
 assert.equal(researchEvidenceRelevance("生技新藥", "commodity", "Henry Hub 天然氣現貨價格"), false);

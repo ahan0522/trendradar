@@ -18,8 +18,14 @@ export function researchEvidenceRelevance(
   const signal = normalized(topic);
   const metric = normalized(name);
   if (kind === "industry") {
-    return /半導體|晶片|記憶體|hbm|dram|nand|ai|算力|資料中心|compute|semiconductor/.test(signal)
-      && /半導體|運算|高科技|compute|semiconductor/.test(metric);
+    if (
+      /半導體|晶片|記憶體|hbm|dram|nand|ai|算力|資料中心|compute|semiconductor/.test(signal)
+      && /半導體|電子元件|運算|高科技|compute|semiconductor/.test(metric)
+    ) {
+      return true;
+    }
+    return /電網|電力|變壓器|資料中心|基礎建設|power|grid|transformer/.test(signal)
+      && /電力|變壓器|transformer|power/.test(metric);
   }
   if (/天然氣|henry hub|gas/.test(metric)) {
     return /能源|天然氣|發電|電力|資料中心|power|energy|gas/.test(signal);

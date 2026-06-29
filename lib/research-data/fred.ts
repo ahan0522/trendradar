@@ -64,6 +64,27 @@ const defaultSeries: FredSeries[] = [
     quoteType: "index",
   },
   {
+    id: "PCU334413334413",
+    name: "半導體與相關元件製造生產者物價指數",
+    kind: "industry",
+    industry: "Semiconductor / Compute",
+    unit: "Index Dec 1998=100",
+  },
+  {
+    id: "IPG3344S",
+    name: "半導體與其他電子元件工業生產指數",
+    kind: "industry",
+    industry: "Semiconductor / Compute",
+    unit: "Index 2017=100",
+  },
+  {
+    id: "PCU335311335311",
+    name: "電力與特殊變壓器製造生產者物價指數",
+    kind: "industry",
+    industry: "AI Power / Grid",
+    unit: "Index Jun 1981=100",
+  },
+  {
     id: "CAPUTLHITEK2S",
     name: "高科技製造產能利用率",
     kind: "industry",
