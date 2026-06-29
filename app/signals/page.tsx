@@ -1,7 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { getSignalsListPayload } from "@/lib/signals/signals-list-payload";
 
 type Outcome = {
   horizon_days: number;
@@ -171,27 +169,12 @@ function ScoreBadge({ score }: { score: number }) {
   return <span className={`rounded-full border px-3 py-1 text-xs font-black ${tone}`}>Heat {score}</span>;
 }
 
-export default function SignalsPage() {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/signals")
-      .then((response) => response.json())
-      .then((payload: ApiResponse) => setData(payload))
-      .catch((error: Error) => setData({ ok: false, error: error.message, signals: [] }))
-      .finally(() => setLoading(false));
-  }, []);
-
-  const signals = useMemo(() => data?.signals ?? [], [data?.signals]);
-  const sortedSignals = useMemo(
-    () => [...signals].sort((a, b) => b.confidenceScore - a.confidenceScore || b.signalStrength - a.signalStrength),
-    [signals],
-  );
-  const researchSignals = useMemo(() => {
-    const strong = sortedSignals.filter((signal) => signal.confidenceScore >= 55 && signal.signalStrength >= 40).slice(0, 3);
-    return strong.length > 0 ? strong : sortedSignals.slice(0, 1);
-  }, [sortedSignals]);
+export default async function SignalsPage() {
+  const data = (await getSignalsListPayload()) as ApiResponse;
+  const signals = data?.signals ?? [];
+  const sortedSignals = [...signals].sort((a, b) => b.confidenceScore - a.confidenceScore || b.signalStrength - a.signalStrength);
+  const strongSignals = sortedSignals.filter((signal) => signal.confidenceScore >= 55 && signal.signalStrength >= 40).slice(0, 3);
+  const researchSignals = strongSignals.length > 0 ? strongSignals : sortedSignals.slice(0, 1);
   const watchPool = sortedSignals.filter((signal) => !researchSignals.some((item) => item.id === signal.id));
   const validatedCount = signals.filter((signal) => signal.bestOutcome?.outcome === "success").length;
 
@@ -226,8 +209,7 @@ export default function SignalsPage() {
           </div>
         </header>
 
-        {loading ? <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-zinc-400">正在讀取市場訊號...</div> : null}
-        {!loading && data?.error ? <div className="rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 text-amber-200">{data.error}</div> : null}
+        {data?.error ? <div className="rounded-3xl border border-amber-400/30 bg-amber-400/10 p-5 text-amber-200">{data.error}</div> : null}
 
         <section className="space-y-5">
           {researchSignals.map((signal, index) => (
@@ -235,7 +217,7 @@ export default function SignalsPage() {
           ))}
         </section>
 
-        {!loading && researchSignals.length === 0 ? (
+        {researchSignals.length === 0 ? (
           <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-12 text-center">
             <p className="text-lg font-black text-white">目前還沒有足夠強的市場訊號。</p>
             <p className="mt-2 text-sm text-zinc-500">等新聞、供應鏈或價格資料進來後，TrendRadar 會只挑出值得研究的候選，而不是硬湊列表。</p>

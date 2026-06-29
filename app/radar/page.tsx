@@ -134,11 +134,11 @@ export default async function RadarPage() {
             全市場雷達
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-zinc-400 md:text-lg">
-            掃描近 30 天新聞，辨識短期爆發、持續升溫與持續高熱度。熱門度只負責發現，通過研究與證據檢查後才會成為正式 Signal。
+            掃描近 30 天新聞，辨識早期觀察、持續升溫、持續追蹤、降溫與重新活化。熱門度只負責發現，通過研究與證據檢查後才會成為正式 Signal。
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <span className="rounded-full bg-rose-400/10 px-4 py-2 text-sm font-bold text-rose-200">
-              持續高熱度 {sustainedCount}
+              持續追蹤 {sustainedCount}
             </span>
             <span className="rounded-full bg-sky-400/10 px-4 py-2 text-sm font-bold text-sky-200">
               升溫中 {acceleratingCount}

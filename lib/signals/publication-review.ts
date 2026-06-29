@@ -25,10 +25,10 @@ type WatchlistRow = {
   market: MarketCode;
   thesis: string;
   weight: number;
-  causal_reason: string | null;
-  tracking_metrics: string[];
-  invalidation_conditions: string[];
-  direct_operating_link: boolean;
+  causal_reason?: string | null;
+  tracking_metrics?: string[] | null;
+  invalidation_conditions?: string[] | null;
+  direct_operating_link?: boolean | null;
 };
 
 type EvidenceRow = {
@@ -232,6 +232,30 @@ function mapReview(row: ReviewRow): SignalPublicationReview {
   };
 }
 
+const watchlistBaseSelect = "symbol, company_name, market, thesis, weight";
+const watchlistResearchSelect = `${watchlistBaseSelect}, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link`;
+
+function isMissingWatchlistResearchColumns(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
+  return /causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+}
+
+async function readReviewWatchlists(supabase: ReturnType<typeof getSupabaseAdmin>, signalEventId: string) {
+  const result = await supabase
+    .from("signal_watchlists")
+    .select(watchlistResearchSelect)
+    .eq("signal_event_id", signalEventId)
+    .returns<WatchlistRow[]>();
+
+  if (!result.error || !isMissingWatchlistResearchColumns(result.error)) return result;
+
+  return supabase
+    .from("signal_watchlists")
+    .select(watchlistBaseSelect)
+    .eq("signal_event_id", signalEventId)
+    .returns<WatchlistRow[]>();
+}
+
 async function loadEvaluationInput(signalEventId: string): Promise<PublicationEvaluationInput> {
   const supabase = getSupabaseAdmin();
   const [
@@ -242,7 +266,7 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
     { data: components, error: componentError },
   ] = await Promise.all([
     supabase.from("signal_events").select("id, signal_date, as_of_date, topic, signal_strength, confidence_score, hypothesis, evidence").eq("id", signalEventId).single<SignalRow>(),
-    supabase.from("signal_watchlists").select("symbol, company_name, market, thesis, weight, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link").eq("signal_event_id", signalEventId).returns<WatchlistRow[]>(),
+    readReviewWatchlists(supabase, signalEventId),
     supabase.from("signal_evidence_items").select("source_name, source_type, known_at_signal_time").eq("signal_event_id", signalEventId).returns<EvidenceRow[]>(),
     supabase.from("signal_outcomes").select("horizon_days, excess_return, outcome").eq("signal_event_id", signalEventId).returns<OutcomeRow[]>(),
     supabase.from("signal_score_components").select("component_name, normalized_score").eq("signal_event_id", signalEventId).returns<ComponentRow[]>(),
@@ -271,7 +295,7 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
       causalReason: item.causal_reason ?? undefined,
       trackingMetrics: item.tracking_metrics ?? [],
       invalidationConditions: item.invalidation_conditions ?? [],
-      directOperatingLink: item.direct_operating_link,
+      directOperatingLink: item.direct_operating_link ?? false,
     })),
     evidenceItems: (evidenceItems ?? []).map((item) => ({
       sourceName: item.source_name ?? undefined,

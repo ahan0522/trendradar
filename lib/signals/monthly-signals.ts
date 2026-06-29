@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import { publishableLatestPrice } from "@/lib/signals/price-quality";
 import {
   buildSignalScoreComponents,
@@ -102,6 +103,11 @@ type LedgerWatchlistRow = {
   company_name: string;
   market: MarketCode;
   thesis: string;
+  value_chain_role?: string | null;
+  causal_reason?: string | null;
+  tracking_metrics?: string[] | null;
+  invalidation_conditions?: string[] | null;
+  direct_operating_link?: boolean | null;
   weight: number;
   source: string | null;
 };
@@ -111,6 +117,11 @@ type WatchItem = {
   companyName: string;
   market: MarketCode;
   thesis: string;
+  valueChainRole?: string;
+  causalReason?: string;
+  trackingMetrics?: string[];
+  invalidationConditions?: string[];
+  directOperatingLink?: boolean;
 };
 
 type MonthlyRule = {
@@ -279,6 +290,34 @@ function lastDayOfMonth(month: string) {
   date.setUTCMonth(date.getUTCMonth() + 1);
   date.setUTCDate(0);
   return date.toISOString().slice(0, 10);
+}
+
+const ledgerWatchlistBaseSelect = "id, signal_event_id, symbol, company_name, market, thesis, weight, source";
+const ledgerWatchlistResearchSelect = `${ledgerWatchlistBaseSelect}, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link`;
+
+function isMissingWatchlistResearchColumns(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+}
+
+async function readLedgerWatchlists(supabase: ReturnType<typeof getSupabaseAdmin>, signalEventIds: string[]) {
+  if (signalEventIds.length === 0) return { data: [] as LedgerWatchlistRow[], error: null };
+
+  const result = await supabase
+    .from("signal_watchlists")
+    .select(ledgerWatchlistResearchSelect)
+    .in("signal_event_id", signalEventIds)
+    .order("weight", { ascending: false })
+    .returns<LedgerWatchlistRow[]>();
+
+  if (!result.error || !isMissingWatchlistResearchColumns(result.error)) return result;
+
+  return supabase
+    .from("signal_watchlists")
+    .select(ledgerWatchlistBaseSelect)
+    .in("signal_event_id", signalEventIds)
+    .order("weight", { ascending: false })
+    .returns<LedgerWatchlistRow[]>();
 }
 
 function monthRange(startMonth: string, endMonth: string) {
@@ -500,6 +539,14 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       published_at: article.published_at,
     }));
     const signalId = `monthly-${month}-${candidate.rule.key}`;
+    const mappedBeneficiaries = mapBeneficiaries({
+      topic: candidate.rule.topic,
+      hypothesis: candidate.rule.hypothesis,
+      signalEventId: signalId,
+    });
+    const mappedBeneficiaryBySymbol = new Map(
+      mappedBeneficiaries.map((item) => [item.symbol, item]),
+    );
     const signalOutcomes = outcomesBySignal.get(signalId) ?? [];
     const completedOutcomes = signalOutcomes.filter((item) => item.outcome !== "pending");
     const latestOutcome = completedOutcomes.at(-1) ?? null;
@@ -590,6 +637,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       modelVersion: "monthly-current-v1",
       watchlistCount: candidate.rule.watchlist.length,
       watchlists: candidate.rule.watchlist.map((item) => {
+        const mapped = mappedBeneficiaryBySymbol.get(item.symbol);
         const latestPrice = latestPrices.get(priceKey(item.symbol, item.market));
         const rawLatestPrice = latestPrice
           ? {
@@ -608,6 +656,11 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           companyName: item.companyName,
           market: item.market,
           thesis: item.thesis,
+          valueChainRole: mapped?.valueChainRole,
+          causalReason: mapped?.causalReason,
+          trackingMetrics: mapped?.trackingMetrics ?? [],
+          invalidationConditions: mapped?.invalidationConditions ?? [],
+          directOperatingLink: mapped?.directOperatingLink ?? false,
           weight: Number((1 / candidate.rule.watchlist.length).toFixed(4)),
           source: "monthly-rule-based",
           latestPrice: publishable.latestPrice,
@@ -650,12 +703,7 @@ export async function getMonthlySignalReport(options?: {
   const [{ data: ledgerWatchlists, error: ledgerWatchlistError }, { data: ledgerOutcomes, error: ledgerOutcomeError }] =
     ledgerIds.length > 0
       ? await Promise.all([
-          supabase
-            .from("signal_watchlists")
-            .select("id, signal_event_id, symbol, company_name, market, thesis, weight, source")
-            .in("signal_event_id", ledgerIds)
-            .order("weight", { ascending: false })
-            .returns<LedgerWatchlistRow[]>(),
+          readLedgerWatchlists(supabase, ledgerIds),
           supabase
             .from("signal_outcomes")
             .select("signal_event_id, horizon_days, basket_return, benchmark_return, excess_return, outcome")
@@ -703,6 +751,11 @@ export async function getMonthlySignalReport(options?: {
       companyName: watchlist.company_name,
       market: watchlist.market,
       thesis: watchlist.thesis,
+      valueChainRole: watchlist.value_chain_role ?? undefined,
+      causalReason: watchlist.causal_reason ?? undefined,
+      trackingMetrics: watchlist.tracking_metrics ?? [],
+      invalidationConditions: watchlist.invalidation_conditions ?? [],
+      directOperatingLink: watchlist.direct_operating_link ?? false,
       weight: Number(watchlist.weight),
       source: watchlist.source ?? "monthly-rule-based",
       latestPrice: null,

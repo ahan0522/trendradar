@@ -34,11 +34,11 @@ type WatchlistRow = {
   thesis: string;
   weight: number;
   source: string | null;
-  value_chain_role: string | null;
-  causal_reason: string | null;
-  tracking_metrics: string[];
-  invalidation_conditions: string[];
-  direct_operating_link: boolean;
+  value_chain_role?: string | null;
+  causal_reason?: string | null;
+  tracking_metrics?: string[] | null;
+  invalidation_conditions?: string[] | null;
+  direct_operating_link?: boolean | null;
 };
 
 type PriceRow = {
@@ -57,6 +57,30 @@ function priceKey(symbol: string, market: string) {
   return `${symbol}::${market}`;
 }
 
+const watchlistBaseSelect = "signal_event_id, symbol, company_name, market, thesis, weight, source";
+const watchlistResearchSelect = `${watchlistBaseSelect}, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link`;
+
+function isMissingWatchlistResearchColumns(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+}
+
+async function readSignalWatchlists(supabase: ReturnType<typeof getSupabaseAdmin>) {
+  const result = await supabase
+    .from("signal_watchlists")
+    .select(watchlistResearchSelect)
+    .order("weight", { ascending: false })
+    .returns<WatchlistRow[]>();
+
+  if (!result.error || !isMissingWatchlistResearchColumns(result.error)) return result;
+
+  return supabase
+    .from("signal_watchlists")
+    .select(watchlistBaseSelect)
+    .order("weight", { ascending: false })
+    .returns<WatchlistRow[]>();
+}
+
 export async function GET() {
   try {
     const supabase = getSupabaseAdmin();
@@ -67,11 +91,7 @@ export async function GET() {
           .select("id, signal_date, as_of_date, topic, signal_type, signal_strength, confidence_score, hypothesis, status, model_version")
           .order("signal_date", { ascending: false })
           .returns<SignalRow[]>(),
-        supabase
-          .from("signal_watchlists")
-          .select("signal_event_id, symbol, company_name, market, thesis, weight, source, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link")
-          .order("weight", { ascending: false })
-          .returns<WatchlistRow[]>(),
+        readSignalWatchlists(supabase),
         supabase
           .from("signal_outcomes")
           .select("signal_event_id, horizon_days, basket_return, benchmark_return, excess_return, outcome")
@@ -157,7 +177,7 @@ export async function GET() {
             causalReason: item.causal_reason ?? undefined,
             trackingMetrics: item.tracking_metrics ?? [],
             invalidationConditions: item.invalidation_conditions ?? [],
-            directOperatingLink: item.direct_operating_link,
+            directOperatingLink: item.direct_operating_link ?? false,
             latestPrice: publishable.latestPrice,
             priceQuality: publishable.priceQuality,
           };

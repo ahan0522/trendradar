@@ -12,6 +12,11 @@ type EvidencePayload = {
   }>;
 };
 
+function isMissingWatchlistResearchColumns(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+}
+
 export async function generateSignalLedger(asOfDate: string) {
   const signals = await detectSignalsFromTopics(asOfDate);
   if (signals.length === 0) {
@@ -43,8 +48,7 @@ export async function generateSignalLedger(asOfDate: string) {
         .eq("source", "rule-based");
       if (cleanupError) throw cleanupError;
     }
-    const { error } = await supabase.from("signal_watchlists").upsert(
-      watchlists.map((item) => ({
+    const watchlistRows = watchlists.map((item) => ({
         id: item.id,
         signal_event_id: item.signalEventId,
         symbol: item.symbol,
@@ -59,10 +63,35 @@ export async function generateSignalLedger(asOfDate: string) {
         invalidation_conditions: item.invalidationConditions ?? [],
         direct_operating_link: item.directOperatingLink ?? false,
         updated_at: new Date().toISOString(),
-      })),
+      }));
+    const { error } = await supabase.from("signal_watchlists").upsert(
+      watchlistRows,
       { onConflict: "signal_event_id,symbol,market" },
     );
-    if (error) throw error;
+    if (error) {
+      if (!isMissingWatchlistResearchColumns(error)) throw error;
+      const legacyRows = watchlistRows.map((item) => {
+        const {
+          value_chain_role: _valueChainRole,
+          causal_reason: _causalReason,
+          tracking_metrics: _trackingMetrics,
+          invalidation_conditions: _invalidationConditions,
+          direct_operating_link: _directOperatingLink,
+          ...legacy
+        } = item;
+        void _valueChainRole;
+        void _causalReason;
+        void _trackingMetrics;
+        void _invalidationConditions;
+        void _directOperatingLink;
+        return legacy;
+      });
+      const { error: legacyError } = await supabase.from("signal_watchlists").upsert(
+        legacyRows,
+        { onConflict: "signal_event_id,symbol,market" },
+      );
+      if (legacyError) throw legacyError;
+    }
   }
 
   const evidenceRows = signals.flatMap((signal) => {

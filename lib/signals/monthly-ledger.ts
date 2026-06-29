@@ -40,6 +40,11 @@ function currentTaipeiDate() {
   }).format(new Date());
 }
 
+function isMissingWatchlistResearchColumns(error: unknown) {
+  const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+}
+
 export async function finalizeMonthlySignals(asOfDate: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate)) throw new Error("asOfDate must use YYYY-MM-DD");
   if (asOfDate > currentTaipeiDate()) throw new Error("Cannot finalize a future month");
@@ -90,7 +95,29 @@ export async function finalizeMonthlySignals(asOfDate: string) {
   const { error: watchlistError } = await supabase
     .from("signal_watchlists")
     .upsert(watchlistRows, { onConflict: "signal_event_id,symbol,market" });
-  if (watchlistError) throw watchlistError;
+  if (watchlistError) {
+    if (!isMissingWatchlistResearchColumns(watchlistError)) throw watchlistError;
+    const legacyRows = watchlistRows.map((item) => {
+      const {
+        value_chain_role: _valueChainRole,
+        causal_reason: _causalReason,
+        tracking_metrics: _trackingMetrics,
+        invalidation_conditions: _invalidationConditions,
+        direct_operating_link: _directOperatingLink,
+        ...legacy
+      } = item;
+      void _valueChainRole;
+      void _causalReason;
+      void _trackingMetrics;
+      void _invalidationConditions;
+      void _directOperatingLink;
+      return legacy;
+    });
+    const { error: legacyError } = await supabase
+      .from("signal_watchlists")
+      .upsert(legacyRows, { onConflict: "signal_event_id,symbol,market" });
+    if (legacyError) throw legacyError;
+  }
 
   const evidenceRows = signals.flatMap((signal) => {
     const evidence = (signal.evidence[0] ?? {}) as MonthlyEvidence;

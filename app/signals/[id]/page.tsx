@@ -1,8 +1,5 @@
-"use client";
-
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { getSignalDetailPayload } from "@/lib/signals/signal-detail-payload";
 import type { SignalEvidencePanelItem, SignalResearchBrief } from "@/types/signals";
 
 type Watchlist = {
@@ -330,21 +327,11 @@ function safeExternalUrl(value: string | undefined) {
   }
 }
 
-export default function SignalDetailPage() {
-  const params = useParams<{ id: string }>();
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+export default async function SignalDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const data = (await getSignalDetailPayload(id)) as ApiResponse;
 
-  useEffect(() => {
-    if (!params.id) return;
-    fetch(`/api/signals/${params.id}`)
-      .then((response) => response.json())
-      .then((payload: ApiResponse) => setData(payload))
-      .catch((error: Error) => setData({ ok: false, error: error.message }))
-      .finally(() => setLoading(false));
-  }, [params.id]);
-
-  const returnRows = useMemo(() => {
+  const returnRows = (() => {
     const bySymbol = new Map<string, { symbol: string; companyName: string; market: string; entryPrice: number | null; returns: Record<number, number | null> }>();
     for (const horizon of data?.stockReturnDetails ?? []) {
       for (const detail of horizon.details) {
@@ -360,7 +347,7 @@ export default function SignalDetailPage() {
       }
     }
     return [...bySymbol.values()];
-  }, [data?.stockReturnDetails]);
+  })();
 
   const evidence = (data?.signal?.evidence?.[0] ?? {}) as EvidenceMetric;
   const outcomes = data?.outcomes ?? [];
@@ -370,10 +357,6 @@ export default function SignalDetailPage() {
   const scoreComponents = data?.scoreComponents ?? [];
   const researchBrief = data?.researchBrief;
   const evidencePanel = data?.evidencePanel ?? [];
-
-  if (loading) {
-    return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-zinc-400">正在整理研究報告...</main>;
-  }
 
   if (!data?.ok || !data.signal) {
     return <main className="min-h-screen bg-[#05070d] px-6 py-10 text-amber-200">{data?.error ?? "找不到這個訊號"}</main>;
