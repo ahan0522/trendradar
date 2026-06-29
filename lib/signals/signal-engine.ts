@@ -30,6 +30,19 @@ export type ResearchConfidenceInput = {
   contradictionPenalty?: number;
 };
 
+export type ResearchConfidenceV2Input = {
+  sourceQuality?: number;
+  sourceDiversity?: number;
+  industryEvidence?: number;
+  commodityEvidence?: number;
+  companyEvidence?: number;
+  supplyChainEvidence?: number;
+  beneficiaryClarity?: number;
+  marketEvidence?: number;
+  persistence?: number;
+  contradictionPenalty?: number;
+};
+
 export type SignalConvictionStatus = "high_conviction" | "rising" | "watch" | "weak";
 
 export type SignalScoreComponent = {
@@ -176,6 +189,21 @@ export function calculateResearchConfidence(input: ResearchConfidenceInput) {
     (input.beneficiaryClarity ?? 0) * 0.1 +
     (input.priceConfirmation ?? 0) * 0.1 -
     (input.contradictionPenalty ?? 0) * 0.2;
+  return clampScore(score);
+}
+
+export function calculateResearchConfidenceV2(input: ResearchConfidenceV2Input) {
+  const score =
+    (input.sourceQuality ?? 0) * 0.15 +
+    (input.sourceDiversity ?? 0) * 0.1 +
+    (input.industryEvidence ?? 0) * 0.15 +
+    (input.commodityEvidence ?? 0) * 0.1 +
+    (input.companyEvidence ?? 0) * 0.2 +
+    (input.supplyChainEvidence ?? 0) * 0.1 +
+    (input.beneficiaryClarity ?? 0) * 0.1 +
+    (input.marketEvidence ?? 0) * 0.05 +
+    (input.persistence ?? 0) * 0.05 -
+    (input.contradictionPenalty ?? 0) * 0.25;
   return clampScore(score);
 }
 

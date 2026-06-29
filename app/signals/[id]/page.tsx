@@ -12,6 +12,11 @@ type Watchlist = {
   thesis: string;
   weight: number;
   source: string | null;
+  valueChainRole?: string;
+  causalReason?: string;
+  trackingMetrics?: string[];
+  invalidationConditions?: string[];
+  directOperatingLink?: boolean;
   latestPrice: {
     priceDate: string;
     close: number;
@@ -633,6 +638,11 @@ export default function SignalDetailPage() {
                     <div className="rounded-full border border-sky-300/30 bg-sky-400/10 px-3 py-1 text-xs font-bold text-sky-200">{item.market}</div>
                   </div>
                   <p className="mt-1 text-sm font-bold text-zinc-300">{item.companyName}</p>
+                  {item.valueChainRole ? (
+                    <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-sky-300">
+                      {item.valueChainRole}
+                    </p>
+                  ) : null}
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full bg-zinc-950 px-3 py-1.5 font-mono font-bold text-white">
                       最新收盤 {latestPrice(item)}
@@ -643,7 +653,23 @@ export default function SignalDetailPage() {
                       {item.priceQuality?.status === "verified" ? "官方資料已驗證" : "價格待驗證"}
                     </span>
                   </div>
-                  <p className="mt-3 text-sm leading-6 text-zinc-500">{item.thesis}</p>
+                  <p className="mt-3 text-sm leading-6 text-zinc-400">{item.causalReason ?? item.thesis}</p>
+                  {(item.trackingMetrics?.length ?? 0) > 0 ? (
+                    <div className="mt-4">
+                      <p className="text-xs font-bold text-emerald-300">驗證指標</p>
+                      <ul className="mt-2 space-y-1 text-xs leading-5 text-zinc-500">
+                        {item.trackingMetrics?.map((metric) => <li key={metric}>• {metric}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {(item.invalidationConditions?.length ?? 0) > 0 ? (
+                    <div className="mt-4">
+                      <p className="text-xs font-bold text-rose-300">失效條件</p>
+                      <ul className="mt-2 space-y-1 text-xs leading-5 text-zinc-500">
+                        {item.invalidationConditions?.map((condition) => <li key={condition}>• {condition}</li>)}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
               ))}
               {watchlists.length === 0 ? (

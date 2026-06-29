@@ -1,9 +1,10 @@
 export type HeatLifecycle =
-  | "breaking_out"
+  | "emerging"
   | "rising"
-  | "sustained_high"
+  | "sustained"
   | "cooling"
-  | "emerging";
+  | "reactivated"
+  | "expired";
 
 export type HeatLifecycleInput = {
   publishedAt: Array<string | null>;
@@ -33,11 +34,12 @@ function startOfDay(value: Date) {
 
 function lifecycleLabel(state: HeatLifecycle) {
   const labels: Record<HeatLifecycle, string> = {
-    breaking_out: "短期爆發",
-    rising: "持續升溫",
-    sustained_high: "持續高熱度",
-    cooling: "正在降溫",
     emerging: "早期觀察",
+    rising: "持續升溫",
+    sustained: "持續追蹤",
+    cooling: "正在降溫",
+    reactivated: "重新活化",
+    expired: "已失效",
   };
   return labels[state];
 }
@@ -58,6 +60,7 @@ export function calculateHeatLifecycle(input: HeatLifecycleInput): HeatLifecycle
   const articleCount24h = dates.filter((date) => withinDays(date, 1)).length;
   const articleCount7d = dates.filter((date) => withinDays(date, 7)).length;
   const articleCount30d = dates.filter((date) => withinDays(date, 30)).length;
+  const olderThan30Count = dates.length - articleCount30d;
   const previous7dCount = dates.filter(
     (date) => withinDays(date, 14) && !withinDays(date, 7),
   ).length;
@@ -78,14 +81,23 @@ export function calculateHeatLifecycle(input: HeatLifecycleInput): HeatLifecycle
   );
 
   let state: HeatLifecycle = "emerging";
-  if (
+  if (dates.length > 0 && articleCount30d === 0) {
+    state = "expired";
+  } else if (
+    olderThan30Count >= 3 &&
+    previous7dCount === 0 &&
+    articleCount7d >= 3 &&
+    input.sourceCount >= 2
+  ) {
+    state = "reactivated";
+  } else if (
     articleCount7d >= 6 &&
     articleCount30d >= 10 &&
     activeDays >= 4 &&
     input.sourceCount >= 3 &&
     (previous7dCount >= 3 || articleCount30d >= 14)
   ) {
-    state = "sustained_high";
+    state = "sustained";
   } else if (
     previous7dCount >= 4 &&
     articleCount7d <= Math.max(1, previous7dCount * 0.5)
@@ -96,7 +108,7 @@ export function calculateHeatLifecycle(input: HeatLifecycleInput): HeatLifecycle
     (velocityRatio >= 2.5 || articleCount30d === articleCount24h) &&
     input.sourceCount >= 2
   ) {
-    state = "breaking_out";
+    state = "rising";
   } else if (
     articleCount7d >= 4 &&
     velocityRatio >= 1.4 &&
@@ -106,11 +118,12 @@ export function calculateHeatLifecycle(input: HeatLifecycleInput): HeatLifecycle
   }
 
   const reasons: Record<HeatLifecycle, string> = {
-    sustained_high: `近 30 天有 ${articleCount30d} 篇、分布於 ${activeDays} 天，且近兩週持續有跨來源討論。`,
-    breaking_out: `近 24 小時新增 ${articleCount24h} 篇，近期速度約為先前基準的 ${velocityRatio} 倍。`,
-    rising: `近 7 天有 ${articleCount7d} 篇，討論速度約為先前基準的 ${velocityRatio} 倍。`,
-    cooling: `前一個 7 天有 ${previous7dCount} 篇，最近 7 天降至 ${articleCount7d} 篇。`,
     emerging: `目前有 ${articleCount30d} 篇、${input.sourceCount} 個有效來源，仍需更多時間確認。`,
+    rising: `近 7 天有 ${articleCount7d} 篇，討論速度約為先前基準的 ${velocityRatio} 倍。`,
+    sustained: `近 30 天有 ${articleCount30d} 篇、分布於 ${activeDays} 天，且近兩週持續有跨來源討論。`,
+    cooling: `前一個 7 天有 ${previous7dCount} 篇，最近 7 天降至 ${articleCount7d} 篇。`,
+    reactivated: `曾有 ${olderThan30Count} 篇歷史討論沉寂後，近 7 天重新出現 ${articleCount7d} 篇跨來源訊號。`,
+    expired: `近 30 天沒有新增有效討論，暫列為已失效候選。`,
   };
 
   return {

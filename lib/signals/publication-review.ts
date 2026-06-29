@@ -25,6 +25,10 @@ type WatchlistRow = {
   market: MarketCode;
   thesis: string;
   weight: number;
+  causal_reason: string | null;
+  tracking_metrics: string[];
+  invalidation_conditions: string[];
+  direct_operating_link: boolean;
 };
 
 type EvidenceRow = {
@@ -72,6 +76,10 @@ export type PublicationEvaluationInput = {
     companyName: string;
     market: MarketCode;
     thesis: string;
+    causalReason?: string;
+    trackingMetrics?: string[];
+    invalidationConditions?: string[];
+    directOperatingLink?: boolean;
   }>;
   evidenceItems: Array<{
     sourceName?: string;
@@ -119,7 +127,12 @@ export function evaluateSignalForPublication(input: PublicationEvaluationInput) 
   const primaryEvidence = knownEvidence.filter((item) =>
     ["official", "company_action", "supply_chain", "price"].includes(item.sourceType),
   );
-  const mapped = input.watchlists.filter((item) => item.thesis.trim().length >= 12);
+  const mapped = input.watchlists.filter((item) =>
+    item.directOperatingLink === true &&
+    (item.causalReason ?? item.thesis).trim().length >= 12 &&
+    (item.trackingMetrics?.length ?? 0) > 0 &&
+    (item.invalidationConditions?.length ?? 0) > 0,
+  );
   const gates = [
     gate("source_diversity", "至少 3 個有效來源", sourceCount >= 3, true, sourceCount, `${sourceCount} 個有效來源`),
     gate("event_depth", "至少 3 個研究事件", eventCount >= 3, true, eventCount, `${eventCount} 個去重事件`),
@@ -149,7 +162,7 @@ export function evaluateSignalForPublication(input: PublicationEvaluationInput) 
     ),
     gate(
       "beneficiary_mapping",
-      "至少 1 檔具明確理由的觀察標的",
+      "至少 1 檔具直接營運關係與驗證條件的觀察標的",
       mapped.length >= 1,
       true,
       mapped.length,
@@ -191,7 +204,7 @@ export function evaluateSignalForPublication(input: PublicationEvaluationInput) 
       symbol: item.symbol,
       companyName: item.companyName,
       market: item.market,
-      reason: item.thesis,
+      reason: item.causalReason ?? item.thesis,
     })),
     trackingIndicators: researchBrief.trackingIndicators,
     invalidationConditions: researchBrief.invalidationConditions,
@@ -229,7 +242,7 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
     { data: components, error: componentError },
   ] = await Promise.all([
     supabase.from("signal_events").select("id, signal_date, as_of_date, topic, signal_strength, confidence_score, hypothesis, evidence").eq("id", signalEventId).single<SignalRow>(),
-    supabase.from("signal_watchlists").select("symbol, company_name, market, thesis, weight").eq("signal_event_id", signalEventId).returns<WatchlistRow[]>(),
+    supabase.from("signal_watchlists").select("symbol, company_name, market, thesis, weight, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link").eq("signal_event_id", signalEventId).returns<WatchlistRow[]>(),
     supabase.from("signal_evidence_items").select("source_name, source_type, known_at_signal_time").eq("signal_event_id", signalEventId).returns<EvidenceRow[]>(),
     supabase.from("signal_outcomes").select("horizon_days, excess_return, outcome").eq("signal_event_id", signalEventId).returns<OutcomeRow[]>(),
     supabase.from("signal_score_components").select("component_name, normalized_score").eq("signal_event_id", signalEventId).returns<ComponentRow[]>(),
@@ -255,6 +268,10 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
       companyName: item.company_name,
       market: item.market,
       thesis: item.thesis,
+      causalReason: item.causal_reason ?? undefined,
+      trackingMetrics: item.tracking_metrics ?? [],
+      invalidationConditions: item.invalidation_conditions ?? [],
+      directOperatingLink: item.direct_operating_link,
     })),
     evidenceItems: (evidenceItems ?? []).map((item) => ({
       sourceName: item.source_name ?? undefined,

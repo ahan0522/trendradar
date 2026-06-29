@@ -4,6 +4,7 @@ import {
   calculateSignalStrength,
   calculateSignalHeat,
   calculateResearchConfidence,
+  calculateResearchConfidenceV2,
   classifySignalStatus,
   asOfEndIso,
   assertAsOfNotFuture,
@@ -38,6 +39,7 @@ import { buildReplayResearchReport } from "../lib/signals/replay-research-report
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
+import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
   dedupeArticlesByEvent,
@@ -88,6 +90,34 @@ function testSignalScore() {
     sourceQuality: 100,
     contradictionPenalty: 100,
   }), 5);
+  assert.equal(calculateResearchConfidenceV2({
+    sourceQuality: 100,
+    sourceDiversity: 100,
+    industryEvidence: 100,
+    commodityEvidence: 100,
+    companyEvidence: 100,
+    supplyChainEvidence: 100,
+    beneficiaryClarity: 100,
+    marketEvidence: 100,
+    persistence: 100,
+  }), 100);
+  assert.equal(calculateResearchConfidenceV2({
+    sourceQuality: 100,
+    sourceDiversity: 100,
+    persistence: 100,
+  }), 30);
+  assert.equal(calculateResearchConfidenceV2({
+    sourceQuality: 100,
+    sourceDiversity: 100,
+    industryEvidence: 100,
+    commodityEvidence: 100,
+    companyEvidence: 100,
+    supplyChainEvidence: 100,
+    beneficiaryClarity: 100,
+    marketEvidence: 100,
+    persistence: 100,
+    contradictionPenalty: 100,
+  }), 75);
 
   const components = buildSignalScoreComponents({
     mentionSpike: 50,
@@ -113,6 +143,22 @@ function testSignalScore() {
   assert.match(cpoHypothesis, /CPO、矽光子與封裝量產/);
   assert.match(cpoHypothesis, /2 個獨立來源/);
   assert.doesNotMatch(cpoHypothesis, /英特爾|特斯拉/);
+}
+
+function testBeneficiaryResearchMapping() {
+  const memory = mapBeneficiaries({
+    topic: "HBM 與 DRAM 記憶體需求",
+    signalEventId: "memory-test",
+  });
+  assert.ok(memory.length > 0);
+  assert.ok(memory.every((item) => item.directOperatingLink === true));
+  assert.ok(memory.every((item) => Boolean(item.valueChainRole)));
+  assert.ok(memory.every((item) => Boolean(item.causalReason)));
+  assert.ok(memory.every((item) => (item.trackingMetrics?.length ?? 0) >= 3));
+  assert.ok(memory.every((item) => (item.invalidationConditions?.length ?? 0) >= 3));
+  assert.deepEqual(mapBeneficiaries({
+    topic: "與企業營運沒有直接關係的熱門娛樂新聞",
+  }), []);
 }
 
 function testTopicKeywordBoundaries() {
@@ -383,10 +429,10 @@ function testHeatLifecycle() {
       "2026-06-27", "2026-06-28",
     ]),
   });
-  assert.equal(sustained.state, "sustained_high");
+  assert.equal(sustained.state, "sustained");
   assert.ok(sustained.persistenceScore >= 70);
 
-  const breakout = calculateHeatLifecycle({
+  const rising = calculateHeatLifecycle({
     asOfDate: "2026-06-28",
     sourceCount: 3,
     publishedAt: [
@@ -395,7 +441,7 @@ function testHeatLifecycle() {
       "2026-06-28T10:00:00.000Z",
     ],
   });
-  assert.equal(breakout.state, "breaking_out");
+  assert.equal(rising.state, "rising");
 
   const cooling = calculateHeatLifecycle({
     asOfDate: "2026-06-28",
@@ -406,6 +452,23 @@ function testHeatLifecycle() {
     ]),
   });
   assert.equal(cooling.state, "cooling");
+
+  const reactivated = calculateHeatLifecycle({
+    asOfDate: "2026-06-28",
+    sourceCount: 3,
+    publishedAt: articleDates([
+      "2026-04-01", "2026-04-05", "2026-04-12",
+      "2026-06-25", "2026-06-27", "2026-06-28",
+    ]),
+  });
+  assert.equal(reactivated.state, "reactivated");
+
+  const expired = calculateHeatLifecycle({
+    asOfDate: "2026-06-28",
+    sourceCount: 2,
+    publishedAt: articleDates(["2026-04-01", "2026-04-05", "2026-04-12"]),
+  });
+  assert.equal(expired.state, "expired");
 }
 
 function testResearchBrief() {
@@ -520,6 +583,10 @@ function testPublicationGate() {
       companyName: "Micron",
       market: "US",
       thesis: "直接生產 DRAM 與 HBM，可用報價、庫存與毛利率驗證假設。",
+      causalReason: "Micron 直接生產 DRAM 與 HBM，需求及報價會影響營收與毛利。",
+      trackingMetrics: ["DRAM 報價", "HBM 出貨", "庫存"],
+      invalidationConditions: ["報價轉跌", "庫存上升", "HBM 出貨不如預期"],
+      directOperatingLink: true,
     }],
     evidenceItems: [
       { sourceName: "A", sourceType: "news", knownAtSignalTime: true },
@@ -572,6 +639,7 @@ function testEvidencePanel() {
 
 function main() {
   testSignalScore();
+  testBeneficiaryResearchMapping();
   testTopicKeywordBoundaries();
   testVerifiedPriceGate();
   testCsvProvenance();

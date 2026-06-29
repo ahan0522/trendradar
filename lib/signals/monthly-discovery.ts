@@ -14,7 +14,7 @@ import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import {
   buildEvidenceBasedHypothesis,
   buildSignalScoreComponents,
-  calculateResearchConfidence,
+  calculateResearchConfidenceV2,
   calculateSignalHeat,
 } from "@/lib/signals/signal-engine";
 import {
@@ -126,11 +126,12 @@ function candidateFamily(candidate: CandidateTopic) {
 
 function candidatePriority(candidate: CandidateTopic) {
   const lifecycleBoost = {
-    breaking_out: 28,
+    reactivated: 28,
     rising: 24,
-    sustained_high: 20,
+    sustained: 20,
     emerging: 10,
     cooling: 2,
+    expired: -20,
   }[candidate.heatState];
   return (
     lifecycleBoost +
@@ -195,11 +196,11 @@ function selectDiverseCandidates(candidates: CandidateTopic[], limit = 5) {
     }
 
     if ((familyCounts.get(family) ?? 0) >= 2) continue;
-    if (candidate.heatState === "sustained_high" && sustainedCount >= 2) continue;
+    if (candidate.heatState === "sustained" && sustainedCount >= 2) continue;
 
     selected.push(candidate);
     familyCounts.set(family, (familyCounts.get(family) ?? 0) + 1);
-    if (candidate.heatState === "sustained_high") sustainedCount += 1;
+    if (candidate.heatState === "sustained") sustainedCount += 1;
   }
 
   return selected;
@@ -375,17 +376,17 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
     const confidenceInput = {
       sourceQuality: candidateSourceQuality(candidate),
       sourceDiversity: Math.min(candidate.sourceCount * 10, 100),
-      evidenceDepth: Math.min(candidate.articleCount * 5, 100),
+      industryEvidence: 0,
+      commodityEvidence: 0,
+      companyEvidence: 0,
+      supplyChainEvidence: 0,
+      beneficiaryClarity: watchlists.some((item) => item.directOperatingLink) ? 80 : 0,
+      marketEvidence: 0,
       persistence: candidate.persistenceScore,
-      companyActivity: 0,
-      beneficiaryClarity: watchlists.length > 0 ? 60 : 10,
-      priceConfirmation: 0,
+      contradictionPenalty: 0,
     };
     const signalStrength = calculateSignalHeat(heatInput);
-    const confidenceScore = Math.min(
-      watchlists.length > 0 ? 75 : 60,
-      calculateResearchConfidence(confidenceInput),
-    );
+    const confidenceScore = calculateResearchConfidenceV2(confidenceInput);
     const scoreComponents = buildSignalScoreComponents({
       mentionSpike: heatInput.mentionSpike,
       sourceDiversity: heatInput.sourceDiversity,
@@ -455,7 +456,7 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
         heat_input: heatInput,
         confidence_input: confidenceInput,
         heat_model: "signal-heat-v1",
-        confidence_model: "research-confidence-v1",
+        confidence_model: "research-confidence-v2",
         score_components: scoreComponents,
       }],
       status: "active" as const,
@@ -468,6 +469,11 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
         thesis: item.thesis,
         weight: item.weight,
         source: item.source ?? "rule-based",
+        valueChainRole: item.valueChainRole,
+        causalReason: item.causalReason,
+        trackingMetrics: item.trackingMetrics,
+        invalidationConditions: item.invalidationConditions,
+        directOperatingLink: item.directOperatingLink,
         latestPrice: null,
         priceQuality: { status: "needs_review" as const, reason: "候選封存後再補價格驗證" },
       })),

@@ -12,11 +12,12 @@ import {
 export const dynamic = "force-dynamic";
 
 const stateStyle: Record<CandidateTopic["heatState"], string> = {
-  sustained_high: "border-rose-300/30 bg-rose-400/10 text-rose-200",
-  breaking_out: "border-orange-300/30 bg-orange-400/10 text-orange-200",
+  sustained: "border-rose-300/30 bg-rose-400/10 text-rose-200",
+  reactivated: "border-orange-300/30 bg-orange-400/10 text-orange-200",
   rising: "border-sky-300/30 bg-sky-400/10 text-sky-200",
   cooling: "border-zinc-600 bg-zinc-800 text-zinc-300",
   emerging: "border-emerald-300/20 bg-emerald-400/10 text-emerald-200",
+  expired: "border-zinc-700 bg-zinc-900 text-zinc-500",
 };
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -115,11 +116,11 @@ export default async function RadarPage() {
     .filter(isMarketResearchCandidate)
     .slice(0, 12);
   const sustainedCount = candidates.filter(
-    (item) => item.heatState === "sustained_high",
+    (item) => item.heatState === "sustained",
   ).length;
   const acceleratingCount = candidates.filter(
     (item) =>
-      item.heatState === "breaking_out" || item.heatState === "rising",
+      item.heatState === "reactivated" || item.heatState === "rising",
   ).length;
 
   return (

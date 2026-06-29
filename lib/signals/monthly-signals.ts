@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { publishableLatestPrice } from "@/lib/signals/price-quality";
 import {
   buildSignalScoreComponents,
+  calculateResearchConfidenceV2,
   calculateSignalStrength,
   type SignalStrengthInput,
 } from "@/lib/signals/signal-engine";
@@ -533,7 +534,22 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       relevantCompanyActions.length,
     );
     const signalStrength = calculateSignalStrength(scoreInput);
-    const confidenceScore = confidence(articleCount, sourceCount, relevantCompanyActions.length);
+    const confidenceInputV2 = {
+      sourceQuality: Math.min(45 + sourceCount * 7, 85),
+      sourceDiversity: Math.min(sourceCount * 14, 100),
+      industryEvidence: Math.min(researchData.industry.length * 25, 100),
+      commodityEvidence: Math.min(researchData.commodities.length * 15, 100),
+      companyEvidence: Math.min(relevantCompanyActions.length * 25, 100),
+      supplyChainEvidence: Math.min(
+        (researchData.industry.length + relevantCompanyActions.length) * 15,
+        100,
+      ),
+      beneficiaryClarity: candidate.rule.watchlist.length > 0 ? 80 : 0,
+      marketEvidence: 0,
+      persistence: Math.min(articleCount * 8, 100),
+      contradictionPenalty: 0,
+    };
+    const confidenceScore = calculateResearchConfidenceV2(confidenceInputV2);
     const scoreComponents = buildSignalScoreComponents(scoreInput, {
       article_count: articleCount,
       source_count: sourceCount,
@@ -565,6 +581,8 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           commodity_quotes: researchData.commodities,
           score_input: scoreInput,
           score_components: scoreComponents,
+          confidence_input: confidenceInputV2,
+          confidence_model: "research-confidence-v2",
           missing_validation: "需要等待月底後的 30D / 60D / 90D 價格資料驗證。",
         },
       ],

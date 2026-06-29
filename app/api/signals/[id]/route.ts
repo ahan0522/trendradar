@@ -42,6 +42,11 @@ type WatchlistRow = {
   thesis: string;
   weight: number;
   source: string | null;
+  value_chain_role: string | null;
+  causal_reason: string | null;
+  tracking_metrics: string[];
+  invalidation_conditions: string[];
+  direct_operating_link: boolean;
 };
 
 type PriceRow = {
@@ -232,7 +237,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           .returns<SignalRow[]>(),
         supabase
           .from("signal_watchlists")
-          .select("id, signal_event_id, symbol, company_name, market, thesis, weight, source")
+          .select("id, signal_event_id, symbol, company_name, market, thesis, weight, source, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link")
           .eq("signal_event_id", id)
           .order("weight", { ascending: false })
           .returns<WatchlistRow[]>(),
@@ -322,6 +327,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           thesis: item.thesis,
           weight: Number(item.weight),
           source: item.source,
+          valueChainRole: item.value_chain_role ?? undefined,
+          causalReason: item.causal_reason ?? undefined,
+          trackingMetrics: item.tracking_metrics ?? [],
+          invalidationConditions: item.invalidation_conditions ?? [],
+          directOperatingLink: item.direct_operating_link,
           latestPrice: publishable.latestPrice,
           priceQuality: publishable.priceQuality,
         };

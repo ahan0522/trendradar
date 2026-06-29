@@ -79,6 +79,11 @@ export async function finalizeMonthlySignals(asOfDate: string) {
       thesis: item.thesis,
       weight: item.weight,
       source: item.source ?? "monthly-rule-based",
+      value_chain_role: item.valueChainRole ?? null,
+      causal_reason: item.causalReason ?? null,
+      tracking_metrics: item.trackingMetrics ?? [],
+      invalidation_conditions: item.invalidationConditions ?? [],
+      direct_operating_link: item.directOperatingLink ?? false,
       updated_at: new Date().toISOString(),
     })),
   );

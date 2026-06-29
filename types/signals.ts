@@ -41,6 +41,11 @@ export type SignalWatchlistItem = {
   thesis: string;
   weight: number;
   source?: string;
+  valueChainRole?: string;
+  causalReason?: string;
+  trackingMetrics?: string[];
+  invalidationConditions?: string[];
+  directOperatingLink?: boolean;
 };
 
 export type StockPrice = {
