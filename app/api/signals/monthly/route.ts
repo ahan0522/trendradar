@@ -9,9 +9,15 @@ export async function GET(request: Request) {
   const startMonth = searchParams.get("startMonth") ?? undefined;
   const endMonth = searchParams.get("endMonth") ?? undefined;
   const today = searchParams.get("today") ?? undefined;
+  const includeCandidates = searchParams.get("includeCandidates") === "true";
 
   try {
-    const report = await getMonthlySignalReport({ startMonth, endMonth, today });
+    const report = await getMonthlySignalReport({
+      startMonth,
+      endMonth,
+      today,
+      includeCandidates,
+    });
     return NextResponse.json(report);
   } catch (error) {
     return NextResponse.json(

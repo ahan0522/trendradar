@@ -258,6 +258,21 @@ function testMonthCoverageStatus() {
   }).code, "multi_evidence_ready");
 }
 
+function testMonthlyCandidateGuard() {
+  const monthCount = (startMonth: string, endMonth: string) => {
+    const start = new Date(`${startMonth}-01T00:00:00Z`);
+    const end = new Date(`${endMonth}-01T00:00:00Z`);
+    return (
+      (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+      end.getUTCMonth() -
+      start.getUTCMonth() +
+      1
+    );
+  };
+  assert.equal(monthCount("2026-06", "2026-06"), 1);
+  assert.equal(monthCount("2025-01", "2026-06"), 18);
+}
+
 function testArticleEventDedupe() {
   assert.equal(
     normalizeArticleUrl("https://EXAMPLE.com/news/?utm_source=test&b=2&a=1#section"),
@@ -494,6 +509,7 @@ function main() {
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();
+  testMonthlyCandidateGuard();
   testArticleEventDedupe();
   testTaipeiMonthBoundary();
   testSignalIdentityContinuity();

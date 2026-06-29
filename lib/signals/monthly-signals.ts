@@ -607,12 +607,16 @@ export async function getMonthlySignalReport(options?: {
   startMonth?: string;
   endMonth?: string;
   today?: string;
+  includeCandidates?: boolean;
 }) {
   const today = options?.today ?? currentTaipeiDate();
   const startMonth = options?.startMonth ?? "2025-01";
   const endMonth = options?.endMonth ?? today.slice(0, 7);
   const supabase = getSupabaseAdmin();
   const months = monthRange(startMonth, endMonth);
+  if (options?.includeCandidates && months.length > 1) {
+    throw new Error("Candidate discovery can only run for one month at a time.");
+  }
   const reportEndDate = asOfDateForMonth(endMonth, today);
   const { data: ledgerRows, error: ledgerError } = await supabase
     .from("signal_events")
@@ -728,7 +732,7 @@ export async function getMonthlySignalReport(options?: {
       const finalizedSignals = ledgerByMonth.get(month) ?? [];
       const signals = finalizedSignals.length > 0
         ? finalizedSignals
-        : count && count > 0
+        : options?.includeCandidates && count && count > 0
           ? await getMonthlyDiscoverySignals(asOfDate)
           : [];
       return {
