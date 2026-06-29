@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { assessLatestPrice } from "@/lib/signals/price-quality";
 import type { MarketCode, StockPrice } from "@/types/signals";
 
 type StockPriceRow = {
@@ -10,6 +11,7 @@ type StockPriceRow = {
   volume: number | null;
   quality_status?: string | null;
   provider?: string | null;
+  source_url?: string | null;
   verification_provider?: string | null;
 };
 
@@ -35,7 +37,23 @@ function mapRow(row: StockPriceRow): StockPrice {
     close: Number(row.close),
     adjClose: row.adj_close === null ? undefined : Number(row.adj_close),
     volume: row.volume === null ? undefined : Number(row.volume),
+    qualityStatus: row.quality_status as StockPrice["qualityStatus"],
+    provider: row.provider ?? undefined,
+    sourceUrl: row.source_url ?? undefined,
+    verificationProvider: row.verification_provider ?? undefined,
   };
+}
+
+export function isBacktestPriceUsable(price: StockPrice) {
+  return assessLatestPrice(price.symbol, price.market, {
+    priceDate: price.priceDate,
+    close: price.close,
+    adjClose: price.adjClose ?? null,
+    volume: price.volume ?? null,
+    qualityStatus: price.qualityStatus,
+    provider: price.provider,
+    sourceUrl: price.sourceUrl,
+  }).status === "verified";
 }
 
 const supportedMarkets: MarketCode[] = ["US", "TW", "KR", "JP", "GLOBAL"];
@@ -136,7 +154,7 @@ export async function getPriceOnOrAfter(
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("stock_prices")
-    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, verification_provider")
+    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url, verification_provider")
     .eq("symbol", symbol)
     .eq("market", market)
     .eq("quality_status", "verified")
@@ -150,7 +168,8 @@ export async function getPriceOnOrAfter(
 
   if (error?.code === "42703") return null;
   if (error) throw error;
-  return data?.[0] ? mapRow(data[0]) : null;
+  const price = data?.[0] ? mapRow(data[0]) : null;
+  return price && isBacktestPriceUsable(price) ? price : null;
 }
 
 export async function getPriceOnOrBefore(
@@ -162,7 +181,7 @@ export async function getPriceOnOrBefore(
   const supabase = getSupabaseAdmin();
   let query = supabase
     .from("stock_prices")
-    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, verification_provider")
+    .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url, verification_provider")
     .eq("symbol", symbol)
     .eq("market", market)
     .eq("quality_status", "verified")
@@ -176,7 +195,8 @@ export async function getPriceOnOrBefore(
 
   if (error?.code === "42703") return null;
   if (error) throw error;
-  return data?.[0] ? mapRow(data[0]) : null;
+  const price = data?.[0] ? mapRow(data[0]) : null;
+  return price && isBacktestPriceUsable(price) ? price : null;
 }
 
 export function calculateReturn(startPrice: number, endPrice: number) {

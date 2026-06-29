@@ -1,4 +1,9 @@
-import { addDays, isValidBacktestWindow } from "@/lib/signals/backtest";
+import {
+  addDays,
+  isPlausibleBacktestReturn,
+  isPlausibleBasketReturn,
+  isValidBacktestWindow,
+} from "@/lib/signals/backtest";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import { getLatestModelReplay, type ReplaySignal } from "@/lib/signals/model-replay";
 import { calculateReturn, getPriceOnOrAfter, getPriceOnOrBefore } from "@/lib/signals/stock-prices";
@@ -119,6 +124,9 @@ async function evaluateReplayOutcome(
       entry?.priceDate ?? null,
       exit?.priceDate ?? null,
     );
+    const calculatedReturn = valid && entryPrice !== null && exitPrice !== null
+      ? calculateReturn(entryPrice, exitPrice)
+      : null;
     return {
       symbol: item.symbol,
       companyName: item.companyName,
@@ -128,8 +136,8 @@ async function evaluateReplayOutcome(
       entryPrice,
       exitDate: exit?.priceDate ?? null,
       exitPrice,
-      returnPct: valid && entryPrice !== null && exitPrice !== null
-        ? calculateReturn(entryPrice, exitPrice)
+      returnPct: calculatedReturn !== null && isPlausibleBacktestReturn(calculatedReturn, horizonDays)
+        ? calculatedReturn
         : null,
     };
   }));
@@ -167,6 +175,18 @@ async function evaluateReplayOutcome(
   }
 
   const basketReturn = details.reduce((sum, item) => sum + Number(item.returnPct) * item.weight, 0);
+  if (!isPlausibleBasketReturn(basketReturn)) {
+    return {
+      horizonDays,
+      basketReturn: null,
+      benchmarkSymbol: benchmark.symbol,
+      benchmarkMarket: benchmark.market,
+      benchmarkReturn,
+      excessReturn: null,
+      outcome: "pending",
+      details,
+    };
+  }
   const excessReturn = basketReturn - benchmarkReturn;
   return {
     horizonDays,

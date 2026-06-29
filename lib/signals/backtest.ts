@@ -69,6 +69,20 @@ export function isValidBacktestWindow(
   return entryDate >= signalDate && entryDate <= targetDate && exitDate >= entryDate && exitDate <= targetDate;
 }
 
+export function isPlausibleBacktestReturn(returnPct: number, horizonDays: number) {
+  const maxAbsoluteReturn =
+    horizonDays <= 7 ? 50 :
+    horizonDays <= 14 ? 75 :
+    horizonDays <= 30 ? 120 :
+    horizonDays <= 60 ? 175 :
+    250;
+  return Number.isFinite(returnPct) && Math.abs(returnPct) <= maxAbsoluteReturn;
+}
+
+export function isPlausibleBasketReturn(returnPct: number) {
+  return Number.isFinite(returnPct) && Math.abs(returnPct) <= 100;
+}
+
 function normalizeWeights(rows: WatchlistRow[]) {
   const total = rows.reduce((sum, row) => sum + Number(row.weight || 0), 0);
   if (total <= 0) return rows.map(() => 1 / Math.max(rows.length, 1));
@@ -163,8 +177,11 @@ export async function getSignalReturnDetails(signalEventId: string, horizonDays:
       entry?.priceDate ?? null,
       exit?.priceDate ?? null,
     );
-    const returnPct = validWindow && entryValue !== null && exitValue !== null
+    const calculatedReturn = validWindow && entryValue !== null && exitValue !== null
       ? calculateReturn(entryValue, exitValue)
+      : null;
+    const returnPct = calculatedReturn !== null && isPlausibleBacktestReturn(calculatedReturn, horizonDays)
+      ? calculatedReturn
       : null;
 
     details.push({
@@ -185,7 +202,11 @@ export async function getSignalReturnDetails(signalEventId: string, horizonDays:
   }
 
   const basketReturn = details.reduce((sum, detail) => sum + (detail.returnPct ?? 0) * detail.weight, 0);
-  return { signal, details, basketReturn };
+  return {
+    signal,
+    details,
+    basketReturn: isPlausibleBasketReturn(basketReturn) ? basketReturn : null,
+  };
 }
 
 export async function calculateSignalBasketReturn(signalEventId: string, horizonDays: number) {

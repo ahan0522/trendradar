@@ -14,6 +14,8 @@ import {
 import {
   addDays,
   isHorizonMature,
+  isPlausibleBacktestReturn,
+  isPlausibleBasketReturn,
   isValidBacktestWindow,
 } from "../lib/signals/backtest";
 import {
@@ -22,6 +24,7 @@ import {
 } from "../lib/signals/price-quality";
 import {
   calculateReturn,
+  isBacktestPriceUsable,
   parseStockPriceCsv,
 } from "../lib/signals/stock-prices";
 import {
@@ -155,6 +158,17 @@ function testCsvProvenance() {
     () => parseStockPriceCsv("symbol,market,date,close\nBAD,XX,2026-06-20,10"),
     /Unsupported market/,
   );
+  assert.equal(isBacktestPriceUsable(prices[0]), true);
+  assert.equal(isBacktestPriceUsable({
+    ...prices[0],
+    symbol: "2408.TW",
+    close: 449,
+    adjClose: 449,
+  }), false);
+  assert.equal(isBacktestPriceUsable({
+    ...prices[0],
+    provider: undefined,
+  }), false);
 }
 
 function testBacktestTimeBoundary() {
@@ -185,6 +199,13 @@ function testBacktestTimeBoundary() {
     "2026-06-02",
   ), false);
   assert.equal(calculateReturn(100, 110), 10);
+  assert.equal(isPlausibleBacktestReturn(49, 7), true);
+  assert.equal(isPlausibleBacktestReturn(51, 7), false);
+  assert.equal(isPlausibleBacktestReturn(174, 60), true);
+  assert.equal(isPlausibleBacktestReturn(176, 60), false);
+  assert.equal(isPlausibleBacktestReturn(249, 90), true);
+  assert.equal(isPlausibleBasketReturn(100), true);
+  assert.equal(isPlausibleBasketReturn(100.01), false);
 }
 
 function testSignalIdentityContinuity() {
