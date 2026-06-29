@@ -1,6 +1,8 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { getArticleEventFingerprint } from "@/lib/article-dedupe";
 import { getCanonicalSourceName, isPlatformSourceName } from "@/lib/source-scoring";
 import {
+  taipeiDateForTimestamp,
   taipeiMonthForTimestamp,
   taipeiMonthStartIso,
   taipeiNextMonthStartIso,
@@ -15,6 +17,8 @@ export type CoverageMetric = {
 export type DataCoverageRow = {
   month: string;
   articles: CoverageMetric;
+  researchEvents: CoverageMetric;
+  duplicateRate: number | null;
   effectiveSources: CoverageMetric;
   stockPrices: CoverageMetric;
   marketPriceSeries: CoverageMetric;
@@ -41,6 +45,7 @@ type ArticleSourceRow = {
   source_name: string;
   title: string;
   description: string | null;
+  link: string | null;
   published_at: string;
 };
 
@@ -108,15 +113,16 @@ async function countRows(table: string, dateColumn: string, start: string, end: 
   }
 }
 
-async function getEffectiveSourcesByMonth(startMonth: string, endMonth: string) {
+async function getArticleCoverageByMonth(startMonth: string, endMonth: string) {
   const supabase = getSupabaseAdmin();
   const sourceSets = new Map<string, Set<string>>();
+  const eventFingerprintsByMonth = new Map<string, Set<string>>();
   const pageSize = 1000;
 
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("articles")
-      .select("source_name, title, description, published_at")
+      .select("source_name, title, description, link, published_at")
       .gte("published_at", asTimestampStart(startMonth))
       .lt("published_at", asTimestampEnd(endMonth))
       .order("published_at", { ascending: true })
@@ -126,6 +132,18 @@ async function getEffectiveSourcesByMonth(startMonth: string, endMonth: string) 
 
     for (const article of data ?? []) {
       const month = taipeiMonthForTimestamp(article.published_at);
+      const date = taipeiDateForTimestamp(article.published_at);
+      const fingerprint = getArticleEventFingerprint({
+        title: article.title,
+        description: article.description,
+        sourceName: article.source_name,
+        link: article.link,
+        publishedAt: article.published_at,
+      });
+      const fingerprints = eventFingerprintsByMonth.get(month) ?? new Set<string>();
+      fingerprints.add(`${date}:${fingerprint || article.link || article.title}`);
+      eventFingerprintsByMonth.set(month, fingerprints);
+
       const canonical = getCanonicalSourceName({
         sourceName: article.source_name,
         title: article.title,
@@ -140,11 +158,16 @@ async function getEffectiveSourcesByMonth(startMonth: string, endMonth: string) 
     if ((data ?? []).length < pageSize) break;
   }
 
-  return sourceSets;
+  const researchEventCounts = new Map(
+    [...eventFingerprintsByMonth].map(([month, fingerprints]) => [month, fingerprints.size]),
+  );
+
+  return { sourceSets, researchEventCounts };
 }
 
 export function classifyMonthCoverage(input: {
   articleCount: number;
+  researchEventCount?: number;
   effectiveSourceCount: number;
   stockPriceCount: number;
   marketPriceSeriesCount: number;
@@ -159,11 +182,12 @@ export function classifyMonthCoverage(input: {
       reason: "本月資料庫沒有文章，不能判定為沒有市場訊號。",
     };
   }
-  if (input.articleCount < 10 || input.effectiveSourceCount < 3) {
+  const researchEventCount = input.researchEventCount ?? input.articleCount;
+  if (researchEventCount < 10 || input.effectiveSourceCount < 3) {
     return {
       code: "discovery_limited",
       label: "資料偏薄",
-      reason: `目前只有 ${input.articleCount} 篇文章、${input.effectiveSourceCount} 個有效來源，僅供觀察。`,
+      reason: `目前只有 ${researchEventCount} 個研究事件、${input.effectiveSourceCount} 個有效來源，僅供觀察。`,
     };
   }
 
@@ -199,7 +223,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
   const startMonth = options?.startMonth ?? "2025-01";
   const endMonth = options?.endMonth ?? currentTaipeiMonth();
   const months = monthRange(startMonth, endMonth);
-  const sourcesByMonth = await getEffectiveSourcesByMonth(startMonth, endMonth);
+  const articleCoverage = await getArticleCoverageByMonth(startMonth, endMonth);
 
   const rows: DataCoverageRow[] = await Promise.all(
     months.map(async (month) => {
@@ -214,10 +238,21 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
 
       const effectiveSources = {
         available: true,
-        count: sourcesByMonth.get(month)?.size ?? 0,
+        count: articleCoverage.sourceSets.get(month)?.size ?? 0,
       };
+      const researchEvents = {
+        available: true,
+        count: articleCoverage.researchEventCounts.get(month) ?? 0,
+      };
+      const duplicateRate =
+        (articles.count ?? 0) > 0
+          ? Number(
+              (((articles.count ?? 0) - researchEvents.count) / (articles.count ?? 1) * 100).toFixed(1),
+            )
+          : null;
       const researchStatus = classifyMonthCoverage({
         articleCount: articles.count ?? 0,
+        researchEventCount: researchEvents.count,
         effectiveSourceCount: effectiveSources.count,
         stockPriceCount: stockPrices.count ?? 0,
         marketPriceSeriesCount: marketPriceSeries.count ?? 0,
@@ -229,6 +264,8 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
       return {
         month,
         articles,
+        researchEvents,
+        duplicateRate,
         effectiveSources,
         stockPrices,
         marketPriceSeries,
@@ -243,6 +280,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
   const totals = rows.reduce(
     (acc, row) => {
       acc.articles += row.articles.count ?? 0;
+      acc.researchEvents += row.researchEvents.count ?? 0;
       acc.effectiveSources += row.effectiveSources.count ?? 0;
       acc.stockPrices += row.stockPrices.count ?? 0;
       acc.marketPriceSeries += row.marketPriceSeries.count ?? 0;
@@ -253,6 +291,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
     },
     {
       articles: 0,
+      researchEvents: 0,
       effectiveSources: 0,
       stockPrices: 0,
       marketPriceSeries: 0,

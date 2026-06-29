@@ -38,6 +38,11 @@ import { buildReplayResearchReport } from "../lib/signals/replay-research-report
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
+  dedupeArticlesByEvent,
+  normalizeArticleUrl,
+  normalizeComparableText,
+} from "../lib/article-dedupe";
+import {
   taipeiDateForTimestamp,
   taipeiMonthForTimestamp,
   taipeiMonthStartIso,
@@ -251,6 +256,39 @@ function testMonthCoverageStatus() {
   }).code, "multi_evidence_ready");
 }
 
+function testArticleEventDedupe() {
+  assert.equal(
+    normalizeArticleUrl("https://EXAMPLE.com/news/?utm_source=test&b=2&a=1#section"),
+    "https://example.com/news?a=1&b=2",
+  );
+  assert.equal(
+    normalizeComparableText("AI 伺服器需求升溫 - 中央社"),
+    normalizeComparableText("AI 伺服器需求升溫 | 自由時報"),
+  );
+  const articles = dedupeArticlesByEvent([
+    {
+      title: "AI 伺服器需求升溫 - 中央社",
+      sourceName: "中央社",
+      link: "https://example.com/a?utm_source=feed",
+      publishedAt: "2026-06-28T01:00:00Z",
+    },
+    {
+      title: "AI 伺服器需求升溫 | 自由時報",
+      sourceName: "自由時報",
+      link: "https://example.com/b",
+      publishedAt: "2026-06-28T02:00:00Z",
+    },
+    {
+      title: "另一則完全不同的市場新聞",
+      sourceName: "中央社",
+      link: "https://example.com/c",
+      publishedAt: "2026-06-28T03:00:00Z",
+    },
+  ]);
+  assert.equal(articles.length, 2);
+  assert.equal(articles[0].title, "另一則完全不同的市場新聞");
+}
+
 function testTaipeiMonthBoundary() {
   assert.equal(taipeiMonthStartIso("2026-05"), "2026-05-01T00:00:00+08:00");
   assert.equal(taipeiNextMonthStartIso("2026-05-31"), "2026-06-01T00:00:00+08:00");
@@ -424,6 +462,7 @@ function main() {
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();
+  testArticleEventDedupe();
   testTaipeiMonthBoundary();
   testSignalIdentityContinuity();
   testHeatLifecycle();

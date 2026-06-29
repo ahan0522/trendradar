@@ -10,15 +10,51 @@ export type DedupeArticleInput = {
   publishedAt?: string | null;
 };
 
-function normalizeComparableText(value?: string | null) {
+export function normalizeComparableText(value?: string | null) {
   return (value ?? "")
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/[|｜].*$/g, " ")
+    .replace(/\s+[-–—]\s+[^-–—]{1,60}$/u, " ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+export function normalizeArticleUrl(value?: string | null) {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    const trackingKeys = new Set([
+      "fbclid",
+      "gclid",
+      "ref",
+      "ref_src",
+      "source",
+    ]);
+    for (const key of [...url.searchParams.keys()]) {
+      if (key.toLowerCase().startsWith("utm_") || trackingKeys.has(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+    url.hostname = url.hostname.toLowerCase();
+    url.pathname = url.pathname.replace(/\/+$/, "") || "/";
+    url.searchParams.sort();
+    return url.toString();
+  } catch {
+    return value.trim();
+  }
+}
+
+export function getArticleEventFingerprint(article: DedupeArticleInput) {
+  const normalizedTitle = normalizeComparableText(article.title).replace(/\s+/g, "");
+  if (normalizedTitle) return `title:${normalizedTitle}`;
+
+  const normalizedUrl = normalizeArticleUrl(article.link);
+  return normalizedUrl ? `url:${normalizedUrl}` : "";
 }
 
 function getComparableText(article: DedupeArticleInput) {
@@ -73,7 +109,9 @@ function isLikelySameNewsEvent(
   left: DedupeArticleInput,
   right: DedupeArticleInput
 ) {
-  if (left.link && right.link && left.link === right.link) return true;
+  const leftUrl = normalizeArticleUrl(left.link);
+  const rightUrl = normalizeArticleUrl(right.link);
+  if (leftUrl && rightUrl && leftUrl === rightUrl) return true;
 
   const leftSource = getCanonicalSourceName({
     sourceName: left.sourceName ?? undefined,
@@ -107,9 +145,25 @@ function getRepresentative<T extends DedupeArticleInput>(articles: T[]) {
 export function dedupeArticlesByEvent<T extends DedupeArticleInput>(
   articles: T[]
 ) {
+  const exactItems = new Map<string, T>();
+  const withoutFingerprint: T[] = [];
+
+  for (const article of articles) {
+    const fingerprint = getArticleEventFingerprint(article);
+    if (!fingerprint) {
+      withoutFingerprint.push(article);
+      continue;
+    }
+    const current = exactItems.get(fingerprint);
+    exactItems.set(
+      fingerprint,
+      current ? getRepresentative([current, article]) : article
+    );
+  }
+
   const groups: T[][] = [];
 
-  articles.forEach((article) => {
+  [...exactItems.values(), ...withoutFingerprint].forEach((article) => {
     const group = groups.find((items) =>
       items.some((item) => isLikelySameNewsEvent(article, item))
     );
