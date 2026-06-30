@@ -555,5 +555,8 @@ The next milestone is complete when:
 - Never use future information during signal generation.
 - Do not force beneficiary mappings.
 - Do not publish unverified prices.
+- Replay price diagnostics distinguish above-range breakthroughs from below-range split, currency, or adjustment anomalies without relaxing the price-quality gate.
+- A 2026-06-30 dry-run excluding KR classified 18 rows as `sanity_range_above_max`, 10 as `corporate_action_adjustment_gap`, 4 as `no_price_found`, and 1 as `provider_http_error`; questionable rows remain excluded from backtests.
+- The next price-data task is symbol-specific verification: confirm `2408.TW` and `MU` against a second reliable source before versioning their sanity ranges, and add a trustworthy adjusted-price source for `1519.TW`.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

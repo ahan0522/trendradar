@@ -612,7 +612,11 @@ function testReplayPriceSkipReasonClassification() {
   );
   assert.equal(
     normalizeReplayPriceSkipReason("價格 649692 超出合理區間 50000-600000，需重新驗證資料來源"),
-    "sanity_range_rejected",
+    "sanity_range_above_max",
+  );
+  assert.equal(
+    normalizeReplayPriceSkipReason("價格 8.5 超出合理區間 10-180，需重新驗證資料來源"),
+    "sanity_range_below_min",
   );
 }
 

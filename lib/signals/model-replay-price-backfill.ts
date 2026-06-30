@@ -25,6 +25,14 @@ export function normalizeReplayPriceSkipReason(reason: string) {
   if (/Cross-source adjusted close gap/i.test(reason)) return "corporate_action_adjustment_gap";
   if (/Cross-source close mismatch/i.test(reason)) return "cross_source_close_mismatch";
   if (/Cross-source date mismatch/i.test(reason)) return "cross_source_date_mismatch";
+  const sanityRange = reason.match(/價格\s+([\d.]+)\s+超出合理區間\s+([\d.]+)-([\d.]+)/);
+  if (sanityRange) {
+    const value = Number(sanityRange[1]);
+    const min = Number(sanityRange[2]);
+    const max = Number(sanityRange[3]);
+    if (Number.isFinite(value) && Number.isFinite(min) && value < min) return "sanity_range_below_min";
+    if (Number.isFinite(value) && Number.isFinite(max) && value > max) return "sanity_range_above_max";
+  }
   if (/超出合理區間/i.test(reason)) return "sanity_range_rejected";
   if (/could not be paired with an adjusted close/i.test(reason)) return "missing_adjusted_close_pair";
   if (/No .* price found/i.test(reason)) return "no_price_found";
@@ -36,6 +44,12 @@ function suggestedActionForReasons(reasonKeys: string[]) {
   const reasons = new Set(reasonKeys);
   if (reasons.has("corporate_action_adjustment_gap") || reasons.has("missing_adjusted_close_pair")) {
     return "補台股除權息/還原價來源；未完成前維持 pending，不使用官方價與 Yahoo 調整價差異過大的樣本。";
+  }
+  if (reasons.has("sanity_range_above_max")) {
+    return "用第二可靠來源確認是否為真實行情突破；若確認屬實，再版本化上調 sanity range，否則維持 pending。";
+  }
+  if (reasons.has("sanity_range_below_min")) {
+    return "優先檢查拆股、除權息、幣別或調整價錯誤；確認前不得進入回測。";
   }
   if (reasons.has("sanity_range_rejected")) {
     return "用第二可靠來源確認價格區間；若屬真實行情變化，再版本化調整 sanity range。";
