@@ -16,11 +16,16 @@ export async function POST(request: NextRequest) {
     const horizons = Array.isArray(body.horizons)
       ? body.horizons.map(Number).filter((value: number) => [30, 60, 90].includes(value))
       : [30];
+    const excludedMarkets = Array.isArray(body.excludedMarkets)
+      ? body.excludedMarkets.filter((market: unknown) =>
+          market === "US" || market === "TW" || market === "KR" || market === "JP" || market === "GLOBAL")
+      : [];
     const prices = await backfillVerifiedReplayPrices({
       runId: typeof body.runId === "string" ? body.runId : undefined,
       maxSymbols: Number.isFinite(Number(body.maxSymbols)) ? Number(body.maxSymbols) : 2,
       horizons: horizons.length > 0 ? horizons : [30],
       dryRun: body.dryRun !== false,
+      excludedMarkets,
     });
     const backtest = body.dryRun === false
       ? await runModelReplayBacktestForSymbols(

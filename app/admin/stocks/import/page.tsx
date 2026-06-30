@@ -38,6 +38,7 @@ export default function ImportStocksPage() {
   const [loading, setLoading] = useState(false);
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayResult, setReplayResult] = useState<ReplayBackfillResponse | null>(null);
+  const [skipKorea, setSkipKorea] = useState(true);
   const [adminSecret, setAdminSecret] = useState("");
 
   async function importCsv() {
@@ -65,7 +66,12 @@ export default function ImportStocksPage() {
       const response = await fetch("/api/admin/stocks/backfill-replay", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-admin-secret": adminSecret },
-        body: JSON.stringify({ dryRun, maxSymbols: 8, horizons: [30] }),
+        body: JSON.stringify({
+          dryRun,
+          maxSymbols: 8,
+          horizons: [30],
+          excludedMarkets: skipKorea ? ["KR"] : [],
+        }),
       });
       const payload = await response.json();
       setReplayResult(payload);
@@ -114,6 +120,15 @@ export default function ImportStocksPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 rounded-2xl border border-zinc-800 bg-black px-4 py-3 text-sm font-bold text-zinc-300">
+              <input
+                type="checkbox"
+                checked={skipKorea}
+                onChange={(event) => setSkipKorea(event.target.checked)}
+                className="h-4 w-4 accent-amber-300"
+              />
+              暫時跳過韓股 KR，優先修台股/美股
+            </label>
             <button
               onClick={() => runReplayBackfill(true)}
               disabled={replayLoading || !adminSecret}

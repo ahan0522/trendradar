@@ -279,6 +279,7 @@ The publication-review workspace and Evidence Panel have been verified on deskto
 - summarize blocked rows by normalized reason
 - summarize blocked rows by symbol
 - show a suggested next repair action for each symbol-level gap
+- optionally exclude markets from the diagnostic run; KR can be skipped while Taiwan and US price quality are fixed first
 
 ## 4. Production and Test Status
 
@@ -461,6 +462,10 @@ Latest replay price backfill diagnostic:
   - corporate-action adjustment gaps: add a Taiwan split/dividend/adjusted-price source before using the sample
   - sanity-range rejections: confirm with a second reliable source before changing the range gate
   - provider/no-price gaps: add a fallback provider or extend the trading-day lookup window while preserving source URL, currency, and quality status
+- Latest dry-run with KR excluded selected only TW/US symbols:
+  - `2408.TW`, `1519.TW`, `MU`, `NOC`, `RTX`, `2049.TW`, `8299.TW`, `ROK`
+  - remaining blocked reasons: 18 sanity-range rejections, 10 corporate-action adjustment gaps, 4 no-price-found cases, 1 provider HTTP error
+  - this confirms the current repair lane can focus on Taiwan and US first without deleting or hiding Korea gaps
 
 #### Phase A - Source Registry
 
