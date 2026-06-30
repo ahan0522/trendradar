@@ -36,10 +36,13 @@ type ArticleRow = {
 export const MONTHLY_DISCOVERY_MODEL_VERSION = "monthly-full-market-v3";
 export const MONTHLY_DISCOVERY_MODE = "monthly-full-market-v3";
 export const RESEARCH_CONFIDENCE_MODEL_VERSION = "research-confidence-v3";
+export const MONTHLY_DISCOVERY_HISTORY_DAYS = 180;
 
 const marketNoise =
   /目標價|買超|賣超|投信|三大法人|外資|除息|殖利率|eps|每股盈餘|月營收|合併營收|飆股|存股|盤中|開盤|收盤|漲停|跌停|股價大漲|股價大跌/i;
 const nonInvestableCategory = /體育|娛樂|影劇|動漫|遊戲|旅遊|美食/i;
+const nonInvestableContent =
+  /\bmlb\b|\bnba\b|\bnfl\b|棒球|籃球|足球|網球|球賽|球員|投手|打擊率|全壘打|大谷翔平|洋基|道奇|影劇|演唱會|藝人|偶像|動漫|手遊|旅遊|美食/i;
 
 export const marketLenses: Array<{
   key: string;
@@ -158,6 +161,18 @@ function isInvestableCandidate(candidate: CandidateTopic) {
   );
 }
 
+export function isNonInvestableCandidateContent(input: {
+  title: string;
+  keywords?: string[];
+  articleTitles?: string[];
+}) {
+  if (nonInvestableContent.test(`${input.title} ${(input.keywords ?? []).join(" ")}`)) return true;
+  const articleTitles = input.articleTitles ?? [];
+  if (articleTitles.length === 0) return false;
+  const nonInvestableCount = articleTitles.filter((title) => nonInvestableContent.test(title)).length;
+  return nonInvestableCount / articleTitles.length >= 0.5;
+}
+
 function normalizeCandidateTitle(value: string) {
   return value
     .toLowerCase()
@@ -189,6 +204,11 @@ function selectDiverseCandidates(candidates: CandidateTopic[], limit = 5) {
   for (const candidate of [...candidates].sort((a, b) => candidatePriority(b) - candidatePriority(a))) {
     if (selected.length >= limit) break;
     if (nonInvestableCategory.test(candidate.category)) continue;
+    if (isNonInvestableCandidateContent({
+      title: candidate.title,
+      keywords: candidate.keywords,
+      articleTitles: candidate.articles.map((item) => item.title),
+    })) continue;
     if (!isInvestableCandidate(candidate)) continue;
     if (marketNoise.test(`${candidate.title} ${candidate.summary}`)) continue;
     if (candidate.sourceCount < 3) continue;
@@ -303,7 +323,9 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
 
   const supabase = getSupabaseAdmin();
   const currentStart = monthStart(asOfDate);
-  const historyStart = addDays(currentStart, -30);
+  // A six-month lookback distinguishes genuinely new topics from themes that
+  // went quiet and later reactivated, without reading beyond asOfDate.
+  const historyStart = addDays(currentStart, -MONTHLY_DISCOVERY_HISTORY_DAYS);
   const rows: ArticleRow[] = [];
   const pageSize = 1000;
   for (let offset = 0; ; offset += pageSize) {

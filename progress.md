@@ -567,5 +567,9 @@ The next milestone is complete when:
 - The corporate-action gate removed 10 false price blocks without introducing a general mismatch tolerance. Replay tested signals increased from 72 to 82, complete 30-day samples from 74 to 84, and missing-price signals fell from 20 to 10.
 - After the broader sample entered validation, candidate 30-day success rate recalibrated to 50.0% and average excess return to 8.0%; the less flattering result is retained as the honest updated measurement.
 - Formal TWSE ex-right/ex-dividend data is the required basis for future registry entries. Symbol-specific exceptions must include an ex-date, factor, source, and version.
+- Monthly full-market Discovery now reads a 180-day historical window while preserving the strict `published_at <= as_of_date` boundary. This makes `Reactivated` meaningful instead of attempting to infer long-term dormancy from roughly one prior month.
+- `Expired` will be derived from cross-month Signal Ledger continuity rather than inserted into the current month's hot-topic candidates.
+- Discovery now checks candidate titles, keywords, and the majority of sample titles for explicit sports, entertainment, travel, food, anime, and game content. This protects the signal set when upstream categories are wrong.
+- A 2026-06-30 production-data preview removed an MLB cluster mislabeled as technology and naturally promoted optical networking as the fifth qualified market direction.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

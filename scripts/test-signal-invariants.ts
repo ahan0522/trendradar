@@ -39,6 +39,7 @@ import { buildReplayResearchReport } from "../lib/signals/replay-research-report
 import { normalizeReplayPriceSkipReason } from "../lib/signals/model-replay-price-backfill";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { matchCorporateActionAdjustment } from "../lib/signals/corporate-actions";
+import { isNonInvestableCandidateContent } from "../lib/signals/monthly-discovery";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
@@ -684,6 +685,17 @@ function testCorporateActionAdjustmentRegistry() {
   }), null);
 }
 
+function testMonthlyDiscoveryInvestabilityFilter() {
+  assert.equal(isNonInvestableCandidateContent({
+    title: "MLB 大谷翔平與投手戰況",
+    articleTitles: ["MLB 李灝宇敲雙安", "洋基投手本季表現", "道奇今日賽況"],
+  }), true);
+  assert.equal(isNonInvestableCandidateContent({
+    title: "AI 資料中心能源需求",
+    articleTitles: ["資料中心電力需求攀升", "AI 伺服器帶動電網建設", "球隊採用 AI 分析系統"],
+  }), false);
+}
+
 function testPublicationGate() {
   const eligible = evaluateSignalForPublication({
     signal: {
@@ -807,6 +819,7 @@ function main() {
   testReplayHorizonMaturity();
   testReplayPriceSkipReasonClassification();
   testCorporateActionAdjustmentRegistry();
+  testMonthlyDiscoveryInvestabilityFilter();
   testPublicationGate();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");
