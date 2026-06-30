@@ -272,6 +272,14 @@ Production materialization currently added:
 
 The publication-review workspace and Evidence Panel have been verified on desktop and mobile without horizontal overflow.
 
+`/admin/stocks/import` now includes an internal replay price-gap diagnostic panel:
+
+- dry-run latest model replay price backfill
+- run verified price backfill for the top missing replay symbols
+- summarize blocked rows by normalized reason
+- summarize blocked rows by symbol
+- show a suggested next repair action for each symbol-level gap
+
 ## 4. Production and Test Status
 
 ### Production
