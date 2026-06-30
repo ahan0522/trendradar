@@ -33,6 +33,10 @@ type ArticleRow = {
   published_at: string | null;
 };
 
+export const MONTHLY_DISCOVERY_MODEL_VERSION = "monthly-full-market-v3";
+export const MONTHLY_DISCOVERY_MODE = "monthly-full-market-v3";
+export const RESEARCH_CONFIDENCE_MODEL_VERSION = "research-confidence-v3";
+
 const marketNoise =
   /目標價|買超|賣超|投信|三大法人|外資|除息|殖利率|eps|每股盈餘|月營收|合併營收|飆股|存股|盤中|開盤|收盤|漲停|跌停|股價大漲|股價大跌/i;
 const nonInvestableCategory = /體育|娛樂|影劇|動漫|遊戲|旅遊|美食/i;
@@ -403,7 +407,7 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
       persistence: heatInput.persistence,
       beneficiaryClarity: confidenceInput.beneficiaryClarity,
     }, {
-      discovery_mode: "monthly-full-market-v2",
+      discovery_mode: MONTHLY_DISCOVERY_MODE,
       heat_state: candidate.heatState,
       quality_score: candidate.qualityScore,
       article_count: candidate.articleCount,
@@ -423,7 +427,7 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
       hypothesis,
       evidence: [{
         source: "monthly-full-market-discovery",
-        discovery_mode: "monthly-full-market-v2",
+        discovery_mode: MONTHLY_DISCOVERY_MODE,
         month,
         as_of_date: asOfDate,
         category: candidate.category,
@@ -466,11 +470,11 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
         heat_input: heatInput,
         confidence_input: confidenceInput,
         heat_model: "signal-heat-v1",
-        confidence_model: "research-confidence-v2",
+        confidence_model: RESEARCH_CONFIDENCE_MODEL_VERSION,
         score_components: scoreComponents,
       }],
       status: "active" as const,
-      modelVersion: "monthly-full-market-v2",
+      modelVersion: MONTHLY_DISCOVERY_MODEL_VERSION,
       watchlistCount: watchlists.length,
       watchlists: watchlists.map((item) => ({
         symbol: item.symbol,

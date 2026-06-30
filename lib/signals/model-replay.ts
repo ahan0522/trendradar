@@ -1,5 +1,8 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
+import {
+  getMonthlyDiscoverySignals,
+  MONTHLY_DISCOVERY_MODEL_VERSION,
+} from "@/lib/signals/monthly-discovery";
 
 type BaselineSignalRow = {
   id: string;
@@ -176,7 +179,7 @@ export async function replayModelMonth(month: string): Promise<ModelReplayMonth>
       confidence: signal.confidenceScore,
       sourceCount: metric.sourceCount,
       articleCount: metric.articleCount,
-      modelVersion: signal.modelVersion ?? "monthly-full-market-v1",
+      modelVersion: signal.modelVersion ?? MONTHLY_DISCOVERY_MODEL_VERSION,
     };
   });
   const candidateSignals = [...new Map(
@@ -226,7 +229,7 @@ export async function runModelReplayRange(options: {
 
   const { error: runError } = await supabase.from("model_replay_runs").upsert({
     id: runId,
-    candidate_model_version: "monthly-full-market-v2",
+    candidate_model_version: MONTHLY_DISCOVERY_MODEL_VERSION,
     baseline_model_version: "monthly-signal-v2",
     start_month: options.startMonth,
     end_month: options.endMonth,

@@ -6,6 +6,7 @@ import {
 } from "@/lib/signals/backtest";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import { getLatestModelReplay, type ReplaySignal } from "@/lib/signals/model-replay";
+import { MONTHLY_DISCOVERY_MODEL_VERSION } from "@/lib/signals/monthly-discovery";
 import { calculateReturn, getPriceOnOrAfter, getPriceOnOrBefore } from "@/lib/signals/stock-prices";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import type { MarketCode, SignalWatchlistItem } from "@/types/signals";
@@ -300,7 +301,7 @@ function summarize(results: ReplaySignalResult[]) {
   const baselineModelVersion = "monthly-signal-v2";
   const candidateModelVersion = [...new Set(results.map((item) => item.modelVersion))]
     .find((version) => version !== baselineModelVersion && version.startsWith("monthly-full-market"))
-    ?? "monthly-full-market-v2";
+    ?? MONTHLY_DISCOVERY_MODEL_VERSION;
 
   return {
     signalCount: results.length,

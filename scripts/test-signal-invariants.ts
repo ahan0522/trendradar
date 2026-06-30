@@ -42,6 +42,10 @@ import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
+  MONTHLY_DISCOVERY_MODEL_VERSION,
+  RESEARCH_CONFIDENCE_MODEL_VERSION,
+} from "../lib/signals/monthly-discovery";
+import {
   dedupeArticlesByEvent,
   dedupeArticlesByEventWindow,
   dedupeArticlesByFingerprintWindow,
@@ -56,6 +60,8 @@ import {
 } from "../lib/time/taipei";
 
 function testSignalScore() {
+  assert.equal(MONTHLY_DISCOVERY_MODEL_VERSION, "monthly-full-market-v3");
+  assert.equal(RESEARCH_CONFIDENCE_MODEL_VERSION, "research-confidence-v3");
   assert.equal(calculateSignalStrength({}), 0);
   assert.equal(calculateSignalStrength({
     mentionSpike: 100,

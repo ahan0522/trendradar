@@ -8,7 +8,10 @@ import {
   type SignalStrengthInput,
 } from "@/lib/signals/signal-engine";
 import type { MarketCode } from "@/types/signals";
-import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
+import {
+  getMonthlyDiscoverySignals,
+  RESEARCH_CONFIDENCE_MODEL_VERSION,
+} from "@/lib/signals/monthly-discovery";
 import { assessEvidenceCoverage } from "@/lib/signals/evidence-source-registry";
 import {
   taipeiMonthStartIso,
@@ -664,12 +667,12 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
           score_input: scoreInput,
           score_components: scoreComponents,
           confidence_input: confidenceInputV2,
-          confidence_model: "research-confidence-v2",
+          confidence_model: RESEARCH_CONFIDENCE_MODEL_VERSION,
           missing_validation: "需要等待月底後的 30D / 60D / 90D 價格資料驗證。",
         },
       ],
       status: "active",
-      modelVersion: "monthly-current-v1",
+      modelVersion: "monthly-current-v2",
       watchlistCount: candidate.rule.watchlist.length,
       watchlists: candidate.rule.watchlist.map((item) => {
         const mapped = mappedBeneficiaryBySymbol.get(item.symbol);

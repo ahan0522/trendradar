@@ -131,6 +131,10 @@ RSS / Historical Backfill / Official Research Sources
   - market evidence
   - required evidence coverage
 - If no explicit required evidence coverage is supplied, the model infers it from hard-evidence categories instead of treating missing evidence as neutral.
+- The evidence-weighted monthly discovery model is versioned separately:
+  - `monthly-full-market-v3`
+  - `research-confidence-v3`
+- Model replay now records v3 as the candidate model so old v2/v1 outputs remain comparable instead of being silently overwritten.
 
 ### 3.5 Beneficiary Mapping
 
@@ -381,6 +385,13 @@ The product can continue developing with current infrastructure, but high-confid
 ## 7. Next Development Target
 
 ### Target: Expand Verified Industry Evidence and Deepen Beneficiary Research
+
+Immediate next step before overwriting or publishing historical outputs:
+
+1. Run a new `monthly-full-market-v3` replay for 2025-01 through 2026-06.
+2. Compare v3 confidence distribution against the previous Signal Ledger.
+3. Backtest mature v3 candidates separately from old finalized rows.
+4. Only after comparison should any production monthly Ledger rows be finalized with the new model.
 
 #### Phase A - Source Registry
 
