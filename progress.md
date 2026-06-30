@@ -388,10 +388,51 @@ The product can continue developing with current infrastructure, but high-confid
 
 Immediate next step before overwriting or publishing historical outputs:
 
-1. Run a new `monthly-full-market-v3` replay for 2025-01 through 2026-06.
-2. Compare v3 confidence distribution against the previous Signal Ledger.
-3. Backtest mature v3 candidates separately from old finalized rows.
+1. Run a new `monthly-full-market-v3` replay for 2025-01 through 2026-06. Completed.
+2. Compare v3 confidence distribution against the previous Signal Ledger. In progress.
+3. Backtest mature v3 candidates separately from old finalized rows. Completed first pass.
 4. Only after comparison should any production monthly Ledger rows be finalized with the new model.
+
+Latest v3 replay:
+
+- run id: `replay-2025-01-2026-06-1782805159545`
+- period: 2025-01 through 2026-06
+- baseline model: `monthly-signal-v2`
+- candidate model: `monthly-full-market-v3`
+- baseline signals: 48
+- candidate signals: 77
+- average baseline family count: 2.67
+- average candidate family count: 4.28
+- coverage breadth lift: 60.3%
+- candidate families discovered across the run:
+  - ai-compute
+  - biotech-health
+  - defense-geopolitics
+  - energy-commodities
+  - ev-battery
+  - macro-rates
+  - memory
+  - optical-network
+  - power-grid
+  - robotics
+  - semiconductor
+  - trade-tariffs
+
+Latest v3 replay backtest first pass:
+
+- total replay rows: 125
+- mapped rows: 98
+- tested rows: 69
+- missing price rows: 23
+- pending horizon rows: 6
+- 30D test count: 71
+- average 30D excess return: 8.47%
+- baseline 30D average excess return: 8.01%
+- candidate 30D average excess return: 9.04%
+- baseline 30D success rate: 46.2%
+- candidate 30D success rate: 53.1%
+
+Interpretation: v3 catches materially broader market families and early backtest output is slightly better than baseline, but candidate confidence is intentionally lower because it now discounts news-only signals. The next task is not to publish v3 rows yet; it is to diagnose missing prices, inspect false positives, and decide which signal families deserve stronger evidence ingestion.
 
 #### Phase A - Source Registry
 
