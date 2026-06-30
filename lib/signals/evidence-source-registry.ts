@@ -12,7 +12,8 @@ export type SignalFamily =
   | "ai_power_grid"
   | "ai_cooling"
   | "advanced_packaging"
-  | "optical_networking";
+  | "optical_networking"
+  | "robotics_embodied_ai";
 
 export type EvidenceRequirement = {
   key: string;
@@ -159,6 +160,40 @@ export const evidenceFamilySpecs: EvidenceFamilySpec[] = [
         minItems: 1,
         acceptedSourceTypes: ["industry", "supply_chain", "official"],
         examples: ["800G shipment", "1.6T optics", "silicon photonics adoption", "800G 出貨", "1.6T 光模組", "矽光子"],
+      },
+    ],
+  },
+  {
+    family: "robotics_embodied_ai",
+    label: "Robotics / Embodied AI",
+    matchers: [/robotics|robot|humanoid|embodied ai|physical ai|機器人|人形機器人|具身\s*ai|實體\s*ai/i],
+    requirements: [
+      {
+        key: "robotics_orders_adoption",
+        category: "industry",
+        label: "機器人出貨、採用率、訂單或試點部署資料",
+        priority: "required",
+        minItems: 1,
+        acceptedSourceTypes: ["industry", "supply_chain", "official"],
+        examples: ["robot shipments", "robotics adoption", "humanoid pilot", "機器人出貨", "機器人採用率", "人形機器人試點"],
+      },
+      {
+        key: "robotics_company_milestones",
+        category: "company",
+        label: "機器人平台公司產品里程碑、客戶導入或量產計畫",
+        priority: "required",
+        minItems: 1,
+        acceptedSourceTypes: ["company_action", "filing", "official"],
+        examples: ["robotics product launch", "customer deployment", "mass production plan", "產品發表", "客戶導入", "量產計畫"],
+      },
+      {
+        key: "robotics_supply_chain",
+        category: "supply_chain",
+        label: "伺服馬達、減速器、感測器、控制器等關鍵零組件供需資料",
+        priority: "recommended",
+        minItems: 1,
+        acceptedSourceTypes: ["industry", "supply_chain", "company_action"],
+        examples: ["servo motor", "reducer", "sensor", "controller", "伺服馬達", "減速器", "感測器", "控制器"],
       },
     ],
   },
