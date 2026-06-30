@@ -9,6 +9,7 @@ import {
 } from "@/lib/signals/signal-engine";
 import type { MarketCode } from "@/types/signals";
 import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
+import { assessEvidenceCoverage } from "@/lib/signals/evidence-source-registry";
 import {
   taipeiMonthStartIso,
   taipeiNextMonthStartIso,
@@ -412,6 +413,39 @@ function relevantResearchData(
   return { industry: industry.slice(0, 5), commodities: commodities.slice(0, 10) };
 }
 
+function requiredEvidenceCoverageScore(
+  rule: MonthlyRule,
+  researchData: ReturnType<typeof relevantResearchData>,
+  companyActions: CompanyActionRow[],
+) {
+  const coverage = assessEvidenceCoverage({
+    topic: rule.topic,
+    hypothesis: rule.hypothesis,
+    evidenceItems: [
+      ...researchData.industry.map((item) => ({
+        sourceType: "industry",
+        title: `${item.industry} ${item.metric_name}`,
+        summary: item.metric_text ?? undefined,
+        sourceName: item.source_url,
+      })),
+      ...researchData.commodities.map((item) => ({
+        sourceType: "commodity",
+        title: `${item.commodity_name} ${item.commodity_code}`,
+        summary: `${item.price} ${item.currency}/${item.unit}`,
+        sourceName: item.source_url,
+      })),
+      ...companyActions.map((item) => ({
+        sourceType: "company_action",
+        title: item.title,
+        summary: item.summary ?? undefined,
+        sourceName: item.source_url,
+      })),
+    ],
+  });
+  if (coverage.totalRequiredCount === 0) return undefined;
+  return Number(((coverage.satisfiedRequiredCount / coverage.totalRequiredCount) * 100).toFixed(2));
+}
+
 export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
   const supabase = getSupabaseAdmin();
   const start = monthStart(asOfDate);
@@ -594,6 +628,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
       beneficiaryClarity: candidate.rule.watchlist.length > 0 ? 80 : 0,
       marketEvidence: 0,
       persistence: Math.min(articleCount * 8, 100),
+      requiredEvidenceCoverage: requiredEvidenceCoverageScore(candidate.rule, researchData, relevantCompanyActions),
       contradictionPenalty: 0,
     };
     const confidenceScore = calculateResearchConfidenceV2(confidenceInputV2);

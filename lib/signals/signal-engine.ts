@@ -40,6 +40,7 @@ export type ResearchConfidenceV2Input = {
   beneficiaryClarity?: number;
   marketEvidence?: number;
   persistence?: number;
+  requiredEvidenceCoverage?: number;
   contradictionPenalty?: number;
 };
 
@@ -193,17 +194,28 @@ export function calculateResearchConfidence(input: ResearchConfidenceInput) {
 }
 
 export function calculateResearchConfidenceV2(input: ResearchConfidenceV2Input) {
+  const hardEvidenceScores = [
+    input.industryEvidence,
+    input.commodityEvidence,
+    input.companyEvidence,
+    input.supplyChainEvidence,
+    input.marketEvidence,
+  ].map((value) => value ?? 0);
+  const inferredRequiredCoverage =
+    hardEvidenceScores.reduce((sum, value) => sum + value, 0) / hardEvidenceScores.length;
+  const requiredEvidenceCoverage = input.requiredEvidenceCoverage ?? inferredRequiredCoverage;
   const score =
-    (input.sourceQuality ?? 0) * 0.15 +
-    (input.sourceDiversity ?? 0) * 0.1 +
+    (input.sourceQuality ?? 0) * 0.1 +
+    (input.sourceDiversity ?? 0) * 0.05 +
     (input.industryEvidence ?? 0) * 0.15 +
     (input.commodityEvidence ?? 0) * 0.1 +
-    (input.companyEvidence ?? 0) * 0.2 +
+    (input.companyEvidence ?? 0) * 0.15 +
     (input.supplyChainEvidence ?? 0) * 0.1 +
     (input.beneficiaryClarity ?? 0) * 0.1 +
     (input.marketEvidence ?? 0) * 0.05 +
-    (input.persistence ?? 0) * 0.05 -
-    (input.contradictionPenalty ?? 0) * 0.25;
+    (input.persistence ?? 0) * 0.05 +
+    requiredEvidenceCoverage * 0.15 -
+    (input.contradictionPenalty ?? 0) * 0.3;
   return clampScore(score);
 }
 

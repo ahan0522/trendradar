@@ -11,6 +11,7 @@ import {
 import { calculateHeatLifecycle } from "@/lib/discovery/heat-lifecycle";
 import { getEffectiveSourceCount, getRawSourceCount } from "@/lib/source-scoring";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
+import { assessEvidenceCoverage } from "@/lib/signals/evidence-source-registry";
 import {
   buildEvidenceBasedHypothesis,
   buildSignalScoreComponents,
@@ -361,6 +362,11 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
   return selected.map((candidate) => {
     const signalId = `monthly-discovery-${month}-${stableSlug(candidate.slug || candidate.title)}`;
     const hypothesis = buildEvidenceBasedHypothesis(candidate.title, candidate.sourceCount);
+    const requiredCoverage = assessEvidenceCoverage({
+      topic: `${candidate.title} ${candidate.keywords.join(" ")}`,
+      hypothesis,
+      evidenceItems: [],
+    });
     const watchlists = mapBeneficiaries({
       topic: `${candidate.title} ${candidate.keywords.join(" ")}`,
       hypothesis,
@@ -383,6 +389,10 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
       beneficiaryClarity: watchlists.some((item) => item.directOperatingLink) ? 80 : 0,
       marketEvidence: 0,
       persistence: candidate.persistenceScore,
+      requiredEvidenceCoverage:
+        requiredCoverage.totalRequiredCount > 0
+          ? Number(((requiredCoverage.satisfiedRequiredCount / requiredCoverage.totalRequiredCount) * 100).toFixed(2))
+          : undefined,
       contradictionPenalty: 0,
     };
     const signalStrength = calculateSignalHeat(heatInput);

@@ -105,7 +105,7 @@ function testSignalScore() {
     sourceQuality: 100,
     sourceDiversity: 100,
     persistence: 100,
-  }), 30);
+  }), 20);
   assert.equal(calculateResearchConfidenceV2({
     sourceQuality: 100,
     sourceDiversity: 100,
@@ -117,7 +117,13 @@ function testSignalScore() {
     marketEvidence: 100,
     persistence: 100,
     contradictionPenalty: 100,
-  }), 75);
+  }), 70);
+  assert.equal(calculateResearchConfidenceV2({
+    sourceQuality: 100,
+    sourceDiversity: 100,
+    requiredEvidenceCoverage: 100,
+    persistence: 100,
+  }), 35);
 
   const components = buildSignalScoreComponents({
     mentionSpike: 50,

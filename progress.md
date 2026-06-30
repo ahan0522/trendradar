@@ -123,6 +123,14 @@ RSS / Historical Backfill / Official Research Sources
   - data gaps
   - validation summary
 - Supporting evidence and later validation evidence are separated by `known_at_signal_time`.
+- Research Confidence V2 now gives less weight to source/news breadth and more weight to hard evidence:
+  - industry evidence
+  - commodity or price evidence
+  - company evidence
+  - supply-chain evidence
+  - market evidence
+  - required evidence coverage
+- If no explicit required evidence coverage is supplied, the model infers it from hard-evidence categories instead of treating missing evidence as neutral.
 
 ### 3.5 Beneficiary Mapping
 
@@ -331,7 +339,7 @@ Lint currently has no errors. It still reports pre-existing warnings in unrelate
 
 ### P1 - Research Confidence
 
-- Research Confidence does not yet recalculate automatically after new evidence is materialized.
+- Research Confidence now penalizes news-only signals more strongly, but existing Signal Ledger rows are not automatically recalculated yet.
 - Contradictory evidence is represented in the UI contract but lacks a complete ingestion and scoring workflow.
 - Industry, commodity, company, supply-chain, and market evidence need category-specific weights.
 - Publication drafts become stale when evidence changes; a controlled re-evaluation workflow exists but is not automatically scheduled.
