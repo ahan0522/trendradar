@@ -32,6 +32,8 @@ type WatchlistRow = {
 };
 
 type EvidenceRow = {
+  title: string | null;
+  summary: string | null;
   source_name: string | null;
   source_type: string;
   known_at_signal_time: boolean;
@@ -82,6 +84,8 @@ export type PublicationEvaluationInput = {
     directOperatingLink?: boolean;
   }>;
   evidenceItems: Array<{
+    title?: string;
+    summary?: string;
     sourceName?: string;
     sourceType: string;
     knownAtSignalTime: boolean;
@@ -133,6 +137,25 @@ export function evaluateSignalForPublication(input: PublicationEvaluationInput) 
     (item.trackingMetrics?.length ?? 0) > 0 &&
     (item.invalidationConditions?.length ?? 0) > 0,
   );
+  const researchBrief = buildSignalResearchBrief({
+    signal: input.signal,
+    evidenceItems: input.evidenceItems,
+    watchlists: input.watchlists,
+    outcomes: input.outcomes,
+    scoreComponents: input.scoreComponents,
+  });
+  const evidenceCoverage = researchBrief.evidenceCoverage;
+  const hasRequiredEvidenceModel = (evidenceCoverage?.totalRequiredCount ?? 0) > 0;
+  const evidenceCoveragePassed =
+    !hasRequiredEvidenceModel || (evidenceCoverage?.missingRequired.length ?? 0) === 0;
+  const evidenceCoverageValue = hasRequiredEvidenceModel
+    ? `${evidenceCoverage?.satisfiedRequiredCount ?? 0}/${evidenceCoverage?.totalRequiredCount ?? 0}`
+    : "n/a";
+  const evidenceCoverageReason = hasRequiredEvidenceModel
+    ? evidenceCoveragePassed
+      ? "必要產業證據已覆蓋"
+      : `缺少：${evidenceCoverage?.missingRequired.map((item) => item.label).join("、")}`
+    : "尚未對應固定訊號家族，暫不套用必要證據 gate";
   const gates = [
     gate("source_diversity", "至少 3 個有效來源", sourceCount >= 3, true, sourceCount, `${sourceCount} 個有效來源`),
     gate("event_depth", "至少 3 個研究事件", eventCount >= 3, true, eventCount, `${eventCount} 個去重事件`),
@@ -169,6 +192,14 @@ export function evaluateSignalForPublication(input: PublicationEvaluationInput) 
       `${mapped.length} 檔通過標的理由檢查`,
     ),
     gate(
+      "required_evidence_coverage",
+      "必要產業證據覆蓋",
+      evidenceCoveragePassed,
+      hasRequiredEvidenceModel,
+      evidenceCoverageValue,
+      evidenceCoverageReason,
+    ),
+    gate(
       "primary_evidence",
       "具一手或非新聞證據",
       primaryEvidence.length >= 1,
@@ -187,13 +218,6 @@ export function evaluateSignalForPublication(input: PublicationEvaluationInput) 
     ).toFixed(1),
   );
 
-  const researchBrief = buildSignalResearchBrief({
-    signal: input.signal,
-    evidenceItems: input.evidenceItems,
-    watchlists: input.watchlists,
-    outcomes: input.outcomes,
-    scoreComponents: input.scoreComponents,
-  });
   const publishingBrief: SignalPublishingBrief = {
     signalEventId: input.signal.id,
     asOfDate: input.signal.asOfDate,
@@ -267,7 +291,7 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
   ] = await Promise.all([
     supabase.from("signal_events").select("id, signal_date, as_of_date, topic, signal_strength, confidence_score, hypothesis, evidence").eq("id", signalEventId).single<SignalRow>(),
     readReviewWatchlists(supabase, signalEventId),
-    supabase.from("signal_evidence_items").select("source_name, source_type, known_at_signal_time").eq("signal_event_id", signalEventId).returns<EvidenceRow[]>(),
+    supabase.from("signal_evidence_items").select("title, summary, source_name, source_type, known_at_signal_time").eq("signal_event_id", signalEventId).returns<EvidenceRow[]>(),
     supabase.from("signal_outcomes").select("horizon_days, excess_return, outcome").eq("signal_event_id", signalEventId).returns<OutcomeRow[]>(),
     supabase.from("signal_score_components").select("component_name, normalized_score").eq("signal_event_id", signalEventId).returns<ComponentRow[]>(),
   ]);
@@ -298,6 +322,8 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
       directOperatingLink: item.direct_operating_link ?? false,
     })),
     evidenceItems: (evidenceItems ?? []).map((item) => ({
+      title: item.title ?? undefined,
+      summary: item.summary ?? undefined,
       sourceName: item.source_name ?? undefined,
       sourceType: item.source_type,
       knownAtSignalTime: item.known_at_signal_time,

@@ -2,8 +2,8 @@
 
 Last updated: 2026-06-30
 Production: https://trendradar-prod.vercel.app
-Latest verified code commit: `775311f`
-Latest documentation commit: `9fc7044`
+Latest verified code commit: pending current changes
+Latest documentation commit: pending current changes
 
 ## 1. Product Positioning
 
@@ -210,6 +210,7 @@ The registry currently covers:
 - AI Cooling / Thermal
 - CoWoS / Advanced Packaging
 - Optical Networking / CPO
+- Robotics / Embodied AI
 
 It can detect which evidence families a signal belongs to, list required non-news evidence, and identify missing required evidence. Tests enforce that generic industry data cannot satisfy every evidence requirement by source type alone.
 
@@ -220,12 +221,14 @@ Signal Research Brief now surfaces evidence coverage:
 - missing required evidence labels
 - missing evidence items folded into `dataGaps`
 
+Publication Review now uses the same evidence-coverage model as a required approval gate when a signal maps to a modeled family. A signal can have enough news heat, sources, watchlist mapping, and confidence, but still be blocked from approval/publishing if required industry, commodity, company, supply-chain, or official evidence is missing.
+
 Production sanity check after deployment:
 
 - `/api/signals`: ok, 52 signal rows from `signal_tables`
 - `/api/signals/[id]`: ok for the first signal row
 - `/signals`: HTTP 200
-- First production signal currently maps to an unmodeled robotics/embodied-AI family, so coverage reports `0/0`; next step is to add that family or make unmodeled-family status explicit.
+- First production signal currently maps to Robotics / Embodied AI and reports `0/2` required evidence coverage. This is expected: it means the signal may be hot, but is not yet publication-ready without robotics adoption/order data and company milestone evidence.
 
 Recent verified industry-series expansion added:
 

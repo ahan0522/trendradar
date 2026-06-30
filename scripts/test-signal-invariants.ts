@@ -610,8 +610,9 @@ function testPublicationGate() {
     }],
     evidenceItems: [
       { sourceName: "A", sourceType: "news", knownAtSignalTime: true },
-      { sourceName: "B", sourceType: "news", knownAtSignalTime: true },
-      { sourceName: "C", sourceType: "company_action", knownAtSignalTime: true },
+      { sourceName: "B", sourceType: "commodity", title: "DRAM 報價連續上調", knownAtSignalTime: true },
+      { sourceName: "C", sourceType: "industry", title: "記憶體產能利用率與庫存改善", knownAtSignalTime: true },
+      { sourceName: "D", sourceType: "company_action", knownAtSignalTime: true },
     ],
     outcomes: [],
     scoreComponents: [],
@@ -619,6 +620,39 @@ function testPublicationGate() {
   assert.equal(eligible.eligible, true);
   assert.equal(eligible.publishingBrief.attentionDirections[0].symbol, "MU");
   assert.ok(eligible.qualityScore >= 90);
+
+  const missingRequiredEvidence = evaluateSignalForPublication({
+    signal: {
+      id: "signal-missing-evidence",
+      asOfDate: "2026-06-28",
+      topic: "2026-06 HBM / DRAM 記憶體供需循環",
+      signalStrength: 78,
+      confidenceScore: 74,
+      hypothesis: "HBM 需求推動 DRAM 產能重新配置。",
+      evidence: [{ source_count: 5, event_count: 12 }],
+    },
+    watchlists: [{
+      symbol: "MU",
+      companyName: "Micron",
+      market: "US",
+      thesis: "直接生產 DRAM 與 HBM，可用報價、庫存與毛利率驗證假設。",
+      causalReason: "Micron 直接生產 DRAM 與 HBM，需求及報價會影響營收與毛利。",
+      trackingMetrics: ["DRAM 報價", "HBM 出貨", "庫存"],
+      invalidationConditions: ["報價轉跌", "庫存上升", "HBM 出貨不如預期"],
+      directOperatingLink: true,
+    }],
+    evidenceItems: [
+      { sourceName: "A", sourceType: "news", title: "記憶體題材新聞升溫", knownAtSignalTime: true },
+      { sourceName: "B", sourceType: "news", title: "AI 伺服器帶動記憶體討論", knownAtSignalTime: true },
+      { sourceName: "C", sourceType: "company_action", title: "Micron 財測更新", knownAtSignalTime: true },
+    ],
+    outcomes: [],
+    scoreComponents: [],
+  });
+  const requiredCoverageGate = missingRequiredEvidence.gates.find((item) => item.key === "required_evidence_coverage");
+  assert.equal(missingRequiredEvidence.eligible, false);
+  assert.equal(requiredCoverageGate?.required, true);
+  assert.equal(requiredCoverageGate?.passed, false);
 
   const rejected = evaluateSignalForPublication({
     signal: {
