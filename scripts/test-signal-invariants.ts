@@ -592,6 +592,7 @@ function testReplayResearchReport() {
   assert.equal(report.dataQuality.completeThirtyDaySamples, 44);
   assert.ok(report.diagnostics.recommendations.some((item) => item.includes("缺少完整驗證價格")));
   assert.deepEqual(report.diagnostics.confidenceCalibration, []);
+  assert.deepEqual(report.diagnostics.dataGapsByFamily, []);
 }
 
 function testReplayHorizonMaturity() {

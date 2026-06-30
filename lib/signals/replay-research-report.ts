@@ -109,6 +109,38 @@ function groupPerformance(
   })).sort((a, b) => b.sampleCount - a.sampleCount || Number(b.averageExcessReturn) - Number(a.averageExcessReturn));
 }
 
+function groupDataGapsByFamily(results: ReplaySignalResult[]) {
+  const groups = new Map<string, ReplaySignalResult[]>();
+  for (const result of results) {
+    groups.set(result.family, [...(groups.get(result.family) ?? []), result]);
+  }
+  return [...groups.entries()].map(([family, items]) => {
+    const missingSymbols = new Map<string, number>();
+    for (const item of items) {
+      for (const symbol of item.missingPrices) {
+        missingSymbols.set(symbol, (missingSymbols.get(symbol) ?? 0) + 1);
+      }
+    }
+    return {
+      family,
+      signalCount: items.length,
+      testedCount: items.filter((item) => item.mappingStatus === "tested").length,
+      unmappedCount: items.filter((item) => item.mappingStatus === "unmapped").length,
+      missingPriceCount: items.filter((item) => item.mappingStatus === "missing_prices").length,
+      pendingHorizonCount: items.filter((item) => item.mappingStatus === "pending_horizon").length,
+      topMissingSymbols: [...missingSymbols.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 8)
+        .map(([symbol, count]) => ({ symbol, count })),
+    };
+  }).sort((a, b) =>
+    (b.missingPriceCount + b.unmappedCount + b.pendingHorizonCount) -
+      (a.missingPriceCount + a.unmappedCount + a.pendingHorizonCount) ||
+    b.signalCount - a.signalCount ||
+    a.family.localeCompare(b.family),
+  );
+}
+
 export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBacktest) {
   const baseline = backtest.summary.baseline;
   const candidate = backtest.summary.candidate;
@@ -153,6 +185,7 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     .slice(0, 3);
   const coverageLift = Number(replay.summary.coverageBreadthLift ?? 0);
   const familyPerformance = groupPerformance(candidateCases, (item) => item.family);
+  const dataGapsByFamily = groupDataGapsByFamily(backtest.results);
   const heatCalibration = groupPerformance(candidateCases, (item) => {
     if (item.strength === null) return "unknown";
     if (item.strength >= 50) return "50+";
@@ -244,6 +277,7 @@ export function buildReplayResearchReport(replay: ReplayRun, backtest: ReplayBac
     failedCases,
     diagnostics: {
       familyPerformance,
+      dataGapsByFamily,
       heatCalibration,
       confidenceCalibration,
       recommendations,
