@@ -53,6 +53,7 @@ export function isBacktestPriceUsable(price: StockPrice) {
     qualityStatus: price.qualityStatus,
     provider: price.provider,
     sourceUrl: price.sourceUrl,
+    verificationProvider: price.verificationProvider,
   }).status === "verified";
 }
 

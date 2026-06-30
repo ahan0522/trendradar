@@ -8,6 +8,7 @@ export type RawLatestPrice = {
   qualityStatus?: string | null;
   provider?: string | null;
   sourceUrl?: string | null;
+  verificationProvider?: string | null;
 };
 
 export type PriceQuality = {
@@ -15,7 +16,19 @@ export type PriceQuality = {
   reason?: string;
 };
 
-const sanityRanges: Record<string, { min: number; max: number; note: string }> = {
+type SanityRange = {
+  min: number;
+  max: number;
+  note: string;
+  revision?: string;
+  verifiedOn?: string;
+  verificationBasis?: string;
+  requiredVerificationProviders?: string[];
+};
+
+export const PRICE_SANITY_RANGE_VERSION = "price-sanity-v2-2026-06-30";
+
+const sanityRanges: Record<string, SanityRange> = {
   "MU::US": { min: 20, max: 300, note: "Micron normal USD quote range" },
   "NVDA::US": { min: 20, max: 500, note: "NVIDIA split-adjusted USD quote range" },
   "AMD::US": { min: 20, max: 400, note: "AMD normal USD quote range" },
@@ -43,7 +56,15 @@ const sanityRanges: Record<string, { min: number; max: number; note: string }> =
   "2308.TW::TW": { min: 100, max: 2500, note: "台達電台股報價合理區間" },
   "1513.TW::TW": { min: 20, max: 500, note: "中興電台股報價合理區間" },
   "1519.TW::TW": { min: 50, max: 1800, note: "華城台股報價合理區間" },
-  "2408.TW::TW": { min: 10, max: 180, note: "南亞科台股報價合理區間" },
+  "2408.TW::TW": {
+    min: 10,
+    max: 600,
+    note: "南亞科台股報價合理區間；2026-06-30 由 TWSE 官方收盤與 Yahoo 同日行情交叉驗證",
+    revision: PRICE_SANITY_RANGE_VERSION,
+    verifiedOn: "2026-06-30",
+    verificationBasis: "TWSE STOCK_DAY official close plus Yahoo same-date structural and adjustment verification",
+    requiredVerificationProviders: ["twse-official", "yahoo-adjustment-v1"],
+  },
   "2344.TW::TW": { min: 5, max: 100, note: "華邦電台股報價合理區間" },
   "8299.TW::TW": { min: 100, max: 4000, note: "群聯台股報價合理區間" },
   "3017.TW::TW": { min: 100, max: 2500, note: "奇鋐台股報價合理區間" },
@@ -91,6 +112,19 @@ export function assessLatestPrice(
 
   const range = sanityRanges[key(symbol, market)];
   if (!range) return { status: "needs_review", reason: "此標的尚未建立價格合理區間" };
+
+  if (range.requiredVerificationProviders?.length) {
+    const verificationProvider = price.verificationProvider?.toLowerCase() ?? "";
+    const missingProviders = range.requiredVerificationProviders.filter(
+      (provider) => !verificationProvider.includes(provider.toLowerCase()),
+    );
+    if (missingProviders.length > 0) {
+      return {
+        status: "needs_review",
+        reason: `價格區間 ${range.revision ?? "unversioned"} 需要交叉驗證來源：${missingProviders.join(", ")}`,
+      };
+    }
+  }
 
   if (close < range.min || close > range.max) {
     return {

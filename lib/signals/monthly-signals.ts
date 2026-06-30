@@ -38,6 +38,7 @@ type PriceRow = {
   quality_status: string | null;
   provider: string | null;
   source_url: string | null;
+  verification_provider: string | null;
 };
 
 type CompanyActionRow = {
@@ -487,7 +488,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
     symbols.length > 0
       ? await supabase
           .from("stock_prices")
-          .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url")
+          .select("symbol, market, price_date, close, adj_close, volume, quality_status, provider, source_url, verification_provider")
           .in("symbol", symbols)
           .in("market", markets)
           .eq("quality_status", "verified")
@@ -686,6 +687,7 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
               qualityStatus: latestPrice.quality_status,
               provider: latestPrice.provider,
               sourceUrl: latestPrice.source_url,
+              verificationProvider: latestPrice.verification_provider,
             }
           : null;
         const publishable = publishableLatestPrice(item.symbol, item.market, rawLatestPrice, { asOfDate });

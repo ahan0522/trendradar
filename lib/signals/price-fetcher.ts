@@ -203,6 +203,7 @@ async function fetchYahooPrice(
   direction: "after" | "before",
   rangeDays: number,
   outputSymbol = providerSymbol,
+  skipSanityCheck = false,
 ): Promise<StockPriceFetchResult> {
   const warnings: string[] = [];
   const errors: string[] = [];
@@ -312,17 +313,20 @@ async function fetchYahooPrice(
     warnings.push("Adjusted close differs from close by more than 50%; retained for split/dividend adjustment review.");
   }
 
-  const quality = assessLatestPrice(outputSymbol, market, {
-    priceDate: price.priceDate,
-    close: price.close,
-    adjClose: price.adjClose ?? null,
-    volume: price.volume ?? null,
-    qualityStatus: price.qualityStatus,
-    provider: price.provider,
-    sourceUrl: price.sourceUrl,
-  });
-  if (quality.status !== "verified") {
-    errors.push(quality.reason ?? "Price failed sanity validation.");
+  if (!skipSanityCheck) {
+    const quality = assessLatestPrice(outputSymbol, market, {
+      priceDate: price.priceDate,
+      close: price.close,
+      adjClose: price.adjClose ?? null,
+      volume: price.volume ?? null,
+      qualityStatus: price.qualityStatus,
+      provider: price.provider,
+      sourceUrl: price.sourceUrl,
+      verificationProvider: price.verificationProvider,
+    });
+    if (quality.status !== "verified") {
+      errors.push(quality.reason ?? "Price failed sanity validation.");
+    }
   }
 
   return {
@@ -353,6 +357,7 @@ async function verifyTwPriceAdjustment(
     direction,
     rangeDays,
     official.symbol,
+    true,
   );
   if (!adjusted.price) {
     return {
@@ -397,15 +402,36 @@ async function verifyTwPriceAdjustment(
     };
   }
 
+  const verifiedPrice: StockPrice = {
+    ...official.price,
+    adjClose: adjusted.price.adjClose ?? adjusted.price.close,
+    provider: `${official.price.provider}+yahoo-chart`,
+    verificationProvider: `${official.price.verificationProvider}+yahoo-adjustment-v1`,
+  };
+  const quality = assessLatestPrice(official.symbol, "TW", {
+    priceDate: verifiedPrice.priceDate,
+    close: verifiedPrice.close,
+    adjClose: verifiedPrice.adjClose ?? null,
+    volume: verifiedPrice.volume ?? null,
+    qualityStatus: verifiedPrice.qualityStatus,
+    provider: verifiedPrice.provider,
+    sourceUrl: verifiedPrice.sourceUrl,
+    verificationProvider: verifiedPrice.verificationProvider,
+  });
+  if (quality.status !== "verified") {
+    return {
+      ...official,
+      status: "error",
+      price: null,
+      warnings: [...official.warnings, ...adjusted.warnings],
+      errors: [...official.errors, quality.reason ?? "Cross-source price failed final sanity validation."],
+    };
+  }
+
   return {
     ...official,
     status: "fetched",
-    price: {
-      ...official.price,
-      adjClose: adjusted.price.adjClose ?? adjusted.price.close,
-      provider: `${official.price.provider}+yahoo-chart`,
-      verificationProvider: `${official.price.verificationProvider}+yahoo-adjustment-v1`,
-    },
+    price: verifiedPrice,
     warnings: [...official.warnings, ...adjusted.warnings],
   };
 }

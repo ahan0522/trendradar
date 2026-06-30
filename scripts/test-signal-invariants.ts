@@ -218,6 +218,33 @@ function testVerifiedPriceGate() {
   }).status, "needs_review");
   assert.equal(assessLatestPrice("2330.TW", "TW", verifiedPrice, { asOfDate: "2026-06-19" }).status, "needs_review");
   assert.equal(publishableLatestPrice("2330.TW", "TW", verifiedPrice, { asOfDate: "2026-06-19" }).latestPrice, null);
+  const verifiedNanyaPrice = {
+    ...verifiedPrice,
+    priceDate: "2026-06-30",
+    close: 452.5,
+    adjClose: 452.5,
+    provider: "twse-official+yahoo-chart",
+    verificationProvider: "twse-official+yahoo-adjustment-v1",
+  };
+  assert.equal(
+    assessLatestPrice("2408.TW", "TW", verifiedNanyaPrice, { asOfDate: "2026-06-30" }).status,
+    "verified",
+  );
+  assert.equal(
+    assessLatestPrice("2408.TW", "TW", {
+      ...verifiedNanyaPrice,
+      verificationProvider: "twse-official",
+    }).status,
+    "needs_review",
+  );
+  assert.equal(
+    assessLatestPrice("2408.TW", "TW", {
+      ...verifiedNanyaPrice,
+      close: 700,
+      adjClose: 700,
+    }).status,
+    "needs_review",
+  );
 }
 
 function testCsvProvenance() {
@@ -240,6 +267,15 @@ function testCsvProvenance() {
     close: 449,
     adjClose: 449,
   }), false);
+  assert.equal(isBacktestPriceUsable({
+    ...prices[0],
+    symbol: "2408.TW",
+    priceDate: "2026-06-30",
+    close: 452.5,
+    adjClose: 452.5,
+    provider: "twse-official+yahoo-chart",
+    verificationProvider: "twse-official+yahoo-adjustment-v1",
+  }), true);
   assert.equal(isBacktestPriceUsable({
     ...prices[0],
     provider: undefined,

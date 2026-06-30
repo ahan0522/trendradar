@@ -558,5 +558,10 @@ The next milestone is complete when:
 - Replay price diagnostics distinguish above-range breakthroughs from below-range split, currency, or adjustment anomalies without relaxing the price-quality gate.
 - A 2026-06-30 dry-run excluding KR classified 18 rows as `sanity_range_above_max`, 10 as `corporate_action_adjustment_gap`, 4 as `no_price_found`, and 1 as `provider_http_error`; questionable rows remain excluded from backtests.
 - The next price-data task is symbol-specific verification: confirm `2408.TW` and `MU` against a second reliable source before versioning their sanity ranges, and add a trustworthy adjusted-price source for `1519.TW`.
+- `price-sanity-v2-2026-06-30` versioned the `2408.TW` range after TWSE official and Yahoo same-date verification. The gate now requires both verification markers; a single source cannot use the revised range.
+- The revised validation order checks Yahoo structure, date, and currency before pairing it with TWSE, then applies the final range gate to the combined record. This removed a circular verification failure without weakening validation.
+- 111 verified TW/US replay prices were upserted. The replay now has 72 tested signals, 74 complete 30-day samples, and 20 signals still blocked by missing prices.
+- Current replay comparison: candidate model 30-day success rate 51.4% and average excess return 8.59%; baseline 46.2% and 8.10%. These are research diagnostics, not investment advice.
+- `MU` remains blocked above its old sanity range because a stable independent source was not available. `1519.TW` remains blocked on corporate-action adjustment gaps.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.
