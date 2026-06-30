@@ -15,6 +15,49 @@ type PriceRequest = {
   direction: "after" | "before";
 };
 
+type SkippedPrice = {
+  symbol: string;
+  date: string;
+  reason: string;
+};
+
+function normalizeSkipReason(reason: string) {
+  if (/Cross-source close mismatch/i.test(reason)) return "cross_source_close_mismatch";
+  if (/Cross-source date mismatch/i.test(reason)) return "cross_source_date_mismatch";
+  if (/超出合理區間/i.test(reason)) return "sanity_range_rejected";
+  if (/could not be paired with an adjusted close/i.test(reason)) return "missing_adjusted_close_pair";
+  if (/No .* price found/i.test(reason)) return "no_price_found";
+  if (/HTTP \d+/i.test(reason)) return "provider_http_error";
+  return "other";
+}
+
+function summarizeSkipped(skipped: SkippedPrice[]) {
+  const bySymbol = new Map<string, { symbol: string; count: number; reasons: Map<string, number> }>();
+  const byReason = new Map<string, number>();
+  for (const item of skipped) {
+    const reasonKey = normalizeSkipReason(item.reason);
+    byReason.set(reasonKey, (byReason.get(reasonKey) ?? 0) + 1);
+    const current = bySymbol.get(item.symbol) ?? { symbol: item.symbol, count: 0, reasons: new Map<string, number>() };
+    current.count += 1;
+    current.reasons.set(reasonKey, (current.reasons.get(reasonKey) ?? 0) + 1);
+    bySymbol.set(item.symbol, current);
+  }
+  return {
+    byReason: [...byReason.entries()]
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
+    bySymbol: [...bySymbol.values()]
+      .map((item) => ({
+        symbol: item.symbol,
+        count: item.count,
+        reasons: [...item.reasons.entries()]
+          .map(([reason, count]) => ({ reason, count }))
+          .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
+      }))
+      .sort((a, b) => b.count - a.count || a.symbol.localeCompare(b.symbol)),
+  };
+}
+
 function benchmarkFor(markets: MarketCode[]) {
   if (markets.length > 0 && markets.every((market) => market === "TW")) {
     return { symbol: "0050.TW", market: "TW" as MarketCode };
@@ -94,7 +137,7 @@ export async function backfillVerifiedReplayPrices(options?: {
   }
 
   const prices: StockPrice[] = [];
-  const skipped: Array<{ symbol: string; date: string; reason: string }> = [];
+  const skipped: SkippedPrice[] = [];
   const queue = [...requests.values()];
   for (let offset = 0; offset < queue.length; offset += 3) {
     const batch = queue.slice(offset, offset + 3);
@@ -124,6 +167,7 @@ export async function backfillVerifiedReplayPrices(options?: {
     requestCount: requests.size,
     fetched: uniquePrices.length,
     upserted: upserted.count,
+    skippedSummary: summarizeSkipped(skipped),
     skipped,
   };
 }

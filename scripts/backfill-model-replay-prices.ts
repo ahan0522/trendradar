@@ -9,7 +9,16 @@ async function main() {
     maxSymbols,
     horizons: [30],
   });
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify({
+    runId: result.runId,
+    dryRun: result.dryRun,
+    selectedSymbols: result.selectedSymbols,
+    requestCount: result.requestCount,
+    fetched: result.fetched,
+    upserted: result.upserted,
+    skippedSummary: result.skippedSummary,
+    skippedSample: result.skipped.slice(0, 20),
+  }, null, 2));
 }
 
 main().catch((error) => {

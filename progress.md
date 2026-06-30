@@ -434,6 +434,21 @@ Latest v3 replay backtest first pass:
 
 Interpretation: v3 catches materially broader market families and early backtest output is slightly better than baseline, but candidate confidence is intentionally lower because it now discounts news-only signals. The next task is not to publish v3 rows yet; it is to diagnose missing prices, inspect false positives, and decide which signal families deserve stronger evidence ingestion.
 
+Latest replay price backfill diagnostic:
+
+- Backfilled 103 verified prices for the latest replay run.
+- Replay summary did not change after backfill, which means the remaining missing-price outcomes are blocked by price-quality gates rather than simple absence of data.
+- Dry-run diagnostic for the next top 8 symbols found:
+  - 102 fetchable prices
+  - 37 sanity-range rejections
+  - 10 cross-source close mismatches
+  - 5 no-price-found cases
+  - 3 provider HTTP errors
+- Main blocked symbols:
+  - `1519.TW`: official vs Yahoo close mismatch, likely adjusted-price or corporate-action handling issue.
+  - `2408.TW`, `000660.KS`, `005930.KS`, `MU`: sanity range rejections on later 2026 dates; do not relax ranges without a second reliable source.
+- Decision: keep these samples pending until official/adjusted price handling is improved. Do not force them into backtests.
+
 #### Phase A - Source Registry
 
 1. Define required evidence series by signal family.
