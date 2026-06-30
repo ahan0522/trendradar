@@ -213,6 +213,20 @@ The registry currently covers:
 
 It can detect which evidence families a signal belongs to, list required non-news evidence, and identify missing required evidence. Tests enforce that generic industry data cannot satisfy every evidence requirement by source type alone.
 
+Signal Research Brief now surfaces evidence coverage:
+
+- required evidence families detected from topic and hypothesis
+- satisfied required evidence count
+- missing required evidence labels
+- missing evidence items folded into `dataGaps`
+
+Production sanity check after deployment:
+
+- `/api/signals`: ok, 52 signal rows from `signal_tables`
+- `/api/signals/[id]`: ok for the first signal row
+- `/signals`: HTTP 200
+- First production signal currently maps to an unmodeled robotics/embodied-AI family, so coverage reports `0/0`; next step is to add that family or make unmodeled-family status explicit.
+
 Recent verified industry-series expansion added:
 
 - semiconductor and related component producer price index
@@ -371,6 +385,7 @@ Initial families:
 - AI Cooling
 - Advanced Packaging
 - Optical Networking
+- Robotics / Embodied AI
 
 #### Phase B - Data Ingestion
 
