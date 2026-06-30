@@ -457,6 +457,19 @@ export default async function SignalDetailPage({ params }: { params: Promise<{ i
                   <p className="mt-1 font-black text-white">{researchBrief.evidenceAssessment.label}</p>
                   <p className="mt-2 text-sm leading-6 text-zinc-400">{researchBrief.evidenceAssessment.summary}</p>
                 </div>
+                {researchBrief.evidenceCoverage ? (
+                  <div className="border-t border-emerald-300/10 pt-4">
+                    <p className="text-xs font-bold text-zinc-500">必要證據覆蓋</p>
+                    <p className="mt-1 font-black text-white">
+                      {researchBrief.evidenceCoverage.satisfiedRequiredCount}/{researchBrief.evidenceCoverage.totalRequiredCount} 項已滿足
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-zinc-400">
+                      {researchBrief.evidenceCoverage.families.length > 0
+                        ? `訊號家族：${researchBrief.evidenceCoverage.families.join(" / ")}`
+                        : "尚未對應到固定訊號家族，先以一般研究缺口追蹤。"}
+                    </p>
+                  </div>
+                ) : null}
                 <div className="border-t border-emerald-300/10 pt-4">
                   <p className="text-xs font-bold text-zinc-500">目前驗證結果</p>
                   <p className="mt-1 font-black text-white">{researchBrief.validationSummary.label}</p>

@@ -1,4 +1,5 @@
 import type { SignalResearchBrief } from "@/types/signals";
+import { assessEvidenceCoverage } from "@/lib/signals/evidence-source-registry";
 
 type ResearchSignal = {
   topic: string;
@@ -12,6 +13,8 @@ type ResearchSignal = {
 type ResearchEvidence = {
   sourceName?: string;
   sourceType: string;
+  title?: string;
+  summary?: string;
   knownAtSignalTime: boolean;
 };
 
@@ -187,6 +190,11 @@ export function buildSignalResearchBrief(input: {
   const components = input.scoreComponents ?? [];
   const lane = findLane(input.signal);
   const assessment = evidenceAssessment(input.signal, evidenceItems);
+  const evidenceCoverage = assessEvidenceCoverage({
+    topic: input.signal.topic,
+    hypothesis: input.signal.hypothesis,
+    evidenceItems,
+  });
   const componentNames = new Set(components.map((item) => item.componentName));
   const mappedTrackingIndicators = [...new Set(watchlists.flatMap((item) => item.trackingMetrics ?? []))];
   const mappedInvalidationConditions = [...new Set(watchlists.flatMap((item) => item.invalidationConditions ?? []))];
@@ -195,6 +203,9 @@ export function buildSignalResearchBrief(input: {
 
   if (assessment.primaryEvidenceCount === 0) gaps.push("缺少官方公告、公司行動、供應鏈或價格等一手證據。");
   if (assessment.independentSourceCount < 3) gaps.push("獨立來源不足 3 個，仍可能受到單一媒體或轉載污染。");
+  for (const missing of evidenceCoverage.missingRequired) {
+    gaps.push(`缺少 ${missing.label}（${missing.category}），目前 ${missing.currentItems}/${missing.minItems}。`);
+  }
   if (directMappings.length === 0) gaps.push("尚未建立具直接營運關係的公司曝險與受惠標的映射。");
   if (!componentNames.has("priceSpike")) gaps.push("訊號分數尚未納入可驗證的價格異常資料。");
   if (!componentNames.has("companyActivity")) gaps.push("訊號分數尚未納入正式公司行動資料。");
@@ -206,6 +217,18 @@ export function buildSignalResearchBrief(input: {
     causalChain: lane.causalChain,
     trackingIndicators: mappedTrackingIndicators.length > 0 ? mappedTrackingIndicators : lane.trackingIndicators,
     invalidationConditions: mappedInvalidationConditions.length > 0 ? mappedInvalidationConditions : lane.invalidationConditions,
+    evidenceCoverage: {
+      families: evidenceCoverage.families,
+      satisfiedRequiredCount: evidenceCoverage.satisfiedRequiredCount,
+      totalRequiredCount: evidenceCoverage.totalRequiredCount,
+      missingRequired: evidenceCoverage.missingRequired.map((item) => ({
+        key: item.key,
+        label: item.label,
+        category: item.category,
+        currentItems: item.currentItems,
+        minItems: item.minItems,
+      })),
+    },
     evidenceAssessment: assessment,
     beneficiaryLogic: directMappings.length > 0
       ? `${lane.beneficiaryLogic} 本次共建立 ${directMappings.length} 檔具直接營運關係的觀察標的。`

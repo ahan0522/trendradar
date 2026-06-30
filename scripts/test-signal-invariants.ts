@@ -496,6 +496,7 @@ function testResearchBrief() {
   assert.match(brief.validationSummary.summary, /30 日/);
   assert.match(brief.validationSummary.summary, /\+8\.25%/);
   assert.ok(brief.invalidationConditions.some((item) => item.includes("訂單")));
+  assert.ok(brief.evidenceCoverage);
 
   const biotech = buildSignalResearchBrief({
     signal: {
@@ -516,6 +517,25 @@ function testResearchBrief() {
   assert.equal(biotech.lane, "biotech");
   assert.match(biotech.beneficiaryLogic, /不建立股票映射/);
   assert.ok(biotech.dataGaps.some((item) => item.includes("公司曝險")));
+
+  const memory = buildSignalResearchBrief({
+    signal: {
+      ...signal,
+      topic: "HBM / DRAM 記憶體供應鏈",
+      hypothesis: "HBM 需求推動 DRAM 產能重新配置。",
+      evidence: [{ source_count: 3, article_count: 10 }],
+    },
+    evidenceItems: [
+      { sourceName: "FRED", sourceType: "industry", title: "Memory capacity utilization improves", knownAtSignalTime: true },
+    ],
+    watchlists: [],
+    outcomes: [],
+    scoreComponents: [],
+  });
+  assert.deepEqual(memory.evidenceCoverage?.families, ["memory"]);
+  assert.equal(memory.evidenceCoverage?.totalRequiredCount, 2);
+  assert.equal(memory.evidenceCoverage?.satisfiedRequiredCount, 1);
+  assert.ok(memory.dataGaps.some((item) => item.includes("DRAM / NAND / HBM")));
 }
 
 function testModelReplayFamilies() {

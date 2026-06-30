@@ -128,6 +128,18 @@ export type SignalResearchBrief = {
   causalChain: string[];
   trackingIndicators: string[];
   invalidationConditions: string[];
+  evidenceCoverage?: {
+    families: string[];
+    satisfiedRequiredCount: number;
+    totalRequiredCount: number;
+    missingRequired: Array<{
+      key: string;
+      label: string;
+      category: string;
+      currentItems: number;
+      minItems: number;
+    }>;
+  };
   evidenceAssessment: {
     level: "high" | "medium" | "early";
     label: string;
