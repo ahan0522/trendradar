@@ -562,6 +562,10 @@ The next milestone is complete when:
 - The revised validation order checks Yahoo structure, date, and currency before pairing it with TWSE, then applies the final range gate to the combined record. This removed a circular verification failure without weakening validation.
 - 111 verified TW/US replay prices were upserted. The replay now has 72 tested signals, 74 complete 30-day samples, and 20 signals still blocked by missing prices.
 - Current replay comparison: candidate model 30-day success rate 51.4% and average excess return 8.59%; baseline 46.2% and 8.10%. These are research diagnostics, not investment advice.
-- `MU` remains blocked above its old sanity range because a stable independent source was not available. `1519.TW` remains blocked on corporate-action adjustment gaps.
+- `MU` remains blocked above its old sanity range because a stable independent source was not available.
+- `tw-corporate-actions-v1-2026-06-30` records the `1519.TW` 2025-07-25 stock-dividend adjustment. Pre-ex-date prices are accepted only when the TWSE/Yahoo observed factor matches the registered 1.1 factor within 0.5%.
+- The corporate-action gate removed 10 false price blocks without introducing a general mismatch tolerance. Replay tested signals increased from 72 to 82, complete 30-day samples from 74 to 84, and missing-price signals fell from 20 to 10.
+- After the broader sample entered validation, candidate 30-day success rate recalibrated to 50.0% and average excess return to 8.0%; the less flattering result is retained as the honest updated measurement.
+- Formal TWSE ex-right/ex-dividend data is the required basis for future registry entries. Symbol-specific exceptions must include an ex-date, factor, source, and version.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

@@ -38,6 +38,7 @@ import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
 import { normalizeReplayPriceSkipReason } from "../lib/signals/model-replay-price-backfill";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
+import { matchCorporateActionAdjustment } from "../lib/signals/corporate-actions";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
@@ -656,6 +657,33 @@ function testReplayPriceSkipReasonClassification() {
   );
 }
 
+function testCorporateActionAdjustmentRegistry() {
+  const matched = matchCorporateActionAdjustment({
+    symbol: "1519.TW",
+    market: "TW",
+    priceDate: "2025-06-30",
+    officialClose: 563,
+    adjustedClose: 511.81817626953125,
+  });
+  assert.ok(matched);
+  assert.equal(matched.exDate, "2025-07-25");
+  assert.equal(matched.adjustmentFactor, 1.1);
+  assert.equal(matchCorporateActionAdjustment({
+    symbol: "1519.TW",
+    market: "TW",
+    priceDate: "2025-07-25",
+    officialClose: 591,
+    adjustedClose: 537.27,
+  }), null);
+  assert.equal(matchCorporateActionAdjustment({
+    symbol: "2408.TW",
+    market: "TW",
+    priceDate: "2025-06-30",
+    officialClose: 563,
+    adjustedClose: 511.81817626953125,
+  }), null);
+}
+
 function testPublicationGate() {
   const eligible = evaluateSignalForPublication({
     signal: {
@@ -778,6 +806,7 @@ function main() {
   testReplayResearchReport();
   testReplayHorizonMaturity();
   testReplayPriceSkipReasonClassification();
+  testCorporateActionAdjustmentRegistry();
   testPublicationGate();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");

@@ -1,6 +1,7 @@
 import type { MarketCode, StockPrice } from "@/types/signals";
 import { upsertStockPrices } from "@/lib/signals/stock-prices";
 import { assessLatestPrice } from "@/lib/signals/price-quality";
+import { matchCorporateActionAdjustment } from "@/lib/signals/corporate-actions";
 
 export type PriceSourceProvider = "twse" | "tpex" | "yahoo_chart" | "manual_required";
 
@@ -387,6 +388,45 @@ async function verifyTwPriceAdjustment(
 
   const closeDifference = Math.abs(adjusted.price.close / official.price.close - 1);
   if (closeDifference > 0.03) {
+    const corporateAction = matchCorporateActionAdjustment({
+      symbol: official.symbol,
+      market: official.market,
+      priceDate: official.price.priceDate,
+      officialClose: official.price.close,
+      adjustedClose: adjusted.price.close,
+    });
+    if (corporateAction) {
+      const verifiedPrice: StockPrice = {
+        ...official.price,
+        adjClose: adjusted.price.adjClose ?? adjusted.price.close,
+        provider: `${official.price.provider}+yahoo-chart`,
+        verificationProvider:
+          `${official.price.verificationProvider}+yahoo-adjustment-v1+${corporateAction.verificationVersion}`,
+      };
+      const quality = assessLatestPrice(official.symbol, "TW", {
+        priceDate: verifiedPrice.priceDate,
+        close: verifiedPrice.close,
+        adjClose: verifiedPrice.adjClose ?? null,
+        volume: verifiedPrice.volume ?? null,
+        qualityStatus: verifiedPrice.qualityStatus,
+        provider: verifiedPrice.provider,
+        sourceUrl: verifiedPrice.sourceUrl,
+        verificationProvider: verifiedPrice.verificationProvider,
+      });
+      return {
+        ...official,
+        status: quality.status === "verified" ? "fetched" : "error",
+        price: quality.status === "verified" ? verifiedPrice : null,
+        warnings: [
+          ...official.warnings,
+          ...adjusted.warnings,
+          `Corporate action adjustment verified: factor ${corporateAction.observedFactor}, ex-date ${corporateAction.exDate}, registry ${corporateAction.verificationVersion}.`,
+        ],
+        errors: quality.status === "verified"
+          ? official.errors
+          : [...official.errors, quality.reason ?? "Corporate-action adjusted price failed final validation."],
+      };
+    }
     const gapPct = Number((closeDifference * 100).toFixed(2));
     const likelyCorporateActionGap = closeDifference <= 0.2;
     return {
