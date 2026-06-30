@@ -382,13 +382,17 @@ async function verifyTwPriceAdjustment(
 
   const closeDifference = Math.abs(adjusted.price.close / official.price.close - 1);
   if (closeDifference > 0.03) {
+    const gapPct = Number((closeDifference * 100).toFixed(2));
+    const likelyCorporateActionGap = closeDifference <= 0.2;
     return {
       ...official,
       status: "error",
       price: null,
       errors: [
         ...official.errors,
-        `Cross-source close mismatch: official ${official.price.close}, Yahoo ${adjusted.price.close}`,
+        likelyCorporateActionGap
+          ? `Cross-source adjusted close gap: official ${official.price.close}, Yahoo ${adjusted.price.close}, gap ${gapPct}%. Treat as pending corporate-action adjustment review.`
+          : `Cross-source close mismatch: official ${official.price.close}, Yahoo ${adjusted.price.close}, gap ${gapPct}%.`,
       ],
     };
   }

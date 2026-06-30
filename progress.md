@@ -441,11 +441,11 @@ Latest replay price backfill diagnostic:
 - Dry-run diagnostic for the next top 8 symbols found:
   - 102 fetchable prices
   - 37 sanity-range rejections
-  - 10 cross-source close mismatches
+  - 10 corporate-action adjustment gaps
   - 5 no-price-found cases
   - 3 provider HTTP errors
 - Main blocked symbols:
-  - `1519.TW`: official vs Yahoo close mismatch, likely adjusted-price or corporate-action handling issue.
+  - `1519.TW`: official vs Yahoo close gap now classified as `corporate_action_adjustment_gap`; likely adjusted-price or corporate-action handling issue.
   - `2408.TW`, `000660.KS`, `005930.KS`, `MU`: sanity range rejections on later 2026 dates; do not relax ranges without a second reliable source.
 - Decision: keep these samples pending until official/adjusted price handling is improved. Do not force them into backtests.
 

@@ -36,6 +36,7 @@ import { calculateHeatLifecycle } from "../lib/discovery/heat-lifecycle";
 import { buildSignalResearchBrief } from "../lib/signals/research-brief";
 import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
+import { normalizeReplayPriceSkipReason } from "../lib/signals/model-replay-price-backfill";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
@@ -600,6 +601,21 @@ function testReplayHorizonMaturity() {
   assert.equal(isReplayHorizonMature("2026-03-31", 90, "2026-06-30"), true);
 }
 
+function testReplayPriceSkipReasonClassification() {
+  assert.equal(
+    normalizeReplayPriceSkipReason("Cross-source adjusted close gap: official 538, Yahoo 489.09, gap 9.09%. Treat as pending corporate-action adjustment review."),
+    "corporate_action_adjustment_gap",
+  );
+  assert.equal(
+    normalizeReplayPriceSkipReason("Cross-source close mismatch: official 538, Yahoo 400, gap 25.65%."),
+    "cross_source_close_mismatch",
+  );
+  assert.equal(
+    normalizeReplayPriceSkipReason("價格 649692 超出合理區間 50000-600000，需重新驗證資料來源"),
+    "sanity_range_rejected",
+  );
+}
+
 function testPublicationGate() {
   const eligible = evaluateSignalForPublication({
     signal: {
@@ -721,6 +737,7 @@ function main() {
   testModelReplayFamilies();
   testReplayResearchReport();
   testReplayHorizonMaturity();
+  testReplayPriceSkipReasonClassification();
   testPublicationGate();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");

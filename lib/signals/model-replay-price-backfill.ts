@@ -21,7 +21,8 @@ type SkippedPrice = {
   reason: string;
 };
 
-function normalizeSkipReason(reason: string) {
+export function normalizeReplayPriceSkipReason(reason: string) {
+  if (/Cross-source adjusted close gap/i.test(reason)) return "corporate_action_adjustment_gap";
   if (/Cross-source close mismatch/i.test(reason)) return "cross_source_close_mismatch";
   if (/Cross-source date mismatch/i.test(reason)) return "cross_source_date_mismatch";
   if (/超出合理區間/i.test(reason)) return "sanity_range_rejected";
@@ -35,7 +36,7 @@ function summarizeSkipped(skipped: SkippedPrice[]) {
   const bySymbol = new Map<string, { symbol: string; count: number; reasons: Map<string, number> }>();
   const byReason = new Map<string, number>();
   for (const item of skipped) {
-    const reasonKey = normalizeSkipReason(item.reason);
+    const reasonKey = normalizeReplayPriceSkipReason(item.reason);
     byReason.set(reasonKey, (byReason.get(reasonKey) ?? 0) + 1);
     const current = bySymbol.get(item.symbol) ?? { symbol: item.symbol, count: 0, reasons: new Map<string, number>() };
     current.count += 1;
