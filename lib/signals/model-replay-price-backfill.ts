@@ -32,6 +32,23 @@ export function normalizeReplayPriceSkipReason(reason: string) {
   return "other";
 }
 
+function suggestedActionForReasons(reasonKeys: string[]) {
+  const reasons = new Set(reasonKeys);
+  if (reasons.has("corporate_action_adjustment_gap") || reasons.has("missing_adjusted_close_pair")) {
+    return "補台股除權息/還原價來源；未完成前維持 pending，不使用官方價與 Yahoo 調整價差異過大的樣本。";
+  }
+  if (reasons.has("sanity_range_rejected")) {
+    return "用第二可靠來源確認價格區間；若屬真實行情變化，再版本化調整 sanity range。";
+  }
+  if (reasons.has("provider_http_error") || reasons.has("no_price_found")) {
+    return "補替代價格 provider 或延長交易日查找窗口；仍需 provider、currency、sourceUrl 完整。";
+  }
+  if (reasons.has("cross_source_close_mismatch") || reasons.has("cross_source_date_mismatch")) {
+    return "人工核對來源日期與收盤價，確認前不得進入回測。";
+  }
+  return "保留為價格資料缺口，等待人工或第二來源確認。";
+}
+
 function summarizeSkipped(skipped: SkippedPrice[]) {
   const bySymbol = new Map<string, { symbol: string; count: number; reasons: Map<string, number> }>();
   const byReason = new Map<string, number>();
@@ -54,6 +71,7 @@ function summarizeSkipped(skipped: SkippedPrice[]) {
         reasons: [...item.reasons.entries()]
           .map(([reason, count]) => ({ reason, count }))
           .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason)),
+        suggestedAction: suggestedActionForReasons([...item.reasons.keys()]),
       }))
       .sort((a, b) => b.count - a.count || a.symbol.localeCompare(b.symbol)),
   };

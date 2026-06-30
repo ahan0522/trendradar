@@ -438,6 +438,7 @@ Latest replay price backfill diagnostic:
 
 - Backfilled 103 verified prices for the latest replay run.
 - Replay summary did not change after backfill, which means the remaining missing-price outcomes are blocked by price-quality gates rather than simple absence of data.
+- Replay price backfill now groups skipped rows by normalized reason and symbol, and each symbol-level gap includes a suggested action for the next repair pass.
 - Dry-run diagnostic for the next top 8 symbols found:
   - 102 fetchable prices
   - 37 sanity-range rejections
@@ -448,6 +449,10 @@ Latest replay price backfill diagnostic:
   - `1519.TW`: official vs Yahoo close gap now classified as `corporate_action_adjustment_gap`; likely adjusted-price or corporate-action handling issue.
   - `2408.TW`, `000660.KS`, `005930.KS`, `MU`: sanity range rejections on later 2026 dates; do not relax ranges without a second reliable source.
 - Decision: keep these samples pending until official/adjusted price handling is improved. Do not force them into backtests.
+- Suggested next actions are now explicit:
+  - corporate-action adjustment gaps: add a Taiwan split/dividend/adjusted-price source before using the sample
+  - sanity-range rejections: confirm with a second reliable source before changing the range gate
+  - provider/no-price gaps: add a fallback provider or extend the trading-day lookup window while preserving source URL, currency, and quality status
 
 #### Phase A - Source Registry
 
