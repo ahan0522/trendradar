@@ -1,5 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getMonthlyDiscoverySignals } from "@/lib/signals/monthly-discovery";
+import {
+  buildLifecycleTransitions,
+  type PreviousLifecycleSnapshot,
+} from "@/lib/signals/signal-continuity";
 
 type MonthlyEvidence = {
   sample_titles?: string[];
@@ -29,6 +33,8 @@ type MonthlyEvidence = {
     calculationVersion: string;
     inputSnapshot: Record<string, unknown>;
   }>;
+  heat_state?: "emerging" | "rising" | "sustained" | "cooling" | "reactivated" | "expired";
+  heat_reason?: string;
 };
 
 function currentTaipeiDate() {
@@ -71,7 +77,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
   }));
   const { error: signalError } = await supabase
     .from("signal_events")
-    .upsert(signalRows, { onConflict: "id" });
+    .upsert(signalRows, { onConflict: "id", ignoreDuplicates: true });
   if (signalError) throw signalError;
 
   const watchlistRows = signals.flatMap((signal) =>
@@ -94,7 +100,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
   );
   const { error: watchlistError } = await supabase
     .from("signal_watchlists")
-    .upsert(watchlistRows, { onConflict: "signal_event_id,symbol,market" });
+    .upsert(watchlistRows, { onConflict: "signal_event_id,symbol,market", ignoreDuplicates: true });
   if (watchlistError) {
     if (!isMissingWatchlistResearchColumns(watchlistError)) throw watchlistError;
     const legacyRows = watchlistRows.map((item) => {
@@ -115,7 +121,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
     });
     const { error: legacyError } = await supabase
       .from("signal_watchlists")
-      .upsert(legacyRows, { onConflict: "signal_event_id,symbol,market" });
+      .upsert(legacyRows, { onConflict: "signal_event_id,symbol,market", ignoreDuplicates: true });
     if (legacyError) throw legacyError;
   }
 
@@ -163,7 +169,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
   if (evidenceRows.length > 0) {
     const { error: evidenceError } = await supabase
       .from("signal_evidence_items")
-      .upsert(evidenceRows, { onConflict: "id" });
+      .upsert(evidenceRows, { onConflict: "id", ignoreDuplicates: true });
     if (evidenceError) throw evidenceError;
   }
 
@@ -184,8 +190,63 @@ export async function finalizeMonthlySignals(asOfDate: string) {
   if (componentRows.length > 0) {
     const { error: componentError } = await supabase
       .from("signal_score_components")
-      .upsert(componentRows, { onConflict: "signal_event_id,component_name" });
+      .upsert(componentRows, { onConflict: "signal_event_id,component_name", ignoreDuplicates: true });
     if (componentError) throw componentError;
+  }
+
+  let lifecycleCount = 0;
+  const { data: lifecycleRows, error: lifecycleReadError } = await supabase
+    .from("signal_lifecycle_snapshots")
+    .select("continuity_key, signal_event_id, as_of_date, last_seen_as_of, lifecycle_state")
+    .lt("as_of_date", asOfDate)
+    .order("as_of_date", { ascending: false });
+  if (!lifecycleReadError) {
+    const latestByKey = new Map<string, PreviousLifecycleSnapshot>();
+    for (const row of lifecycleRows ?? []) {
+      if (latestByKey.has(row.continuity_key)) continue;
+      latestByKey.set(row.continuity_key, {
+        continuityKey: row.continuity_key,
+        signalEventId: row.signal_event_id,
+        asOfDate: row.as_of_date,
+        lastSeenAsOf: row.last_seen_as_of,
+        lifecycleState: row.lifecycle_state,
+      });
+    }
+    const transitions = buildLifecycleTransitions(
+      signals.map((signal) => {
+        const evidence = (signal.evidence[0] ?? {}) as MonthlyEvidence;
+        return {
+          signalEventId: signal.id,
+          topic: signal.topic,
+          asOfDate,
+          lifecycleState: evidence.heat_state ?? "emerging",
+          lifecycleReason: evidence.heat_reason ?? "本月首次建立生命週期快照。",
+        };
+      }),
+      [...latestByKey.values()],
+      asOfDate,
+    );
+    if (transitions.length > 0) {
+      const { error: lifecycleWriteError } = await supabase
+        .from("signal_lifecycle_snapshots")
+        .upsert(transitions.map((item) => ({
+          continuity_key: item.continuityKey,
+          signal_event_id: item.signalEventId,
+          as_of_date: item.asOfDate,
+          last_seen_as_of: item.lastSeenAsOf,
+          lifecycle_state: item.lifecycleState,
+          previous_state: item.previousState,
+          transition_reason: item.transitionReason,
+          model_version: "signal-lifecycle-v1",
+        })), {
+          onConflict: "continuity_key,as_of_date,model_version",
+          ignoreDuplicates: true,
+        });
+      if (lifecycleWriteError) throw lifecycleWriteError;
+      lifecycleCount = transitions.length;
+    }
+  } else if (lifecycleReadError.code !== "42P01") {
+    throw lifecycleReadError;
   }
 
   return {
@@ -195,6 +256,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
     watchlistCount: watchlistRows.length,
     evidenceCount: evidenceRows.length,
     componentCount: componentRows.length,
+    lifecycleCount,
   };
 }
 

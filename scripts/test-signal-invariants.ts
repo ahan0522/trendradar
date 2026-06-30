@@ -40,6 +40,10 @@ import { normalizeReplayPriceSkipReason } from "../lib/signals/model-replay-pric
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { matchCorporateActionAdjustment } from "../lib/signals/corporate-actions";
 import { isNonInvestableCandidateContent } from "../lib/signals/monthly-discovery";
+import {
+  buildLifecycleTransitions,
+  signalContinuityKey,
+} from "../lib/signals/signal-continuity";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
@@ -696,6 +700,38 @@ function testMonthlyDiscoveryInvestabilityFilter() {
   }), false);
 }
 
+function testCrossMonthSignalLifecycle() {
+  assert.equal(signalContinuityKey("2026-06 記憶體供需循環"), "memory");
+  const cooling = buildLifecycleTransitions([], [{
+    continuityKey: "memory",
+    signalEventId: "may-memory",
+    asOfDate: "2026-05-31",
+    lastSeenAsOf: "2026-05-31",
+    lifecycleState: "sustained",
+  }], "2026-06-30");
+  assert.equal(cooling[0].lifecycleState, "cooling");
+  assert.equal(cooling[0].lastSeenAsOf, "2026-05-31");
+
+  const expired = buildLifecycleTransitions([], [{
+    ...cooling[0],
+    asOfDate: "2026-06-30",
+  }], "2026-07-31");
+  assert.equal(expired[0].lifecycleState, "expired");
+
+  const reactivated = buildLifecycleTransitions([{
+    signalEventId: "aug-memory",
+    topic: "2026-08 記憶體供需循環",
+    asOfDate: "2026-08-31",
+    lifecycleState: "rising",
+    lifecycleReason: "本月重新升溫。",
+  }], [{
+    ...expired[0],
+    asOfDate: "2026-07-31",
+  }], "2026-08-31");
+  assert.equal(reactivated[0].lifecycleState, "reactivated");
+  assert.equal(reactivated[0].continuityKey, "memory");
+}
+
 function testPublicationGate() {
   const eligible = evaluateSignalForPublication({
     signal: {
@@ -820,6 +856,7 @@ function main() {
   testReplayPriceSkipReasonClassification();
   testCorporateActionAdjustmentRegistry();
   testMonthlyDiscoveryInvestabilityFilter();
+  testCrossMonthSignalLifecycle();
   testPublicationGate();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");

@@ -571,5 +571,8 @@ The next milestone is complete when:
 - `Expired` will be derived from cross-month Signal Ledger continuity rather than inserted into the current month's hot-topic candidates.
 - Discovery now checks candidate titles, keywords, and the majority of sample titles for explicit sports, entertainment, travel, food, anime, and game content. This protects the signal set when upstream categories are wrong.
 - A 2026-06-30 production-data preview removed an MLB cluster mislabeled as technology and naturally promoted optical networking as the fifth qualified market direction.
+- `signal_lifecycle_snapshots` now stores append-only cross-month continuity using stable family keys. A missing family cools first, expires after more than 45 dormant days, and becomes reactivated when it returns.
+- The first 2026-06 lifecycle snapshot materialized five families: AI compute and memory sustained, defense/geopolitics and optical networking cooling, and power/grid emerging.
+- Monthly finalization now ignores duplicate signal, watchlist, evidence, score component, and lifecycle keys. A rerun cannot silently rewrite the original research snapshot; corrections require a new model/versioned record.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.
