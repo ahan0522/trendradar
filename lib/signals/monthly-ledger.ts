@@ -4,6 +4,10 @@ import {
   buildLifecycleTransitions,
   type PreviousLifecycleSnapshot,
 } from "@/lib/signals/signal-continuity";
+import {
+  buildSignalResearchSnapshot,
+  SIGNAL_RESEARCH_SNAPSHOT_VERSION,
+} from "@/lib/signals/research-snapshot";
 
 type MonthlyEvidence = {
   sample_titles?: string[];
@@ -173,6 +177,70 @@ export async function finalizeMonthlySignals(asOfDate: string) {
     if (evidenceError) throw evidenceError;
   }
 
+  const evidenceBySignal = new Map<string, typeof evidenceRows>();
+  for (const item of evidenceRows) {
+    const rows = evidenceBySignal.get(item.signal_event_id) ?? [];
+    rows.push(item);
+    evidenceBySignal.set(item.signal_event_id, rows);
+  }
+  const researchSnapshots = signals.map((signal) => {
+    const evidence = (signal.evidence[0] ?? {}) as MonthlyEvidence;
+    return buildSignalResearchSnapshot({
+      signalEventId: signal.id,
+      asOfDate: signal.asOfDate,
+      topic: signal.topic,
+      hypothesis: signal.hypothesis,
+      heatScore: signal.signalStrength,
+      heatState: evidence.heat_state ?? "emerging",
+      heatReason: evidence.heat_reason ?? "尚未保存 Heat 原因。",
+      confidenceScore: signal.confidenceScore,
+      confidenceModelVersion: signal.modelVersion ?? "monthly-full-market-v3",
+      evidence: (evidenceBySignal.get(signal.id) ?? []).map((item) => ({
+        id: item.id,
+        sourceType: item.source_type,
+        title: item.title,
+        summary: item.summary,
+        sourceName: item.source_name,
+        sourceUrl: "source_url" in item ? item.source_url : null,
+        evidenceDate: item.evidence_date,
+        knownAtSignalTime: item.known_at_signal_time,
+      })),
+      watchlists: signal.watchlists.map((item) => ({
+        symbol: item.symbol,
+        trackingMetrics: item.trackingMetrics,
+        invalidationConditions: item.invalidationConditions,
+      })),
+      outcomes: [],
+      dataGaps: [
+        "尚待產業、商品、公司與市場證據進一步交叉驗證。",
+        "尚無成熟的 7/30/60/90 日 Outcome。",
+      ],
+    });
+  });
+  const { error: snapshotError } = await supabase
+    .from("signal_research_snapshots")
+    .upsert(researchSnapshots.map((snapshot) => ({
+      signal_event_id: snapshot.signalEventId,
+      as_of_date: snapshot.asOfDate,
+      snapshot_version: SIGNAL_RESEARCH_SNAPSHOT_VERSION,
+      heat_score: snapshot.heat.score,
+      heat_state: snapshot.heat.state,
+      confidence_score: snapshot.researchConfidence.score,
+      confidence_model_version: snapshot.researchConfidence.modelVersion,
+      validation_status: snapshot.validation.status,
+      outcome_status: snapshot.outcome?.outcome ?? null,
+      supporting_evidence: snapshot.supportingEvidence,
+      counter_evidence: snapshot.counterEvidence,
+      validation_conditions: snapshot.validation.conditions,
+      invalidation_conditions: snapshot.invalidationConditions,
+      data_gaps: snapshot.researchConfidence.dataGaps,
+      snapshot,
+    })), {
+      onConflict: "signal_event_id,snapshot_version",
+      ignoreDuplicates: true,
+    });
+  if (snapshotError && snapshotError.code !== "42P01") throw snapshotError;
+
   const componentRows = signals.flatMap((signal) => {
     const evidence = (signal.evidence[0] ?? {}) as MonthlyEvidence;
     return (evidence.score_components ?? []).map((item) => ({
@@ -257,6 +325,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
     evidenceCount: evidenceRows.length,
     componentCount: componentRows.length,
     lifecycleCount,
+    researchSnapshotCount: snapshotError ? 0 : researchSnapshots.length,
   };
 }
 

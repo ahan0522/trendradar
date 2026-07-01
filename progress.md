@@ -574,5 +574,11 @@ The next milestone is complete when:
 - `signal_lifecycle_snapshots` now stores append-only cross-month continuity using stable family keys. A missing family cools first, expires after more than 45 dormant days, and becomes reactivated when it returns.
 - The first 2026-06 lifecycle snapshot materialized five families: AI compute and memory sustained, defense/geopolitics and optical networking cooling, and power/grid emerging.
 - Monthly finalization now ignores duplicate signal, watchlist, evidence, score component, and lifecycle keys. A rerun cannot silently rewrite the original research snapshot; corrections require a new model/versioned record.
+- `signal_research_snapshots` now stores an append-only research contract that separates Heat, Research Confidence, Validation, Outcome, supporting evidence, counter evidence, validation conditions, invalidation conditions, and data gaps.
+- Research snapshots reject evidence published after `as_of_date`; future evidence cannot enter the signal-birth record.
+- The first 2026-06 materialization created five `signal-research-v1` rows. Verification then found that downside language such as `見頂`, `隱憂`, `示警`, and `降溫` was not classified as counter evidence, and that the power/grid topic could match the broader AI-compute beneficiary rule first.
+- `signal-research-v2` fixes both issues without rewriting v1. It separates counter evidence from supporting evidence and selects the most specific beneficiary rule by matched-label coverage.
+- Production verification retains all five v1 rows and adds five v2 rows. AI Compute and Memory each record one counter-evidence item, Power Grid now tracks grid/transformer orders and data-center power revenue, and an identical rerun keeps the total at ten rows.
+- Current confidence remains intentionally low because the June snapshots are dominated by news evidence. Industry, commodity, company, and supply-chain evidence must be added before Research Confidence can rise.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

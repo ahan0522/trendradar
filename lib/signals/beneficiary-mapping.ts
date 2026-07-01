@@ -174,13 +174,32 @@ function stableId(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
+function matchRuleGroup(text: string) {
+  return ruleGroups
+    .map((group, index) => {
+      const matchedLabels = group.labels.filter((label) => text.includes(label));
+      return {
+        group,
+        index,
+        matchedLabels,
+        score: matchedLabels.reduce((sum, label) => sum + label.length, 0),
+      };
+    })
+    .filter((match) => match.matchedLabels.length > 0)
+    .sort((a, b) =>
+      b.matchedLabels.length - a.matchedLabels.length ||
+      b.score - a.score ||
+      a.index - b.index
+    )[0]?.group;
+}
+
 export function mapBeneficiaries(signal: {
   topic: string;
   hypothesis?: string;
   signalEventId?: string;
 }): SignalWatchlistItem[] {
   const text = normalizeText(`${signal.topic} ${signal.hypothesis ?? ""}`);
-  const matched = ruleGroups.find((group) => group.labels.some((label) => text.includes(label)));
+  const matched = matchRuleGroup(text);
 
   if (!matched) {
     return [];

@@ -44,6 +44,7 @@ import {
   buildLifecycleTransitions,
   signalContinuityKey,
 } from "../lib/signals/signal-continuity";
+import { buildSignalResearchSnapshot } from "../lib/signals/research-snapshot";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
@@ -175,6 +176,15 @@ function testBeneficiaryResearchMapping() {
   assert.ok(memory.every((item) => Boolean(item.causalReason)));
   assert.ok(memory.every((item) => (item.trackingMetrics?.length ?? 0) >= 3));
   assert.ok(memory.every((item) => (item.invalidationConditions?.length ?? 0) >= 3));
+  const power = mapBeneficiaries({
+    topic: "AI 資料中心電力與電網",
+    hypothesis: "AI 資料中心擴建推升電力、變壓器與電網設備需求。",
+    signalEventId: "power-test",
+  });
+  assert.ok(power.length > 0);
+  assert.ok(power.every((item) => item.valueChainRole === "電網與資料中心電力設備"));
+  assert.ok(power.every((item) => item.trackingMetrics?.includes("電網／變壓器訂單")));
+  assert.ok(power.every((item) => !item.trackingMetrics?.includes("GPU／加速器營收")));
   assert.deepEqual(mapBeneficiaries({
     topic: "與企業營運沒有直接關係的熱門娛樂新聞",
   }), []);
@@ -732,6 +742,56 @@ function testCrossMonthSignalLifecycle() {
   assert.equal(reactivated[0].continuityKey, "memory");
 }
 
+function testSignalResearchSnapshotContract() {
+  const snapshot = buildSignalResearchSnapshot({
+    signalEventId: "memory-2026-06",
+    asOfDate: "2026-06-30",
+    topic: "2026-06 記憶體供需循環",
+    hypothesis: "需求與產能配置可能改變。",
+    heatScore: 72,
+    heatState: "sustained",
+    heatReason: "跨來源持續討論。",
+    confidenceScore: 48,
+    confidenceModelVersion: "research-confidence-v3",
+    evidence: [
+      {
+        id: "support",
+        sourceType: "official",
+        title: "供應商擴充 HBM 產能",
+        evidenceDate: "2026-06-20",
+        knownAtSignalTime: true,
+      },
+      {
+        id: "counter",
+        sourceType: "company_action",
+        title: "分析師示警需求見頂並出現供應鏈隱憂",
+        evidenceDate: "2026-06-25",
+        knownAtSignalTime: true,
+      },
+      {
+        id: "future",
+        sourceType: "official",
+        title: "未來資訊",
+        evidenceDate: "2026-07-01",
+        knownAtSignalTime: true,
+      },
+    ],
+    watchlists: [{
+      symbol: "2408.TW",
+      trackingMetrics: ["DRAM 合約價"],
+      invalidationConditions: ["庫存持續上升"],
+    }],
+  });
+  assert.equal(snapshot.heat.score, 72);
+  assert.equal(snapshot.researchConfidence.score, 48);
+  assert.equal(snapshot.validation.status, "pending");
+  assert.equal(snapshot.outcome, null);
+  assert.deepEqual(snapshot.supportingEvidence.map((item) => item.id), ["support"]);
+  assert.deepEqual(snapshot.counterEvidence.map((item) => item.id), ["counter"]);
+  assert.deepEqual(snapshot.validation.conditions, ["DRAM 合約價"]);
+  assert.deepEqual(snapshot.invalidationConditions, ["庫存持續上升"]);
+}
+
 function testPublicationGate() {
   const eligible = evaluateSignalForPublication({
     signal: {
@@ -857,6 +917,7 @@ function main() {
   testCorporateActionAdjustmentRegistry();
   testMonthlyDiscoveryInvestabilityFilter();
   testCrossMonthSignalLifecycle();
+  testSignalResearchSnapshotContract();
   testPublicationGate();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");
