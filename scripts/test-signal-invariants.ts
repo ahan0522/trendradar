@@ -54,6 +54,10 @@ import {
   canTransitionPublicationReview,
   evaluateSignalForPublication,
 } from "../lib/signals/publication-review";
+import {
+  buildPublicationFeed,
+  publicationPeriodKey,
+} from "../lib/signals/publication-feed";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
@@ -958,6 +962,34 @@ function testPublicationGate() {
   assert.ok(rejected.gates.filter((item) => item.required && !item.passed).length >= 4);
 }
 
+function testPublicationFeed() {
+  const brief = {
+    signalEventId: "signal-a",
+    asOfDate: "2026-06-28",
+    headline: "AI 電力基礎建設",
+    whyItMatters: "資料中心擴建推升電力設備需求。",
+    evidenceSummary: "已通過內部證據檢查。",
+    attentionDirections: [],
+    trackingIndicators: ["變壓器訂單"],
+    invalidationConditions: ["訂單轉弱"],
+    validationSummary: "等待 30 日驗證。",
+    disclosure: "不構成買賣建議。",
+  };
+  const rows = [
+    { id: "draft", signal_event_id: "signal-a", version: 1, status: "draft" as const, quality_score: 70, publishing_brief: brief, created_at: "2026-06-28T01:00:00Z" },
+    { id: "published-old", signal_event_id: "signal-b", version: 1, status: "published" as const, quality_score: 80, publishing_brief: { ...brief, signalEventId: "signal-b" }, created_at: "2026-06-28T02:00:00Z" },
+    { id: "approved", signal_event_id: "signal-c", version: 2, status: "approved" as const, quality_score: 90, publishing_brief: { ...brief, signalEventId: "signal-c" }, created_at: "2026-06-28T03:00:00Z" },
+  ];
+  const publicFeed = buildPublicationFeed(rows, { period: "monthly" });
+  assert.equal(publicFeed.itemCount, 1);
+  assert.equal(publicFeed.periods[0].items[0].status, "published");
+  const previewFeed = buildPublicationFeed(rows, { period: "monthly", includeApproved: true });
+  assert.equal(previewFeed.itemCount, 2);
+  assert.equal(publicationPeriodKey("2026-06-28", "daily"), "2026-06-28");
+  assert.equal(publicationPeriodKey("2026-06-28", "weekly"), "2026-W26");
+  assert.equal(publicationPeriodKey("2026-06-28", "monthly"), "2026-06");
+}
+
 function testEvidencePanel() {
   const panel = buildSignalEvidencePanel({
     evidenceItems: [
@@ -1000,6 +1032,7 @@ function main() {
   testSignalResearchSnapshotContract();
   testEvidenceBasedResearchConfidence();
   testPublicationGate();
+  testPublicationFeed();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");
 }

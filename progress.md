@@ -626,3 +626,14 @@ The next milestone is complete when:
 - Production verification created five drafts with zero failures. Re-evaluating June Memory and Power/Grid correctly found six direct beneficiary mappings each and raised both quality scores from 72 to 88.
 - Both signals remain ineligible because Research Confidence and required industry-evidence coverage are still below threshold. The gate is working as intended and does not mistake a good watchlist for a validated research thesis.
 - Running the unchanged Memory draft twice returned the same review id and version. No duplicate version was created.
+
+## 12. External Publication Data Contract (2026-07-01)
+
+- A separate `/api/publications` contract now sits between the internal research platform and any future external report experience.
+- The public feed returns only the latest `published` version for each Signal. Draft, reviewed, rejected, and approved research cannot leak through the public endpoint.
+- An authenticated `includeApproved=true` mode supports internal preview of approved briefs before publication.
+- Daily, ISO-weekly, and monthly grouping use the same versioned `SignalPublishingBrief` structure.
+- The feed contains the approved headline, why-it-matters explanation, evidence summary, attention directions, tracking indicators, invalidation conditions, validation summary, quality score, disclosure, and immutable review version.
+- No live Signal table is used to rewrite a published brief. External content remains tied to the reviewed snapshot.
+- There are currently no approved or published Signals, so the correct public response is an empty feed. Existing drafts remain internal.
+- The legacy validation report still reads internal Signal tables and should be treated as an internal diagnostic until its page is migrated to the publication feed.

@@ -205,3 +205,15 @@ export type SignalPublicationReview = {
   reviewedBy?: string;
   createdAt: string;
 };
+
+export type SignalPublicationPeriod = "daily" | "weekly" | "monthly";
+
+export type SignalPublicationFeedItem = {
+  reviewId: string;
+  reviewVersion: number;
+  status: "approved" | "published";
+  periodKey: string;
+  qualityScore: number;
+  publishedAt: string;
+  brief: SignalPublishingBrief;
+};
