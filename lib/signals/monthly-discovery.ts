@@ -510,6 +510,8 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
         trackingMetrics: item.trackingMetrics,
         invalidationConditions: item.invalidationConditions,
         directOperatingLink: item.directOperatingLink,
+        mappingVersion: item.mappingVersion,
+        mappingSources: item.mappingSources,
         latestPrice: null,
         priceQuality: { status: "needs_review" as const, reason: "候選封存後再補價格驗證" },
       })),

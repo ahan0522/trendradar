@@ -14,7 +14,7 @@ type EvidencePayload = {
 
 function isMissingWatchlistResearchColumns(error: unknown) {
   const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
-  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|mapping_version|mapping_sources|schema cache|column/i.test(message);
 }
 
 export async function generateSignalLedger(asOfDate: string) {
@@ -62,6 +62,8 @@ export async function generateSignalLedger(asOfDate: string) {
         tracking_metrics: item.trackingMetrics ?? [],
         invalidation_conditions: item.invalidationConditions ?? [],
         direct_operating_link: item.directOperatingLink ?? false,
+        mapping_version: item.mappingVersion ?? null,
+        mapping_sources: item.mappingSources ?? [],
         updated_at: new Date().toISOString(),
       }));
     const { error } = await supabase.from("signal_watchlists").upsert(
@@ -77,6 +79,8 @@ export async function generateSignalLedger(asOfDate: string) {
           tracking_metrics: _trackingMetrics,
           invalidation_conditions: _invalidationConditions,
           direct_operating_link: _directOperatingLink,
+          mapping_version: _mappingVersion,
+          mapping_sources: _mappingSources,
           ...legacy
         } = item;
         void _valueChainRole;
@@ -84,6 +88,8 @@ export async function generateSignalLedger(asOfDate: string) {
         void _trackingMetrics;
         void _invalidationConditions;
         void _directOperatingLink;
+        void _mappingVersion;
+        void _mappingSources;
         return legacy;
       });
       const { error: legacyError } = await supabase.from("signal_watchlists").upsert(

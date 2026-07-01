@@ -176,14 +176,26 @@ function testBeneficiaryResearchMapping() {
   assert.ok(memory.every((item) => Boolean(item.causalReason)));
   assert.ok(memory.every((item) => (item.trackingMetrics?.length ?? 0) >= 3));
   assert.ok(memory.every((item) => (item.invalidationConditions?.length ?? 0) >= 3));
+  const micron = memory.find((item) => item.symbol === "MU");
+  const nanya = memory.find((item) => item.symbol === "2408.TW");
+  const phison = memory.find((item) => item.symbol === "8299.TW");
+  assert.equal(micron?.valueChainRole, "DRAM、NAND 與 HBM 製造");
+  assert.equal(nanya?.valueChainRole, "標準型 DRAM 製造");
+  assert.equal(phison?.valueChainRole, "NAND 控制晶片與儲存方案");
+  assert.notEqual(micron?.causalReason, phison?.causalReason);
+  assert.ok(phison?.trackingMetrics?.includes("企業級 SSD／儲存方案營收"));
+  assert.equal(phison?.mappingVersion, "beneficiary-research-v2");
+  assert.ok((phison?.mappingSources?.length ?? 0) > 0);
   const power = mapBeneficiaries({
     topic: "AI 資料中心電力與電網",
     hypothesis: "AI 資料中心擴建推升電力、變壓器與電網設備需求。",
     signalEventId: "power-test",
   });
   assert.ok(power.length > 0);
-  assert.ok(power.every((item) => item.valueChainRole === "電網與資料中心電力設備"));
-  assert.ok(power.every((item) => item.trackingMetrics?.includes("電網／變壓器訂單")));
+  assert.ok(power.every((item) => item.mappingVersion === "beneficiary-research-v2"));
+  assert.ok(power.every((item) => (item.mappingSources?.length ?? 0) > 0));
+  assert.equal(power.find((item) => item.symbol === "ETN")?.valueChainRole, "資料中心配電與電力管理設備");
+  assert.equal(power.find((item) => item.symbol === "1519.TW")?.valueChainRole, "電力與配電變壓器、開關設備");
   assert.ok(power.every((item) => !item.trackingMetrics?.includes("GPU／加速器營收")));
   assert.deepEqual(mapBeneficiaries({
     topic: "與企業營運沒有直接關係的熱門娛樂新聞",

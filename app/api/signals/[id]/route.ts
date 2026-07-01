@@ -47,6 +47,8 @@ type WatchlistRow = {
   tracking_metrics?: string[] | null;
   invalidation_conditions?: string[] | null;
   direct_operating_link?: boolean | null;
+  mapping_version?: string | null;
+  mapping_sources?: string[] | null;
 };
 
 type PriceRow = {
@@ -134,11 +136,11 @@ function currentTaipeiDate() {
 }
 
 const watchlistBaseSelect = "id, signal_event_id, symbol, company_name, market, thesis, weight, source";
-const watchlistResearchSelect = `${watchlistBaseSelect}, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link`;
+const watchlistResearchSelect = `${watchlistBaseSelect}, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link, mapping_version, mapping_sources`;
 
 function isMissingWatchlistResearchColumns(error: unknown) {
   const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
-  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|mapping_version|mapping_sources|schema cache|column/i.test(message);
 }
 
 async function readSignalWatchlists(supabase: ReturnType<typeof getSupabaseAdmin>, signalEventId: string) {
@@ -353,6 +355,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           trackingMetrics: item.tracking_metrics ?? [],
           invalidationConditions: item.invalidation_conditions ?? [],
           directOperatingLink: item.direct_operating_link ?? false,
+          mappingVersion: item.mapping_version ?? undefined,
+          mappingSources: item.mapping_sources ?? [],
           latestPrice: publishable.latestPrice,
           priceQuality: publishable.priceQuality,
         };

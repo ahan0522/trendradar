@@ -52,7 +52,7 @@ function currentTaipeiDate() {
 
 function isMissingWatchlistResearchColumns(error: unknown) {
   const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
-  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|mapping_version|mapping_sources|schema cache|column/i.test(message);
 }
 
 export async function finalizeMonthlySignals(asOfDate: string) {
@@ -99,6 +99,8 @@ export async function finalizeMonthlySignals(asOfDate: string) {
       tracking_metrics: item.trackingMetrics ?? [],
       invalidation_conditions: item.invalidationConditions ?? [],
       direct_operating_link: item.directOperatingLink ?? false,
+      mapping_version: item.mappingVersion ?? null,
+      mapping_sources: item.mappingSources ?? [],
       updated_at: new Date().toISOString(),
     })),
   );
@@ -114,6 +116,8 @@ export async function finalizeMonthlySignals(asOfDate: string) {
         tracking_metrics: _trackingMetrics,
         invalidation_conditions: _invalidationConditions,
         direct_operating_link: _directOperatingLink,
+        mapping_version: _mappingVersion,
+        mapping_sources: _mappingSources,
         ...legacy
       } = item;
       void _valueChainRole;
@@ -121,12 +125,46 @@ export async function finalizeMonthlySignals(asOfDate: string) {
       void _trackingMetrics;
       void _invalidationConditions;
       void _directOperatingLink;
+      void _mappingVersion;
+      void _mappingSources;
       return legacy;
     });
     const { error: legacyError } = await supabase
       .from("signal_watchlists")
       .upsert(legacyRows, { onConflict: "signal_event_id,symbol,market", ignoreDuplicates: true });
     if (legacyError) throw legacyError;
+  }
+
+  const beneficiaryMappingRows = signals.flatMap((signal) =>
+    signal.watchlists
+      .filter((item) => item.directOperatingLink && item.mappingVersion)
+      .map((item) => ({
+        signal_event_id: signal.id,
+        symbol: item.symbol,
+        market: item.market,
+        company_name: item.companyName,
+        mapping_version: item.mappingVersion,
+        value_chain_role: item.valueChainRole ?? "",
+        causal_reason: item.causalReason ?? "",
+        tracking_metrics: item.trackingMetrics ?? [],
+        invalidation_conditions: item.invalidationConditions ?? [],
+        mapping_sources: item.mappingSources ?? [],
+        direct_operating_link: true,
+        as_of_date: signal.asOfDate,
+      })),
+  );
+  let beneficiaryMappingSnapshotCount = 0;
+  if (beneficiaryMappingRows.length > 0) {
+    const { error: beneficiaryMappingError } = await supabase
+      .from("signal_beneficiary_mapping_snapshots")
+      .upsert(beneficiaryMappingRows, {
+        onConflict: "signal_event_id,symbol,market,mapping_version",
+        ignoreDuplicates: true,
+      });
+    if (beneficiaryMappingError && beneficiaryMappingError.code !== "42P01") {
+      throw beneficiaryMappingError;
+    }
+    if (!beneficiaryMappingError) beneficiaryMappingSnapshotCount = beneficiaryMappingRows.length;
   }
 
   const evidenceRows = signals.flatMap((signal) => {
@@ -326,6 +364,7 @@ export async function finalizeMonthlySignals(asOfDate: string) {
     componentCount: componentRows.length,
     lifecycleCount,
     researchSnapshotCount: snapshotError ? 0 : researchSnapshots.length,
+    beneficiaryMappingSnapshotCount,
   };
 }
 

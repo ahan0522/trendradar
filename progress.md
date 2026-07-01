@@ -580,5 +580,10 @@ The next milestone is complete when:
 - `signal-research-v2` fixes both issues without rewriting v1. It separates counter evidence from supporting evidence and selects the most specific beneficiary rule by matched-label coverage.
 - Production verification retains all five v1 rows and adds five v2 rows. AI Compute and Memory each record one counter-evidence item, Power Grid now tracks grid/transformer orders and data-center power revenue, and an identical rerun keeps the total at ten rows.
 - Current confidence remains intentionally low because the June snapshots are dominated by news evidence. Industry, commodity, company, and supply-chain evidence must be added before Research Confidence can rise.
+- Beneficiary research mapping v2 replaces copied sector-level explanations with company-level value-chain roles, causal links, tracking KPIs, invalidation conditions, and primary-source URLs for AI Compute, Memory, and Power/Grid.
+- `signal_beneficiary_mapping_snapshots` preserves these mappings as append-only records keyed by signal, symbol, market, and mapping version. Re-running the same month does not rewrite or duplicate the original mapping.
+- The 2026-06 production materialization stored 21 beneficiary mapping snapshots. The three prioritized families contain 17 mappings; all 15 TW/US rows have primary-source URLs, while two KR memory rows remain explicitly deferred.
+- Representative distinctions now include Micron as a DRAM/NAND/HBM manufacturer versus Phison as a NAND controller/storage solution provider, and Eaton as data-center power management versus Fortune Electric as a transformer/switchgear manufacturer.
+- Generic or unrelated topics still return no beneficiary mapping. A company is not added merely because its share price or name appears near a hot topic.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

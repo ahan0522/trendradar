@@ -113,6 +113,8 @@ type LedgerWatchlistRow = {
   tracking_metrics?: string[] | null;
   invalidation_conditions?: string[] | null;
   direct_operating_link?: boolean | null;
+  mapping_version?: string | null;
+  mapping_sources?: string[] | null;
   weight: number;
   source: string | null;
 };
@@ -127,6 +129,8 @@ type WatchItem = {
   trackingMetrics?: string[];
   invalidationConditions?: string[];
   directOperatingLink?: boolean;
+  mappingVersion?: string;
+  mappingSources?: string[];
 };
 
 type MonthlyRule = {
@@ -298,11 +302,11 @@ function lastDayOfMonth(month: string) {
 }
 
 const ledgerWatchlistBaseSelect = "id, signal_event_id, symbol, company_name, market, thesis, weight, source";
-const ledgerWatchlistResearchSelect = `${ledgerWatchlistBaseSelect}, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link`;
+const ledgerWatchlistResearchSelect = `${ledgerWatchlistBaseSelect}, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link, mapping_version, mapping_sources`;
 
 function isMissingWatchlistResearchColumns(error: unknown) {
   const message = error instanceof Error ? error.message : String((error as { message?: unknown })?.message ?? error);
-  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|schema cache|column/i.test(message);
+  return /value_chain_role|causal_reason|tracking_metrics|invalidation_conditions|direct_operating_link|mapping_version|mapping_sources|schema cache|column/i.test(message);
 }
 
 async function readLedgerWatchlists(supabase: ReturnType<typeof getSupabaseAdmin>, signalEventIds: string[]) {
@@ -796,6 +800,8 @@ export async function getMonthlySignalReport(options?: {
       trackingMetrics: watchlist.tracking_metrics ?? [],
       invalidationConditions: watchlist.invalidation_conditions ?? [],
       directOperatingLink: watchlist.direct_operating_link ?? false,
+      mappingVersion: watchlist.mapping_version ?? undefined,
+      mappingSources: watchlist.mapping_sources ?? [],
       weight: Number(watchlist.weight),
       source: watchlist.source ?? "monthly-rule-based",
       latestPrice: null,

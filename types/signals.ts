@@ -46,6 +46,8 @@ export type SignalWatchlistItem = {
   trackingMetrics?: string[];
   invalidationConditions?: string[];
   directOperatingLink?: boolean;
+  mappingVersion?: string;
+  mappingSources?: string[];
 };
 
 export type StockPrice = {
