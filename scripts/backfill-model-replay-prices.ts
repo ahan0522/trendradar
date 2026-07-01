@@ -7,7 +7,7 @@ async function main() {
   const maxSymbols = Number(process.argv[2] ?? 8);
   const result = await backfillVerifiedReplayPrices({
     maxSymbols,
-    horizons: [30],
+    horizons: [7, 30, 60, 90],
   });
   console.log(JSON.stringify({
     runId: result.runId,

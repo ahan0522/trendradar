@@ -18,6 +18,7 @@ import {
   isPlausibleBacktestReturn,
   isPlausibleBasketReturn,
   isValidBacktestWindow,
+  SIGNAL_BACKTEST_HORIZONS,
 } from "../lib/signals/backtest";
 import {
   assessLatestPrice,
@@ -315,6 +316,7 @@ function testCsvProvenance() {
 }
 
 function testBacktestTimeBoundary() {
+  assert.deepEqual(SIGNAL_BACKTEST_HORIZONS, [7, 30, 60, 90]);
   assert.equal(asOfEndIso("2026-03-31"), "2026-03-31T15:59:59.999Z");
   assert.throws(() => asOfEndIso("2026/03/31"), /YYYY-MM-DD/);
   assert.throws(() => asOfEndIso("2026-02-31"), /Invalid asOfDate/);
@@ -323,6 +325,8 @@ function testBacktestTimeBoundary() {
   assert.equal(addDays("2024-02-28", 1), "2024-02-29");
   assert.equal(isHorizonMature("2026-06-01", 30, "2026-06-30"), false);
   assert.equal(isHorizonMature("2026-06-01", 30, "2026-07-01"), true);
+  assert.equal(isReplayHorizonMature("2026-06-23", 7, "2026-06-30"), false);
+  assert.equal(isReplayHorizonMature("2026-06-23", 7, "2026-07-01"), true);
   assert.equal(isValidBacktestWindow(
     "2026-06-01",
     "2026-07-01",

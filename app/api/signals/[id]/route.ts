@@ -302,7 +302,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       if (!latestPrices.has(key)) latestPrices.set(key, item);
     }
 
-    const horizons = [7, 14, 30, 60];
+    const horizons = [7, 30, 60, 90];
     const [stockReturnDetails, caseStudyParts] = await Promise.all([
       Promise.all(
       horizons.map(async (horizonDays) => {

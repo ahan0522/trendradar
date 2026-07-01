@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSecret } from "@/lib/admin-auth";
+import { SIGNAL_BACKTEST_HORIZONS } from "@/lib/signals/backtest";
 import { backfillVerifiedReplayPrices } from "@/lib/signals/model-replay-price-backfill";
 import { runModelReplayBacktestForSymbols } from "@/lib/signals/model-replay-backtest";
 
@@ -14,8 +15,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const horizons = Array.isArray(body.horizons)
-      ? body.horizons.map(Number).filter((value: number) => [30, 60, 90].includes(value))
-      : [30];
+      ? body.horizons.map(Number).filter((value: number) =>
+          SIGNAL_BACKTEST_HORIZONS.includes(value as (typeof SIGNAL_BACKTEST_HORIZONS)[number]))
+      : [...SIGNAL_BACKTEST_HORIZONS];
     const excludedMarkets = Array.isArray(body.excludedMarkets)
       ? body.excludedMarkets.filter((market: unknown) =>
           market === "US" || market === "TW" || market === "KR" || market === "JP" || market === "GLOBAL")
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
     const prices = await backfillVerifiedReplayPrices({
       runId: typeof body.runId === "string" ? body.runId : undefined,
       maxSymbols: Number.isFinite(Number(body.maxSymbols)) ? Number(body.maxSymbols) : 2,
-      horizons: horizons.length > 0 ? horizons : [30],
+      horizons: horizons.length > 0 ? horizons : [...SIGNAL_BACKTEST_HORIZONS],
       dryRun: body.dryRun !== false,
       excludedMarkets,
     });

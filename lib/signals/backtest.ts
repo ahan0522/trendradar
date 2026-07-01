@@ -28,6 +28,8 @@ type OutcomeRow = {
   outcome: "success" | "partial" | "failed" | "pending";
 };
 
+export const SIGNAL_BACKTEST_HORIZONS = [7, 30, 60, 90] as const;
+
 export type StockReturnDetail = {
   symbol: string;
   companyName: string;
@@ -292,9 +294,8 @@ export async function upsertSignalOutcome(result: Awaited<ReturnType<typeof eval
 }
 
 export async function runBacktestForSignal(signalEventId: string) {
-  const horizons = [7, 14, 30, 60, 90];
   const results = [];
-  for (const horizonDays of horizons) {
+  for (const horizonDays of SIGNAL_BACKTEST_HORIZONS) {
     const result = await evaluateSignalOutcome(signalEventId, horizonDays);
     results.push(await upsertSignalOutcome(result));
   }

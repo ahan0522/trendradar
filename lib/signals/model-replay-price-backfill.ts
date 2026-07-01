@@ -1,4 +1,4 @@
-import { addDays } from "@/lib/signals/backtest";
+import { addDays, SIGNAL_BACKTEST_HORIZONS } from "@/lib/signals/backtest";
 import {
   fetchValidatedStockPriceOnOrAfter,
   fetchValidatedStockPriceOnOrBefore,
@@ -109,7 +109,7 @@ export async function backfillVerifiedReplayPrices(options?: {
   const replay = await getLatestModelReplay(options?.runId);
   if (!replay) throw new Error("Model replay run not found");
   const backtest = await getModelReplayBacktestResults(replay.id);
-  const horizons = options?.horizons ?? [30];
+  const horizons = options?.horizons ?? SIGNAL_BACKTEST_HORIZONS;
   const maxSymbols = Math.max(1, Math.min(options?.maxSymbols ?? 8, 50));
   const excludedSymbols = new Set((options?.excludedSymbols ?? []).map((symbol) => symbol.toUpperCase()));
   const excludedMarkets = new Set(options?.excludedMarkets ?? []);

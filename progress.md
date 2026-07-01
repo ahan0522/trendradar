@@ -599,3 +599,18 @@ The next milestone is complete when:
 - The internal quality report explicitly labels Memory pricing and AI Server shipment data as `licensed_or_manual_required`; news volume, generic filings, and stock prices cannot substitute for these missing research inputs.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.
+
+## 10. Scheduled Multi-Horizon Validation (2026-07-01)
+
+- Formal Signal and historical replay backtests now share one canonical horizon set: 7, 30, 60, and 90 calendar days.
+- The scheduled research cron, replay price backfill, admin backfill API, Signal detail API, and local replay scripts use the same horizon contract.
+- A horizon is evaluated only after it matures. Missing, rejected, or unverified entry, exit, or benchmark prices leave the outcome as `pending`; they are never converted into a zero return.
+- The latest immutable replay contains 125 signals. Of these, 98 have a direct beneficiary mapping, 27 remain explicitly unmapped, 12 are blocked by missing prices, and 4 have no mature complete horizon.
+- Complete verified outcomes in the latest replay:
+  - 7 days: 84 complete, 14 pending
+  - 30 days: 86 complete, 12 pending
+  - 60 days: 82 complete, 16 pending
+  - 90 days: 76 complete, 22 pending
+- The candidate model has 42 complete 30-day tests, a 52.4% success rate, and 8.13% average excess return. The baseline has 44 complete tests, a 45.5% success rate, and 7.61% average excess return.
+- These figures are internal model diagnostics. They are not investment advice and must not be published without the review and publishing gates.
+- Korean prices remain optional and may stay pending. The next validation task should prioritize remaining US/TW data gaps, then automate review-state updates from mature outcomes.

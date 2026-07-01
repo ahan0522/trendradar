@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       ? await runSync(async () => {
           const prices = await backfillVerifiedReplayPrices({
             maxSymbols: 1,
-            horizons: [30, 60, 90],
+            horizons: [7, 30, 60, 90],
             dryRun: false,
             excludedSymbols: ["1519.TW", "MU", "000660.KS", "005930.KS", "2408.TW"],
           });

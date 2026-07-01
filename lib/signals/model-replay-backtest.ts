@@ -3,6 +3,7 @@ import {
   isPlausibleBacktestReturn,
   isPlausibleBasketReturn,
   isValidBacktestWindow,
+  SIGNAL_BACKTEST_HORIZONS,
 } from "@/lib/signals/backtest";
 import { mapBeneficiaries } from "@/lib/signals/beneficiary-mapping";
 import { getLatestModelReplay, type ReplaySignal } from "@/lib/signals/model-replay";
@@ -230,7 +231,7 @@ export async function evaluateReplaySignal(input: {
   }
 
   const outcomes: ReplayBacktestOutcome[] = [];
-  for (const horizonDays of input.horizons ?? [30, 60, 90]) {
+  for (const horizonDays of input.horizons ?? SIGNAL_BACKTEST_HORIZONS) {
     outcomes.push(await evaluateReplayOutcome(input.asOfDate, watchlist, horizonDays));
   }
   const matureOutcomes = outcomes.filter((outcome) => isReplayHorizonMature(input.asOfDate, outcome.horizonDays));
