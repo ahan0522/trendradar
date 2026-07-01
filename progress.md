@@ -614,3 +614,15 @@ The next milestone is complete when:
 - The candidate model has 42 complete 30-day tests, a 52.4% success rate, and 8.13% average excess return. The baseline has 44 complete tests, a 45.5% success rate, and 7.61% average excess return.
 - These figures are internal model diagnostics. They are not investment advice and must not be published without the review and publishing gates.
 - Korean prices remain optional and may stay pending. The next validation task should prioritize remaining US/TW data gaps, then automate review-state updates from mature outcomes.
+
+## 11. Internal Review and Publishing Gate (2026-07-01)
+
+- The internal workflow keeps the explicit state machine: `draft -> reviewed -> approved -> published`, with rejection available before publication.
+- Invalid jumps remain blocked. A published Signal cannot silently reopen as a draft, and approval or publication remains impossible while any required gate fails.
+- Reopening a rejected Signal now recalculates the draft from current verified evidence instead of copying stale gate results.
+- Draft evaluation is idempotent. Canonical JSON comparison prevents Postgres key-order differences from creating meaningless new versions.
+- The daily research cron creates at most five missing internal drafts per run. It never marks a Signal reviewed, approved, or published.
+- Publication evaluation now prefers the latest append-only beneficiary mapping snapshots. Legacy `signal_watchlists` are only a compatibility fallback.
+- Production verification created five drafts with zero failures. Re-evaluating June Memory and Power/Grid correctly found six direct beneficiary mappings each and raised both quality scores from 72 to 88.
+- Both signals remain ineligible because Research Confidence and required industry-evidence coverage are still below threshold. The gate is working as intended and does not mistake a good watchlist for a validated research thesis.
+- Running the unchanged Memory draft twice returned the same review id and version. No duplicate version was created.

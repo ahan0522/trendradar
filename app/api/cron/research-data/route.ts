@@ -11,6 +11,7 @@ import { generateSignalLedger } from "@/lib/signals/generate-ledger";
 import { runDailyBacktestUpdate } from "@/lib/signals/backtest";
 import { backfillVerifiedReplayPrices } from "@/lib/signals/model-replay-price-backfill";
 import { runModelReplayBacktestForSymbols } from "@/lib/signals/model-replay-backtest";
+import { createMissingPublicationDrafts } from "@/lib/signals/publication-review";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -107,6 +108,7 @@ export async function GET(request: NextRequest) {
     const qualityAfter = await getResearchDataQualityReport();
     const signalLedger = await runSync(() => generateSignalLedger(currentTaipeiDate()));
     const backtests = await runSync(() => runDailyBacktestUpdate());
+    const publicationDrafts = await runSync(() => createMissingPublicationDrafts(5));
     const replayValidation = currentTaipeiWeekday() === "Sun"
       ? await runSync(async () => {
           const prices = await backfillVerifiedReplayPrices({
@@ -138,6 +140,7 @@ export async function GET(request: NextRequest) {
       quality: qualityAfter,
       signalLedger,
       backtests,
+      publicationDrafts,
       replayValidation,
       finalizedMonth,
     });

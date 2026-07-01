@@ -31,6 +31,19 @@ type WatchlistRow = {
   direct_operating_link?: boolean | null;
 };
 
+type BeneficiaryMappingSnapshotRow = {
+  symbol: string;
+  company_name: string;
+  market: MarketCode;
+  mapping_version: string;
+  value_chain_role: string;
+  causal_reason: string;
+  tracking_metrics: string[];
+  invalidation_conditions: string[];
+  direct_operating_link: boolean;
+  created_at: string;
+};
+
 type EvidenceRow = {
   title: string | null;
   summary: string | null;
@@ -256,6 +269,20 @@ function mapReview(row: ReviewRow): SignalPublicationReview {
   };
 }
 
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 const watchlistBaseSelect = "symbol, company_name, market, thesis, weight";
 const watchlistResearchSelect = `${watchlistBaseSelect}, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link`;
 
@@ -265,6 +292,37 @@ function isMissingWatchlistResearchColumns(error: unknown) {
 }
 
 async function readReviewWatchlists(supabase: ReturnType<typeof getSupabaseAdmin>, signalEventId: string) {
+  const snapshotResult = await supabase
+    .from("signal_beneficiary_mapping_snapshots")
+    .select("symbol, company_name, market, mapping_version, value_chain_role, causal_reason, tracking_metrics, invalidation_conditions, direct_operating_link, created_at")
+    .eq("signal_event_id", signalEventId)
+    .order("created_at", { ascending: false })
+    .returns<BeneficiaryMappingSnapshotRow[]>();
+  if (!snapshotResult.error && (snapshotResult.data?.length ?? 0) > 0) {
+    const latest = new Map<string, BeneficiaryMappingSnapshotRow>();
+    for (const item of snapshotResult.data ?? []) {
+      const key = `${item.symbol}:${item.market}`;
+      if (!latest.has(key)) latest.set(key, item);
+    }
+    return {
+      data: [...latest.values()].map((item): WatchlistRow => ({
+        symbol: item.symbol,
+        company_name: item.company_name,
+        market: item.market,
+        thesis: item.causal_reason,
+        weight: 0,
+        causal_reason: item.causal_reason,
+        tracking_metrics: item.tracking_metrics,
+        invalidation_conditions: item.invalidation_conditions,
+        direct_operating_link: item.direct_operating_link,
+      })),
+      error: null,
+    };
+  }
+  if (snapshotResult.error && snapshotResult.error.code !== "42P01") {
+    return { data: null, error: snapshotResult.error };
+  }
+
   const result = await supabase
     .from("signal_watchlists")
     .select(watchlistResearchSelect)
@@ -342,12 +400,23 @@ export async function createPublicationDraft(signalEventId: string) {
   const supabase = getSupabaseAdmin();
   const { data: latest, error: latestError } = await supabase
     .from("signal_publication_reviews")
-    .select("version")
+    .select("*")
     .eq("signal_event_id", signalEventId)
     .order("version", { ascending: false })
     .limit(1)
-    .maybeSingle<{ version: number }>();
+    .maybeSingle<ReviewRow>();
   if (latestError) throw latestError;
+  if (latest && !["draft", "rejected"].includes(latest.status)) {
+    throw new Error(`Cannot create a draft from ${latest.status}; complete the current review workflow first.`);
+  }
+  if (
+    latest?.status === "draft" &&
+    Number(latest.quality_score) === evaluation.qualityScore &&
+    canonicalJson(latest.gate_results) === canonicalJson(evaluation.gates) &&
+    canonicalJson(latest.publishing_brief) === canonicalJson(evaluation.publishingBrief)
+  ) {
+    return mapReview(latest);
+  }
 
   const { data, error } = await supabase
     .from("signal_publication_reviews")
@@ -373,6 +442,13 @@ const transitions: Record<SignalPublicationStatus, SignalPublicationStatus[]> = 
   published: [],
 };
 
+export function canTransitionPublicationReview(
+  from: SignalPublicationStatus,
+  to: SignalPublicationStatus,
+) {
+  return transitions[from].includes(to);
+}
+
 export async function transitionPublicationReview(input: {
   signalEventId: string;
   status: SignalPublicationStatus;
@@ -388,8 +464,11 @@ export async function transitionPublicationReview(input: {
     .limit(1)
     .single<ReviewRow>();
   if (latestError) throw latestError;
-  if (!transitions[latest.status].includes(input.status)) {
+  if (!canTransitionPublicationReview(latest.status, input.status)) {
     throw new Error(`Invalid publication transition: ${latest.status} -> ${input.status}`);
+  }
+  if (latest.status === "rejected" && input.status === "draft") {
+    return createPublicationDraft(input.signalEventId);
   }
   const requiredPassed = latest.gate_results
     .filter((item) => item.required)
@@ -429,4 +508,45 @@ export async function listLatestPublicationReviews() {
     if (!latest.has(row.signal_event_id)) latest.set(row.signal_event_id, row);
   }
   return [...latest.values()].map(mapReview);
+}
+
+export async function createMissingPublicationDrafts(limit = 5) {
+  const supabase = getSupabaseAdmin();
+  const safeLimit = Math.max(1, Math.min(limit, 20));
+  const [{ data: signals, error: signalError }, { data: reviews, error: reviewError }] = await Promise.all([
+    supabase
+      .from("signal_events")
+      .select("id")
+      .order("as_of_date", { ascending: false })
+      .limit(100)
+      .returns<Array<{ id: string }>>(),
+    supabase
+      .from("signal_publication_reviews")
+      .select("signal_event_id")
+      .returns<Array<{ signal_event_id: string }>>(),
+  ]);
+  if (signalError) throw signalError;
+  if (reviewError) throw reviewError;
+
+  const reviewed = new Set((reviews ?? []).map((item) => item.signal_event_id));
+  const pending = (signals ?? []).filter((item) => !reviewed.has(item.id)).slice(0, safeLimit);
+  const created: SignalPublicationReview[] = [];
+  const failed: Array<{ signalEventId: string; error: string }> = [];
+  for (const signal of pending) {
+    try {
+      created.push(await createPublicationDraft(signal.id));
+    } catch (error) {
+      failed.push({
+        signalEventId: signal.id,
+        error: error instanceof Error ? error.message : "Unknown draft evaluation error",
+      });
+    }
+  }
+  return {
+    requested: pending.length,
+    createdCount: created.length,
+    failedCount: failed.length,
+    created,
+    failed,
+  };
 }

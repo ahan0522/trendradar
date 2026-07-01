@@ -50,7 +50,10 @@ import {
   buildResearchConfidenceAssessment,
   RESEARCH_CONFIDENCE_ASSESSMENT_VERSION,
 } from "../lib/signals/research-confidence-assessment";
-import { evaluateSignalForPublication } from "../lib/signals/publication-review";
+import {
+  canTransitionPublicationReview,
+  evaluateSignalForPublication,
+} from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
@@ -863,6 +866,13 @@ function testEvidenceBasedResearchConfidence() {
 }
 
 function testPublicationGate() {
+  assert.equal(canTransitionPublicationReview("draft", "reviewed"), true);
+  assert.equal(canTransitionPublicationReview("draft", "approved"), false);
+  assert.equal(canTransitionPublicationReview("reviewed", "approved"), true);
+  assert.equal(canTransitionPublicationReview("approved", "published"), true);
+  assert.equal(canTransitionPublicationReview("published", "draft"), false);
+  assert.equal(canTransitionPublicationReview("rejected", "draft"), true);
+
   const eligible = evaluateSignalForPublication({
     signal: {
       id: "signal-1",
