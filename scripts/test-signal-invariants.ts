@@ -45,6 +45,10 @@ import {
   signalContinuityKey,
 } from "../lib/signals/signal-continuity";
 import { buildSignalResearchSnapshot } from "../lib/signals/research-snapshot";
+import {
+  buildResearchConfidenceAssessment,
+  RESEARCH_CONFIDENCE_ASSESSMENT_VERSION,
+} from "../lib/signals/research-confidence-assessment";
 import { evaluateSignalForPublication } from "../lib/signals/publication-review";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
@@ -804,6 +808,56 @@ function testSignalResearchSnapshotContract() {
   assert.deepEqual(snapshot.invalidationConditions, ["庫存持續上升"]);
 }
 
+function testEvidenceBasedResearchConfidence() {
+  const mappings = [{
+    symbol: "MU",
+    directOperatingLink: true,
+    mappingSources: ["https://www.micron.com/products/memory"],
+    trackingMetrics: ["DRAM 報價"],
+    invalidationConditions: ["庫存上升"],
+  }];
+  const newsOnly = buildResearchConfidenceAssessment({
+    topic: "HBM / DRAM 記憶體供需循環",
+    evidence: [{
+      id: "news",
+      sourceType: "news",
+      title: "記憶體新聞熱度升高",
+      sourceName: "News",
+      knownAtSignalTime: true,
+    }],
+    mappings,
+    persistenceScore: 60,
+  });
+  const verifiedEvidence = buildResearchConfidenceAssessment({
+    topic: "HBM / DRAM 記憶體供需循環",
+    evidence: [
+      {
+        id: "price",
+        sourceType: "commodity",
+        title: "DRAM contract price rises",
+        sourceName: "verified-pricing",
+        knownAtSignalTime: true,
+        sourceReliability: 95,
+      },
+      {
+        id: "supply",
+        sourceType: "industry",
+        title: "Memory capacity utilization improves",
+        sourceName: "verified-industry",
+        knownAtSignalTime: true,
+        sourceReliability: 90,
+      },
+    ],
+    mappings,
+    persistenceScore: 60,
+  });
+  assert.equal(newsOnly.modelVersion, RESEARCH_CONFIDENCE_ASSESSMENT_VERSION);
+  assert.equal(newsOnly.coverage.satisfiedRequiredCount, 0);
+  assert.ok(newsOnly.dataGaps.length >= 2);
+  assert.equal(verifiedEvidence.coverage.satisfiedRequiredCount, 2);
+  assert.ok(verifiedEvidence.score > newsOnly.score);
+}
+
 function testPublicationGate() {
   const eligible = evaluateSignalForPublication({
     signal: {
@@ -930,6 +984,7 @@ function main() {
   testMonthlyDiscoveryInvestabilityFilter();
   testCrossMonthSignalLifecycle();
   testSignalResearchSnapshotContract();
+  testEvidenceBasedResearchConfidence();
   testPublicationGate();
   testEvidencePanel();
   console.log("Signal research invariants: PASS");

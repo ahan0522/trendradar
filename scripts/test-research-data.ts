@@ -3,7 +3,10 @@ import { parseGoogleNewsHistoricalRss } from "../lib/historical-news/google-news
 import { parseTwsePublishedAt } from "../lib/research-data/twse";
 import { parseFredObservationValue } from "../lib/research-data/fred";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
-import { researchEvidenceRelevance } from "../lib/signals/evidence-materialization";
+import {
+  companyActionResearchRelevance,
+  researchEvidenceRelevance,
+} from "../lib/signals/evidence-materialization";
 import {
   assessEvidenceCoverage,
   detectSignalFamilies,
@@ -76,12 +79,39 @@ testTwseTimeParsing();
 testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
-assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), true);
+assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), false);
+assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Memory DRAM capacity utilization"), true);
 assert.equal(researchEvidenceRelevance("AI 晶片與算力供應鏈", "industry", "Semiconductor / Compute 半導體與其他電子元件工業生產指數"), true);
 assert.equal(researchEvidenceRelevance("AI 資料中心電力與電網", "industry", "AI Power / Grid 電力與特殊變壓器製造生產者物價指數"), true);
+assert.equal(researchEvidenceRelevance("AI 資料中心電力與電網", "industry", "Semiconductor / Compute 高科技製造產能利用率"), false);
 assert.equal(researchEvidenceRelevance("AI 電力與資料中心", "commodity", "Henry Hub 天然氣現貨價格"), true);
 assert.equal(researchEvidenceRelevance("電網與變壓器", "commodity", "銅與銅合金棒材生產者物價指數"), true);
+assert.equal(researchEvidenceRelevance("AI 算力與資料中心", "commodity", "Henry Hub 天然氣現貨價格"), false);
+assert.equal(researchEvidenceRelevance("AI 算力與資料中心", "commodity", "銅與銅合金棒材生產者物價指數"), false);
 assert.equal(researchEvidenceRelevance("生技新藥", "commodity", "Henry Hub 天然氣現貨價格"), false);
+assert.equal(companyActionResearchRelevance({
+  signalText: "記憶體 HBM DRAM",
+  actionType: "pricing",
+  title: "公告取得機器設備",
+  summary: "設備用於 DRAM 生產與產能擴充。",
+}), true);
+assert.equal(companyActionResearchRelevance({
+  signalText: "AI 算力與資料中心",
+  actionType: "filing",
+  title: "公告獨立董事辭任",
+  summary: "董事會成員異動。",
+}), false);
+assert.equal(companyActionResearchRelevance({
+  signalText: "AI 算力與資料中心",
+  actionType: "filing",
+  title: "10-Q：10-Q",
+  summary: "SEC EDGAR 正式申報，申報日 2026-05-20，報告期間 2026-04-26。",
+}), false);
+assert.equal(companyActionResearchRelevance({
+  signalText: "電力、電網與資料中心能源",
+  actionType: "contract",
+  title: "取得大型變壓器供應合約",
+}), true);
 assert.deepEqual(detectSignalFamilies({ topic: "HBM / DRAM 記憶體供應鏈" }), ["memory"]);
 assert.deepEqual(detectSignalFamilies({ topic: "AI 資料中心電力與電網" }), ["ai_compute", "ai_power_grid"]);
 assert.deepEqual(detectSignalFamilies({ topic: "具身 AI 機器人平台發表" }), ["robotics_embodied_ai"]);
@@ -98,6 +128,14 @@ const memoryCoverage = assessEvidenceCoverage({
 });
 assert.equal(memoryCoverage.totalRequiredCount, 2);
 assert.equal(memoryCoverage.missingRequired.length, 0);
+const genericMemoryCoverage = assessEvidenceCoverage({
+  topic: "HBM / DRAM 記憶體供應鏈",
+  evidenceItems: [
+    { sourceType: "industry", title: "高科技製造產能利用率" },
+  ],
+});
+assert.equal(genericMemoryCoverage.satisfiedRequiredCount, 0);
+assert.equal(genericMemoryCoverage.missingRequired.length, 2);
 const powerCoverage = assessEvidenceCoverage({
   topic: "電網與變壓器",
   evidenceItems: [

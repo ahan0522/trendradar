@@ -585,5 +585,12 @@ The next milestone is complete when:
 - The 2026-06 production materialization stored 21 beneficiary mapping snapshots. The three prioritized families contain 17 mappings; all 15 TW/US rows have primary-source URLs, while two KR memory rows remain explicitly deferred.
 - Representative distinctions now include Micron as a DRAM/NAND/HBM manufacturer versus Phison as a NAND controller/storage solution provider, and Eaton as data-center power management versus Fortune Electric as a transformer/switchgear manufacturer.
 - Generic or unrelated topics still return no beneficiary mapping. A company is not added merely because its share price or name appears near a hot topic.
+- Evidence materialization v3 now reads the latest versioned beneficiary mappings instead of stale base watchlists. This prevents Power/Grid signals from inheriting AI Compute companies and filings.
+- Commodity relevance is family-specific: copper and natural gas can support Power/Grid or Energy research, but no longer raise AI Compute confidence merely because a topic mentions data centers.
+- Company-action evidence now rejects governance changes, dividends, bond conversion adjustments, and generic SEC form metadata. A filing must contain signal-specific operating evidence such as capacity, equipment, orders, shipments, revenue, contracts, or guidance.
+- Generic high-tech utilization no longer satisfies Memory or Power/Grid evidence requirements. Memory requires memory-specific pricing and supply data; Power/Grid requires power, transformer, grid, or load data.
+- Research Confidence v4 is append-only and evidence-based. It scores source quality, non-news category depth, required evidence coverage, verified beneficiary mappings, persistence, and contradictions without allowing news volume to substitute for hard evidence.
+- The first 2026-06 confidence replay produced seven immutable snapshots: AI Compute 23.2, Memory 4.17, Power/Grid 31.45, and unsupported signals 0-5. These low scores are retained because the required industry data is genuinely missing.
+- Identical confidence reruns keep seven rows. Each snapshot stores component scores and explicit data gaps; signal-birth Heat remains unchanged.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

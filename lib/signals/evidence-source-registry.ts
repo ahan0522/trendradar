@@ -61,7 +61,7 @@ export const evidenceFamilySpecs: EvidenceFamilySpec[] = [
         priority: "required",
         minItems: 1,
         acceptedSourceTypes: ["industry", "supply_chain", "official"],
-        examples: ["inventory days", "capacity utilization", "bit shipment", "庫存", "產能利用率", "稼動率", "位元出貨"],
+        examples: ["memory inventory", "memory capacity utilization", "dram capacity utilization", "nand capacity utilization", "bit shipment", "記憶體庫存", "記憶體產能利用率", "DRAM 產能利用率", "NAND 產能利用率", "記憶體稼動率", "位元出貨"],
       },
     ],
   },

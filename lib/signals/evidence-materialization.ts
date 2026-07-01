@@ -2,9 +2,12 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 type SignalRow = { id: string; as_of_date: string; topic: string; hypothesis: string };
 type WatchRow = { signal_event_id: string; symbol: string; market: string };
+type MappingSnapshotRow = WatchRow & { mapping_version: string };
 type IndustryRow = { id: string; industry: string; metric_name: string; metric_value: number | null; metric_text: string | null; unit: string | null; known_at: string; source_id: string | null; source_url: string };
 type CommodityRow = { id: string; commodity_code: string; commodity_name: string; quote_date: string; price: number; currency: string; unit: string; known_at: string; source_id: string | null; source_url: string };
 type CompanyRow = { id: string; company_symbol: string; market: string; company_name: string; action_type: string; title: string; summary: string | null; known_at: string; source_id: string | null; source_url: string };
+
+export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v3";
 
 function normalized(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
@@ -18,22 +21,66 @@ export function researchEvidenceRelevance(
   const signal = normalized(topic);
   const metric = normalized(name);
   if (kind === "industry") {
+    const isPowerSignal = /電網|電力|變壓器|輸配電|power|grid|transformer/.test(signal);
+    if (isPowerSignal) {
+      return /電力|變壓器|輸配電|transformer|power|grid/.test(metric);
+    }
+    const isMemorySignal = /記憶體|hbm|dram|nand|memory/.test(signal);
+    if (isMemorySignal) {
+      return /記憶體|hbm|dram|nand|memory/.test(metric);
+    }
     if (
       /半導體|晶片|記憶體|hbm|dram|nand|ai|算力|資料中心|compute|semiconductor/.test(signal)
       && /半導體|電子元件|運算|高科技|compute|semiconductor/.test(metric)
     ) {
       return true;
     }
-    return /電網|電力|變壓器|資料中心|基礎建設|power|grid|transformer/.test(signal)
-      && /電力|變壓器|transformer|power/.test(metric);
+    return false;
   }
   if (/天然氣|henry hub|gas/.test(metric)) {
-    return /能源|天然氣|發電|電力|資料中心|power|energy|gas/.test(signal);
+    return /能源|天然氣|發電|電力|電網|變壓器|power|grid|transformer|energy|gas/.test(signal);
   }
   if (/銅|copper/.test(metric)) {
-    return /電網|電力|變壓器|資料中心|基礎建設|power|grid|copper/.test(signal);
+    return /電網|電力|變壓器|輸配電|power|grid|transformer|copper/.test(signal);
   }
   return false;
+}
+
+const companyEvidenceNoisePattern =
+  /董事辭任|董事變動|委員會|現金股利|股利|除息|轉換價格|公司債|庫藏股|股東會|申報日|報告期間/i;
+
+const familyCompanyEvidencePatterns: Array<{
+  signal: RegExp;
+  evidence: RegExp;
+}> = [
+  {
+    signal: /記憶體|hbm|dram|nand|memory/i,
+    evidence: /hbm|dram|nand|記憶體|產能|設備|稼動率|庫存|位元出貨|報價|平均售價|毛利率/i,
+  },
+  {
+    signal: /ai\s*算力|ai\s*伺服器|ai\s*資料中心|gpu|accelerator|compute/i,
+    evidence: /ai|gpu|加速器|伺服器|server|資料中心|data center|產能|設備|出貨|訂單|營收|資本支出|量產/i,
+  },
+  {
+    signal: /電力|電網|變壓器|輸配電|power|grid|transformer/i,
+    evidence: /電力|電網|變壓器|輸配電|配電|power|grid|transformer|訂單|合約|產能|設備|交期|資本支出/i,
+  },
+];
+
+export function companyActionResearchRelevance(input: {
+  signalText: string;
+  actionType: string;
+  title: string;
+  summary?: string | null;
+}) {
+  const evidenceText = `${input.title} ${input.summary ?? ""}`;
+  if (companyEvidenceNoisePattern.test(evidenceText)) return false;
+  const familyPattern = familyCompanyEvidencePatterns.find((item) => item.signal.test(input.signalText));
+  if (!familyPattern || !familyPattern.evidence.test(evidenceText)) return false;
+  if (input.actionType === "filing" && /^(?:form\s*)?(?:8-k|10-q|10-k)(?:\s*[:：-]\s*(?:form\s*)?(?:8-k|10-q|10-k))?$/i.test(input.title.trim())) {
+    return false;
+  }
+  return true;
 }
 
 function lookbackStart(asOfDate: string) {
@@ -54,12 +101,28 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
   const signalIds = (signals ?? []).map((item) => item.id);
   if (signalIds.length === 0) return { ok: true, signalCount: 0, evidenceCount: 0 };
 
-  const { data: watchlists, error: watchlistError } = await supabase
+  const mappingResult = await supabase
+    .from("signal_beneficiary_mapping_snapshots")
+    .select("signal_event_id, symbol, market, mapping_version")
+    .in("signal_event_id", signalIds)
+    .order("mapping_version", { ascending: false })
+    .returns<MappingSnapshotRow[]>();
+  if (mappingResult.error && mappingResult.error.code !== "42P01") throw mappingResult.error;
+
+  const latestMappings = new Map<string, WatchRow>();
+  for (const item of mappingResult.data ?? []) {
+    const key = `${item.signal_event_id}:${item.symbol}:${item.market}`;
+    if (!latestMappings.has(key)) latestMappings.set(key, item);
+  }
+  const { data: fallbackWatchlists, error: watchlistError } = latestMappings.size === 0
+    ? await supabase
     .from("signal_watchlists")
     .select("signal_event_id, symbol, market")
     .in("signal_event_id", signalIds)
-    .returns<WatchRow[]>();
+    .returns<WatchRow[]>()
+    : { data: [] as WatchRow[], error: null };
   if (watchlistError) throw watchlistError;
+  const watchlists = latestMappings.size > 0 ? [...latestMappings.values()] : fallbackWatchlists;
 
   const evidenceRows: Array<Record<string, unknown>> = [];
   for (const signal of signals ?? []) {
@@ -103,7 +166,7 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
     }
 
     for (const item of industries.values()) evidenceRows.push({
-      id: `${signal.id}-industry-${item.id}`, signal_event_id: signal.id,
+      id: `${signal.id}-${EVIDENCE_MATERIALIZATION_VERSION}-industry-${item.id}`, signal_event_id: signal.id,
       evidence_date: item.known_at.slice(0, 10), source_name: item.source_id ?? "verified-industry-source",
       source_url: item.source_url, source_type: "industry",
       title: `${item.metric_name}：${item.metric_value ?? item.metric_text ?? "-"} ${item.unit ?? ""}`.trim(),
@@ -112,7 +175,7 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
       known_at_signal_time: true,
     });
     for (const item of commodities.values()) evidenceRows.push({
-      id: `${signal.id}-commodity-${item.id}`, signal_event_id: signal.id,
+      id: `${signal.id}-${EVIDENCE_MATERIALIZATION_VERSION}-commodity-${item.id}`, signal_event_id: signal.id,
       evidence_date: item.known_at.slice(0, 10), source_name: item.source_id ?? "verified-commodity-source",
       source_url: item.source_url, source_type: "commodity",
       title: `${item.commodity_name}：${item.price} ${item.currency}/${item.unit}`,
@@ -122,8 +185,14 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
     });
     for (const item of companyResult.data ?? []) {
       if (!watches.some((watch) => watch.symbol === item.company_symbol && watch.market === item.market)) continue;
+      if (!companyActionResearchRelevance({
+        signalText,
+        actionType: item.action_type,
+        title: item.title,
+        summary: item.summary,
+      })) continue;
       evidenceRows.push({
-        id: `${signal.id}-company-${item.id}`, signal_event_id: signal.id,
+        id: `${signal.id}-${EVIDENCE_MATERIALIZATION_VERSION}-company-${item.id}`, signal_event_id: signal.id,
         evidence_date: item.known_at.slice(0, 10), source_name: item.source_id ?? item.company_name,
         source_url: item.source_url, source_type: "company_action",
         title: `${item.company_symbol}：${item.title}`, summary: item.summary,
