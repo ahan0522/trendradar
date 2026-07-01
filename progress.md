@@ -637,3 +637,13 @@ The next milestone is complete when:
 - No live Signal table is used to rewrite a published brief. External content remains tied to the reviewed snapshot.
 - There are currently no approved or published Signals, so the correct public response is an empty feed. Existing drafts remain internal.
 - The legacy validation report still reads internal Signal tables and should be treated as an internal diagnostic until its page is migrated to the publication feed.
+
+## 13. Public Monthly Report Experience (2026-07-01)
+
+- `/reports/signal-validation` now reads only the safe publication feed. It no longer renders internal Signal tables, replay diagnostics, draft candidates, or unreviewed watchlists.
+- The page is server-rendered so the report content is present in the initial HTML without a client-side loading dependency.
+- An honest empty state explains that the first report is still being verified. Candidate content is not used to fill an otherwise empty page.
+- Published monthly research is structured around four user questions: why it matters, which companies deserve attention, what to track next, and what would invalidate the thesis.
+- Desktop and mobile browser checks passed with no horizontal overflow, no loading state left behind, and no internal `Signal Ledger` or `Historical Validation` content.
+- The full-page mobile screenshot facility rendered a distorted composite, but viewport-level screenshots and measured DOM geometry confirmed the real page is correctly responsive at 390 px.
+- The older `/api/reports/signal-validation` remains available as an internal diagnostic API for now. The public page no longer consumes it.
