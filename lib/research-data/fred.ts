@@ -18,6 +18,7 @@ type FredSeries = {
   unit: string;
   currency?: string;
   quoteType?: CommodityQuote["quoteType"];
+  frequency: "daily" | "monthly";
 };
 
 type FredObservation = {
@@ -42,9 +43,15 @@ const fredSource: ResearchSource = {
   baseUrl: "https://fred.stlouisfed.org/",
   authorityLevel: "secondary",
   reliabilityScore: 92,
+  metadata: {
+    provider: "Federal Reserve Bank of St. Louis",
+    licenseNote: "Series-specific source and copyright notes must be retained.",
+    knownAtPolicy: "First successful TrendRadar retrieval time; historical observation dates are not treated as publication times.",
+    revisionPolicy: "Existing observation IDs are immutable. Later revisions require an explicit versioned correction flow.",
+  },
 };
 
-const defaultSeries: FredSeries[] = [
+export const FRED_DEFAULT_SERIES: FredSeries[] = [
   {
     id: "DHHNGSP",
     name: "Henry Hub 天然氣現貨價格",
@@ -53,6 +60,7 @@ const defaultSeries: FredSeries[] = [
     unit: "USD per Million BTU",
     currency: "USD",
     quoteType: "spot",
+    frequency: "daily",
   },
   {
     id: "WPU10250238",
@@ -62,6 +70,7 @@ const defaultSeries: FredSeries[] = [
     unit: "Index",
     currency: "INDEX",
     quoteType: "index",
+    frequency: "monthly",
   },
   {
     id: "PCU334413334413",
@@ -69,6 +78,7 @@ const defaultSeries: FredSeries[] = [
     kind: "industry",
     industry: "Semiconductor / Compute",
     unit: "Index Dec 1998=100",
+    frequency: "monthly",
   },
   {
     id: "IPG3344S",
@@ -76,6 +86,7 @@ const defaultSeries: FredSeries[] = [
     kind: "industry",
     industry: "Semiconductor / Compute",
     unit: "Index 2017=100",
+    frequency: "monthly",
   },
   {
     id: "PCU335311335311",
@@ -83,6 +94,31 @@ const defaultSeries: FredSeries[] = [
     kind: "industry",
     industry: "AI Power / Grid",
     unit: "Index Jun 1981=100",
+    frequency: "monthly",
+  },
+  {
+    id: "IPG22112S",
+    name: "電力輸配、控制與配送工業生產指數",
+    kind: "industry",
+    industry: "AI Power / Grid",
+    unit: "Index 2017=100",
+    frequency: "monthly",
+  },
+  {
+    id: "IPG2211S",
+    name: "電力發電、輸配與配送工業生產指數",
+    kind: "industry",
+    industry: "AI Power / Grid",
+    unit: "Index 2017=100",
+    frequency: "monthly",
+  },
+  {
+    id: "CAPUTLG2211S",
+    name: "電力發電、輸配與配送產能利用率",
+    kind: "industry",
+    industry: "AI Power / Grid",
+    unit: "Percent",
+    frequency: "monthly",
   },
   {
     id: "CAPUTLHITEK2S",
@@ -90,6 +126,7 @@ const defaultSeries: FredSeries[] = [
     kind: "industry",
     industry: "Semiconductor / Compute",
     unit: "Percent",
+    frequency: "monthly",
   },
 ];
 
@@ -182,8 +219,8 @@ export async function fetchFredResearchData(options?: {
   const startDate = options?.startDate ?? "2025-01-01";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) throw new Error("startDate must use YYYY-MM-DD");
   const selected = options?.seriesIds?.length
-    ? defaultSeries.filter((series) => options.seriesIds?.includes(series.id))
-    : defaultSeries;
+    ? FRED_DEFAULT_SERIES.filter((series) => options.seriesIds?.includes(series.id))
+    : FRED_DEFAULT_SERIES;
   const apiKey = options?.apiKey?.trim() || process.env.FRED_API_KEY?.trim();
   const providerMode = apiKey ? "official-api" : "csv-fallback";
   if (!apiKey && options?.allowCsvFallback === false) {
@@ -220,7 +257,9 @@ export async function fetchFredResearchData(options?: {
           metadata: {
             fredSeriesId: result.series.id,
             observationDate: observation.observationDate,
+            frequency: result.series.frequency,
             timeMachineNote: "Historical observation retrieved now; not treated as known on the observation date.",
+            knownAtPolicy: "first_seen",
           },
         });
       } else {
@@ -242,7 +281,9 @@ export async function fetchFredResearchData(options?: {
           metadata: {
             fredSeriesId: result.series.id,
             observationDate: observation.observationDate,
+            frequency: result.series.frequency,
             timeMachineNote: "Historical observation retrieved now; not treated as known on the observation date.",
+            knownAtPolicy: "first_seen",
           },
         });
       }

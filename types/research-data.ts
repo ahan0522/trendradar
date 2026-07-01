@@ -20,6 +20,7 @@ export type ResearchSource = {
   baseUrl?: string;
   authorityLevel: "primary" | "secondary" | "aggregator";
   reliabilityScore: number;
+  metadata?: Record<string, unknown>;
 };
 
 export type IndustryObservation = {

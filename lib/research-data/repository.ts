@@ -22,6 +22,7 @@ export async function upsertResearchSources(sources: ResearchSource[]) {
       base_url: source.baseUrl ?? null,
       authority_level: source.authorityLevel,
       reliability_score: source.reliabilityScore,
+      metadata: source.metadata ?? {},
       updated_at: new Date().toISOString(),
     })),
     { onConflict: "id" },
@@ -53,7 +54,7 @@ export async function upsertIndustryObservations(items: IndustryObservation[]) {
   if (rows.length === 0) return { count: 0 };
   const { error } = await getSupabaseAdmin()
     .from("industry_observations")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(rows, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw error;
   return { count: rows.length };
 }
@@ -81,7 +82,7 @@ export async function upsertCommodityQuotes(items: CommodityQuote[]) {
   if (rows.length === 0) return { count: 0 };
   const { error } = await getSupabaseAdmin()
     .from("commodity_quotes")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(rows, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw error;
   return { count: rows.length };
 }
@@ -108,7 +109,7 @@ export async function upsertCompanyActions(items: CompanyAction[]) {
   if (rows.length === 0) return { count: 0 };
   const { error } = await getSupabaseAdmin()
     .from("company_actions")
-    .upsert(rows, { onConflict: "id" });
+    .upsert(rows, { onConflict: "id", ignoreDuplicates: true });
   if (error) throw error;
   return { count: rows.length };
 }

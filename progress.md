@@ -592,5 +592,10 @@ The next milestone is complete when:
 - Research Confidence v4 is append-only and evidence-based. It scores source quality, non-news category depth, required evidence coverage, verified beneficiary mappings, persistence, and contradictions without allowing news volume to substitute for hard evidence.
 - The first 2026-06 confidence replay produced seven immutable snapshots: AI Compute 23.2, Memory 4.17, Power/Grid 31.45, and unsupported signals 0-5. These low scores are retained because the required industry data is genuinely missing.
 - Identical confidence reruns keep seven rows. Each snapshot stores component scores and explicit data gaps; signal-birth Heat remains unchanged.
+- Research raw-data upserts now preserve the first successful `known_at` instead of rewriting it on every sync. Two consecutive production FRED syncs changed zero existing timestamps.
+- Four official Power/Grid series are now active: transformer PPI, electric-power transmission/distribution production, total electric-power production, and electric-power capacity utilization. The first ingestion stored 68 observations.
+- These observations were first obtained on 2026-07-01, so they are intentionally excluded from the 2026-06-30 Signal snapshots even when their observation periods are older.
+- Scheduled research ingestion now uses the FRED official CSV endpoint when an API key is unavailable. Source metadata records licensing notes, first-seen policy, revision policy, frequency, and original series URL.
+- The internal quality report explicitly labels Memory pricing and AI Server shipment data as `licensed_or_manual_required`; news volume, generic filings, and stock prices cannot substitute for these missing research inputs.
 - Keep external reports last; improve the internal research engine first.
 - Ignore `app.7z`.

@@ -90,7 +90,6 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
-    const fredApiKey = process.env.FRED_API_KEY?.trim();
     const [twse, tpex, sec, fred] = await Promise.all([
       runSync(() => syncTwseResearchData({ dryRun: false })),
       runSync(() => syncTpexResearchData({ dryRun: false })),
@@ -98,17 +97,12 @@ export async function GET(request: NextRequest) {
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
       })),
-      fredApiKey
-        ? runSync(() => syncFredResearchData({
-            dryRun: false,
-            startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
-            apiKey: fredApiKey,
-            allowCsvFallback: false,
-          }))
-        : Promise.resolve<SyncResult>({
-            status: "skipped",
-            reason: "FRED_API_KEY is not configured; TWSE and SEC ingestion continued.",
-          }),
+      runSync(() => syncFredResearchData({
+        dryRun: false,
+        startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
+        apiKey: process.env.FRED_API_KEY?.trim(),
+        allowCsvFallback: true,
+      })),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
     const signalLedger = await runSync(() => generateSignalLedger(currentTaipeiDate()));

@@ -102,7 +102,7 @@ export const evidenceFamilySpecs: EvidenceFamilySpec[] = [
         priority: "required",
         minItems: 1,
         acceptedSourceTypes: ["industry", "official", "supply_chain"],
-        examples: ["transformer PPI", "grid equipment lead time", "utility capex", "變壓器", "電力與特殊變壓器", "輸配電"],
+        examples: ["transformer PPI", "grid equipment lead time", "utility capex", "electric power transmission", "變壓器", "電力與特殊變壓器", "電力輸配", "輸配電"],
       },
       {
         key: "power_demand",
@@ -111,7 +111,7 @@ export const evidenceFamilySpecs: EvidenceFamilySpec[] = [
         priority: "required",
         minItems: 1,
         acceptedSourceTypes: ["industry", "official", "commodity"],
-        examples: ["data center electricity demand", "power load forecast", "energy demand", "資料中心用電", "電力需求", "能源負載"],
+        examples: ["data center electricity demand", "power load forecast", "energy demand", "electric power generation", "capacity utilization", "資料中心用電", "電力需求", "能源負載", "電力發電", "產能利用率"],
       },
     ],
   },

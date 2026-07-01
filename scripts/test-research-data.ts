@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { parseGoogleNewsHistoricalRss } from "../lib/historical-news/google-news";
 import { parseTwsePublishedAt } from "../lib/research-data/twse";
-import { parseFredObservationValue } from "../lib/research-data/fred";
+import {
+  FRED_DEFAULT_SERIES,
+  parseFredObservationValue,
+} from "../lib/research-data/fred";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
 import {
   companyActionResearchRelevance,
@@ -12,6 +15,7 @@ import {
   detectSignalFamilies,
   getEvidenceRequirementsForSignal,
 } from "../lib/signals/evidence-source-registry";
+import { researchCoveragePlan } from "../lib/research-data/quality-report";
 
 function testTwseTimeParsing() {
   assert.equal(
@@ -39,6 +43,21 @@ function testFredMissingValues() {
   assert.equal(parseFredObservationValue("   "), null);
   assert.equal(parseFredObservationValue("."), null);
   assert.equal(parseFredObservationValue(undefined), null);
+}
+
+function testFredPowerSeriesRegistry() {
+  const ids = new Set(FRED_DEFAULT_SERIES.map((series) => series.id));
+  assert.equal(ids.has("PCU335311335311"), true);
+  assert.equal(ids.has("IPG22112S"), true);
+  assert.equal(ids.has("IPG2211S"), true);
+  assert.equal(ids.has("CAPUTLG2211S"), true);
+}
+
+function testResearchCoveragePlan() {
+  const byKey = new Map(researchCoveragePlan.map((item) => [item.key, item]));
+  assert.equal(byKey.get("power_grid_equipment")?.status, "automated");
+  assert.equal(byKey.get("memory_pricing")?.status, "licensed_or_manual_required");
+  assert.equal(byKey.get("ai_server_shipments")?.automatedSources.length, 0);
 }
 
 function testTpexDateParsing() {
@@ -79,6 +98,8 @@ testTwseTimeParsing();
 testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
+testFredPowerSeriesRegistry();
+testResearchCoveragePlan();
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), false);
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Memory DRAM capacity utilization"), true);
 assert.equal(researchEvidenceRelevance("AI 晶片與算力供應鏈", "industry", "Semiconductor / Compute 半導體與其他電子元件工業生產指數"), true);
