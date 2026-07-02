@@ -647,3 +647,15 @@ The next milestone is complete when:
 - Desktop and mobile browser checks passed with no horizontal overflow, no loading state left behind, and no internal `Signal Ledger` or `Historical Validation` content.
 - The full-page mobile screenshot facility rendered a distorted composite, but viewport-level screenshots and measured DOM geometry confirmed the real page is correctly responsive at 390 px.
 - The older `/api/reports/signal-validation` remains available as an internal diagnostic API for now. The public page no longer consumes it.
+
+## 14. Daily Evidence-to-Confidence Pipeline (2026-07-02)
+
+- The scheduled research job now runs the complete internal sequence: source sync, Signal Ledger generation, beneficiary snapshot materialization, research-evidence materialization, versioned Research Confidence recalculation, backtest update, and draft creation.
+- Each step is isolated through the existing degraded-mode wrapper. A source or evidence failure is reported without fabricating a successful downstream result.
+- Daily Signal beneficiary mappings are now written to the append-only `signal_beneficiary_mapping_snapshots` table, not only the mutable compatibility watchlist table.
+- Research Confidence snapshot versions include a deterministic fingerprint of accepted evidence ids, mapping symbols, assessment version, and evidence-materialization version. Identical reruns are idempotent; genuinely changed evidence creates a new auditable version.
+- Publication evaluation now reads the latest Research Confidence snapshot instead of the stale initial value on `signal_events`.
+- A strict 2026-07-02 production replay generated two active Signals. June research-snapshot counts stayed exactly 17 before and after, proving that evidence first known in July did not rewrite June.
+- Production testing exposed a false positive: the embodied-robotics Signal inherited a generic semiconductor capacity-utilization metric. `evidence-v4` now requires robotics-specific industry data such as robot shipments, adoption, orders, deployments, automation equipment, servo motors, or reducers.
+- The incorrect `evidence-v3` row remains in the ledger for auditability, but current confidence ignores it. The robotics score fell from 15.7 to 0, with explicit missing-data reasons.
+- Re-running the same v4 assessment kept the robotics snapshot count unchanged at three. Its refreshed draft remains ineligible and correctly shows Research Confidence 0.

@@ -346,18 +346,27 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
     { data: evidenceItems, error: evidenceError },
     { data: outcomes, error: outcomeError },
     { data: components, error: componentError },
+    { data: confidenceSnapshot, error: confidenceSnapshotError },
   ] = await Promise.all([
     supabase.from("signal_events").select("id, signal_date, as_of_date, topic, signal_strength, confidence_score, hypothesis, evidence").eq("id", signalEventId).single<SignalRow>(),
     readReviewWatchlists(supabase, signalEventId),
     supabase.from("signal_evidence_items").select("title, summary, source_name, source_type, known_at_signal_time").eq("signal_event_id", signalEventId).returns<EvidenceRow[]>(),
     supabase.from("signal_outcomes").select("horizon_days, excess_return, outcome").eq("signal_event_id", signalEventId).returns<OutcomeRow[]>(),
     supabase.from("signal_score_components").select("component_name, normalized_score").eq("signal_event_id", signalEventId).returns<ComponentRow[]>(),
+    supabase
+      .from("signal_research_snapshots")
+      .select("confidence_score")
+      .eq("signal_event_id", signalEventId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ confidence_score: number }>(),
   ]);
   if (signalError) throw signalError;
   if (watchlistError) throw watchlistError;
   if (evidenceError) throw evidenceError;
   if (outcomeError) throw outcomeError;
   if (componentError) throw componentError;
+  if (confidenceSnapshotError && confidenceSnapshotError.code !== "42P01") throw confidenceSnapshotError;
 
   return {
     signal: {
@@ -365,7 +374,7 @@ async function loadEvaluationInput(signalEventId: string): Promise<PublicationEv
       asOfDate: signal.as_of_date,
       topic: signal.topic,
       signalStrength: Number(signal.signal_strength),
-      confidenceScore: Number(signal.confidence_score),
+      confidenceScore: Number(confidenceSnapshot?.confidence_score ?? signal.confidence_score),
       hypothesis: signal.hypothesis,
       evidence: signal.evidence,
     },

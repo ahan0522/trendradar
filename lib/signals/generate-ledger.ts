@@ -98,6 +98,32 @@ export async function generateSignalLedger(asOfDate: string) {
       );
       if (legacyError) throw legacyError;
     }
+
+    const mappingSnapshots = watchlists
+      .filter((item) => item.directOperatingLink && item.mappingVersion)
+      .map((item) => ({
+        signal_event_id: item.signalEventId,
+        symbol: item.symbol,
+        market: item.market,
+        company_name: item.companyName,
+        mapping_version: item.mappingVersion,
+        value_chain_role: item.valueChainRole ?? "",
+        causal_reason: item.causalReason ?? item.thesis,
+        tracking_metrics: item.trackingMetrics ?? [],
+        invalidation_conditions: item.invalidationConditions ?? [],
+        mapping_sources: item.mappingSources ?? [],
+        direct_operating_link: true,
+        as_of_date: asOfDate,
+      }));
+    if (mappingSnapshots.length > 0) {
+      const { error: mappingSnapshotError } = await supabase
+        .from("signal_beneficiary_mapping_snapshots")
+        .upsert(mappingSnapshots, {
+          onConflict: "signal_event_id,symbol,market,mapping_version",
+          ignoreDuplicates: true,
+        });
+      if (mappingSnapshotError && mappingSnapshotError.code !== "42P01") throw mappingSnapshotError;
+    }
   }
 
   const evidenceRows = signals.flatMap((signal) => {

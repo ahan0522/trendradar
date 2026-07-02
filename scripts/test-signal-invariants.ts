@@ -49,6 +49,7 @@ import { buildSignalResearchSnapshot } from "../lib/signals/research-snapshot";
 import {
   buildResearchConfidenceAssessment,
   RESEARCH_CONFIDENCE_ASSESSMENT_VERSION,
+  researchConfidenceSnapshotVersion,
 } from "../lib/signals/research-confidence-assessment";
 import {
   canTransitionPublicationReview,
@@ -59,6 +60,10 @@ import {
   publicationPeriodKey,
 } from "../lib/signals/publication-feed";
 import { buildSignalEvidencePanel } from "../lib/signals/evidence-panel";
+import {
+  EVIDENCE_MATERIALIZATION_VERSION,
+  researchEvidenceRelevance,
+} from "../lib/signals/evidence-materialization";
 import { mapBeneficiaries } from "../lib/signals/beneficiary-mapping";
 import { classifyMonthCoverage } from "../lib/signals/data-coverage";
 import {
@@ -82,6 +87,35 @@ import {
 function testSignalScore() {
   assert.equal(MONTHLY_DISCOVERY_MODEL_VERSION, "monthly-full-market-v3");
   assert.equal(RESEARCH_CONFIDENCE_MODEL_VERSION, "research-confidence-v3");
+  assert.equal(EVIDENCE_MATERIALIZATION_VERSION, "evidence-v4");
+  assert.equal(
+    researchEvidenceRelevance(
+      "具身 AI 機器人平台發表",
+      "industry",
+      "Semiconductor / Compute 高科技製造產能利用率",
+    ),
+    false,
+  );
+  assert.equal(
+    researchEvidenceRelevance(
+      "具身 AI 機器人平台發表",
+      "industry",
+      "工業機器人訂單與自動化設備出貨",
+    ),
+    true,
+  );
+  const confidenceVersion = researchConfidenceSnapshotVersion({
+    evidenceIds: ["evidence-b", "evidence-a"],
+    mappingSymbols: ["2330.TW", "NVDA"],
+  });
+  assert.equal(confidenceVersion, researchConfidenceSnapshotVersion({
+    evidenceIds: ["evidence-a", "evidence-b"],
+    mappingSymbols: ["NVDA", "2330.TW"],
+  }));
+  assert.notEqual(confidenceVersion, researchConfidenceSnapshotVersion({
+    evidenceIds: ["evidence-a"],
+    mappingSymbols: ["NVDA", "2330.TW"],
+  }));
   assert.equal(calculateSignalStrength({}), 0);
   assert.equal(calculateSignalStrength({
     mentionSpike: 100,

@@ -7,7 +7,7 @@ type IndustryRow = { id: string; industry: string; metric_name: string; metric_v
 type CommodityRow = { id: string; commodity_code: string; commodity_name: string; quote_date: string; price: number; currency: string; unit: string; known_at: string; source_id: string | null; source_url: string };
 type CompanyRow = { id: string; company_symbol: string; market: string; company_name: string; action_type: string; title: string; summary: string | null; known_at: string; source_id: string | null; source_url: string };
 
-export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v3";
+export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v4";
 
 function normalized(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
@@ -21,6 +21,10 @@ export function researchEvidenceRelevance(
   const signal = normalized(topic);
   const metric = normalized(name);
   if (kind === "industry") {
+    const isRoboticsSignal = /機器人|具身|robot|robotics|embodied|自動化|automation/.test(signal);
+    if (isRoboticsSignal) {
+      return /機器人|具身|robot|robotics|embodied|自動化|automation|伺服馬達|減速機/.test(metric);
+    }
     const isPowerSignal = /電網|電力|變壓器|輸配電|power|grid|transformer/.test(signal);
     if (isPowerSignal) {
       return /電力|變壓器|輸配電|transformer|power|grid/.test(metric);

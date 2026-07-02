@@ -12,6 +12,8 @@ import { runDailyBacktestUpdate } from "@/lib/signals/backtest";
 import { backfillVerifiedReplayPrices } from "@/lib/signals/model-replay-price-backfill";
 import { runModelReplayBacktestForSymbols } from "@/lib/signals/model-replay-backtest";
 import { createMissingPublicationDrafts } from "@/lib/signals/publication-review";
+import { materializeSignalResearchEvidence } from "@/lib/signals/evidence-materialization";
+import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,7 +108,22 @@ export async function GET(request: NextRequest) {
       })),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
-    const signalLedger = await runSync(() => generateSignalLedger(currentTaipeiDate()));
+    const today = currentTaipeiDate();
+    const signalLedger = await runSync(() => generateSignalLedger(today));
+    const researchEvidence = await runSync(async () => {
+      if (signalLedger.status !== "success") {
+        throw new Error("Signal Ledger generation failed; evidence materialization was skipped.");
+      }
+      const ledger = signalLedger.data as { signals?: Array<{ id: string }> };
+      const results = [];
+      for (const signal of ledger.signals ?? []) {
+        results.push(await materializeSignalResearchEvidence(signal.id));
+      }
+      return results;
+    });
+    const researchConfidence = researchEvidence.status === "success"
+      ? await runSync(() => recalculateResearchConfidenceSnapshots(today))
+      : { status: "skipped" as const, reason: "Evidence materialization did not complete." };
     const backtests = await runSync(() => runDailyBacktestUpdate());
     const publicationDrafts = await runSync(() => createMissingPublicationDrafts(5));
     const replayValidation = currentTaipeiWeekday() === "Sun"
@@ -139,6 +156,8 @@ export async function GET(request: NextRequest) {
       fred,
       quality: qualityAfter,
       signalLedger,
+      researchEvidence,
+      researchConfidence,
       backtests,
       publicationDrafts,
       replayValidation,

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { EVIDENCE_MATERIALIZATION_VERSION } from "@/lib/signals/evidence-materialization";
 import { assessEvidenceCoverage } from "@/lib/signals/evidence-source-registry";
@@ -6,6 +7,22 @@ import { calculateResearchConfidenceV2 } from "@/lib/signals/signal-engine";
 
 export const RESEARCH_CONFIDENCE_ASSESSMENT_VERSION = "research-confidence-v4";
 export const RESEARCH_CONFIDENCE_SNAPSHOT_VERSION = "signal-research-confidence-v1";
+
+export function researchConfidenceSnapshotVersion(input: {
+  evidenceIds: string[];
+  mappingSymbols: string[];
+}) {
+  const fingerprint = createHash("sha256")
+    .update(JSON.stringify({
+      evidenceIds: [...input.evidenceIds].sort(),
+      mappingSymbols: [...input.mappingSymbols].sort(),
+      assessmentVersion: RESEARCH_CONFIDENCE_ASSESSMENT_VERSION,
+      materializationVersion: EVIDENCE_MATERIALIZATION_VERSION,
+    }))
+    .digest("hex")
+    .slice(0, 12);
+  return `${RESEARCH_CONFIDENCE_SNAPSHOT_VERSION}-${fingerprint}`;
+}
 
 type ConfidenceEvidence = {
   id: string;
@@ -196,15 +213,23 @@ export async function recalculateResearchConfidenceSnapshots(asOfDate: string) {
       outcomes: [],
       dataGaps: assessment.dataGaps,
     });
-    return { signal, assessment, snapshot };
+    return {
+      signal,
+      assessment,
+      snapshot,
+      mappingSymbols: mappings.map((item) => item.symbol),
+    };
   });
 
-  const { error: snapshotError } = await supabase
-    .from("signal_research_snapshots")
-    .upsert(assessments.map(({ snapshot, assessment }) => ({
+  const snapshotRows = assessments.map(({ snapshot, assessment, mappingSymbols }) => ({
       signal_event_id: snapshot.signalEventId,
       as_of_date: snapshot.asOfDate,
-      snapshot_version: RESEARCH_CONFIDENCE_SNAPSHOT_VERSION,
+      snapshot_version: researchConfidenceSnapshotVersion({
+        evidenceIds: snapshot.supportingEvidence
+          .concat(snapshot.counterEvidence)
+          .map((item) => item.id),
+        mappingSymbols,
+      }),
       heat_score: snapshot.heat.score,
       heat_state: snapshot.heat.state,
       confidence_score: snapshot.researchConfidence.score,
@@ -224,7 +249,10 @@ export async function recalculateResearchConfidenceSnapshots(asOfDate: string) {
           evidenceCoverage: assessment.coverage,
         },
       },
-    })), {
+    }));
+  const { error: snapshotError } = await supabase
+    .from("signal_research_snapshots")
+    .upsert(snapshotRows, {
       onConflict: "signal_event_id,snapshot_version",
       ignoreDuplicates: true,
     });
@@ -238,6 +266,7 @@ export async function recalculateResearchConfidenceSnapshots(asOfDate: string) {
       signalEventId: signal.id,
       topic: signal.topic,
       score: assessment.score,
+      snapshotVersion: snapshotRows.find((item) => item.signal_event_id === signal.id)?.snapshot_version,
       components: assessment.components,
       dataGaps: assessment.dataGaps,
     })),
