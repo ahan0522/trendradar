@@ -49,21 +49,31 @@ function currentTaipeiDate() {
 }
 
 type SyncResult =
-  | { status: "success"; data: unknown; durationMs?: number }
-  | { status: "skipped"; reason: string; durationMs?: number }
-  | { status: "failed"; error: string; durationMs?: number };
+  | { status: "success"; data: unknown; durationMs?: number; attempts?: number }
+  | { status: "skipped"; reason: string; durationMs?: number; attempts?: number }
+  | { status: "failed"; error: string; durationMs?: number; attempts?: number };
 
-async function runSync(task: () => Promise<unknown>): Promise<SyncResult> {
+async function runSync(task: () => Promise<unknown>, retries = 0): Promise<SyncResult> {
   const startedAt = Date.now();
-  try {
-    return { status: "success", data: await task(), durationMs: Date.now() - startedAt };
-  } catch (error) {
-    return {
-      status: "failed",
-      error: error instanceof Error ? error.message : "Unknown source sync error",
-      durationMs: Date.now() - startedAt,
-    };
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= retries + 1; attempt += 1) {
+    try {
+      return {
+        status: "success",
+        data: await task(),
+        durationMs: Date.now() - startedAt,
+        attempts: attempt,
+      };
+    } catch (error) {
+      lastError = error;
+    }
   }
+  return {
+    status: "failed",
+    error: lastError instanceof Error ? lastError.message : "Unknown source sync error",
+    durationMs: Date.now() - startedAt,
+    attempts: retries + 1,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -87,18 +97,18 @@ export async function GET(request: NextRequest) {
 
     const usSymbols = await getUsWatchlistSymbols();
     const [twse, tpex, sec, fred] = await Promise.all([
-      runSync(() => syncTwseResearchData({ dryRun: false })),
-      runSync(() => syncTpexResearchData({ dryRun: false })),
+      runSync(() => syncTwseResearchData({ dryRun: false }), 1),
+      runSync(() => syncTpexResearchData({ dryRun: false }), 1),
       runSync(() => syncSecResearchData({
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
-      })),
+      }), 1),
       runSync(() => syncFredResearchData({
         dryRun: false,
         startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
         apiKey: process.env.FRED_API_KEY?.trim(),
         allowCsvFallback: true,
-      })),
+      }), 1),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
     const today = currentTaipeiDate();

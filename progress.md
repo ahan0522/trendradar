@@ -667,3 +667,5 @@ The next milestone is complete when:
 - Every scheduled source task now reports its own duration, making future timeout diagnosis observable instead of speculative.
 - After deployment, the full production cron completed successfully in 86.1 seconds: TWSE 4.0s, TPEx 10.8s, SEC 1.2s, FRED 15.0s, Signal Ledger 5.0s, evidence 2.7s, confidence 1.5s, incremental backtest 52.7s, and drafts 7.1s.
 - The run reported `degraded: true`, meaning at least one external source task did not fully succeed, while Signal Ledger, evidence, confidence, backtest, and draft stages all completed. Partial source failure remains visible and does not become fabricated research evidence.
+- Follow-up dry-runs and real idempotent upserts succeeded for all four sources: TWSE, TPEx, SEC EDGAR, and FRED. The earlier degraded result was transient rather than a reproducible schema or parser failure.
+- External source tasks now retry once and report `attempts` plus cumulative duration. Downstream evidence, confidence, backtest, and publication tasks are never automatically retried.
