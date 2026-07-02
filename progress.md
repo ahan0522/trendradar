@@ -665,3 +665,5 @@ The next milestone is complete when:
 - A production database run processed 17 due horizons across five Signals in 23.5 seconds. Completed success, partial, and failed outcomes will not be recalculated by the daily job.
 - Historical replay validation is no longer embedded in daily ingestion. It remains available through the dedicated admin endpoint so it cannot exhaust the core data-ingestion budget.
 - Every scheduled source task now reports its own duration, making future timeout diagnosis observable instead of speculative.
+- After deployment, the full production cron completed successfully in 86.1 seconds: TWSE 4.0s, TPEx 10.8s, SEC 1.2s, FRED 15.0s, Signal Ledger 5.0s, evidence 2.7s, confidence 1.5s, incremental backtest 52.7s, and drafts 7.1s.
+- The run reported `degraded: true`, meaning at least one external source task did not fully succeed, while Signal Ledger, evidence, confidence, backtest, and draft stages all completed. Partial source failure remains visible and does not become fabricated research evidence.
