@@ -26,7 +26,7 @@ type SanityRange = {
   requiredVerificationProviders?: string[];
 };
 
-export const PRICE_SANITY_RANGE_VERSION = "price-sanity-v2-2026-06-30";
+export const PRICE_SANITY_RANGE_VERSION = "price-sanity-v3-2026-07-02";
 
 const sanityRanges: Record<string, SanityRange> = {
   "MU::US": { min: 20, max: 300, note: "Micron normal USD quote range" },
@@ -65,13 +65,29 @@ const sanityRanges: Record<string, SanityRange> = {
     verificationBasis: "TWSE STOCK_DAY official close plus Yahoo same-date structural and adjustment verification",
     requiredVerificationProviders: ["twse-official", "yahoo-adjustment-v1"],
   },
-  "2344.TW::TW": { min: 5, max: 100, note: "華邦電台股報價合理區間" },
+  "2344.TW::TW": {
+    min: 5,
+    max: 150,
+    note: "華邦電台股報價合理區間；2026-07-02 由 TWSE 官方收盤與 Yahoo 同日調整價格交叉驗證",
+    revision: PRICE_SANITY_RANGE_VERSION,
+    verifiedOn: "2026-07-02",
+    verificationBasis: "TWSE STOCK_DAY official close plus Yahoo same-date structural and adjustment verification",
+    requiredVerificationProviders: ["twse-official", "yahoo-adjustment-v1"],
+  },
   "8299.TW::TW": { min: 100, max: 4000, note: "群聯台股報價合理區間" },
   "3017.TW::TW": { min: 100, max: 2500, note: "奇鋐台股報價合理區間" },
   "3324.TW::TW": { min: 50, max: 1500, note: "雙鴻台股報價合理區間" },
   "3711.TW::TW": { min: 50, max: 1000, note: "日月光投控台股報價合理區間" },
   "3131.TW::TW": { min: 100, max: 3000, note: "弘塑台股報價合理區間" },
-  "6187.TW::TW": { min: 30, max: 1000, note: "萬潤台股報價合理區間" },
+  "6187.TW::TW": {
+    min: 30,
+    max: 1500,
+    note: "萬潤上櫃報價合理區間；2026-07-02 由 TPEx 官方收盤與 Yahoo 同日調整價格交叉驗證",
+    revision: PRICE_SANITY_RANGE_VERSION,
+    verifiedOn: "2026-07-02",
+    verificationBasis: "TPEx official close plus Yahoo same-date structural and adjustment verification",
+    requiredVerificationProviders: ["tpex-official", "yahoo-adjustment-v1"],
+  },
   "3583.TW::TW": { min: 100, max: 3000, note: "辛耘台股報價合理區間" },
   "6451.TW::TW": { min: 100, max: 2000, note: "訊芯-KY 台股報價合理區間" },
   "3081.TW::TW": { min: 100, max: 5000, note: "聯亞上櫃報價合理區間" },

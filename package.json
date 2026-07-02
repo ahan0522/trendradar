@@ -11,6 +11,7 @@
     "test:research": "tsx scripts/test-research-data.ts",
     "seed:signals": "tsx scripts/seed-signals.ts",
     "prices:signals": "tsx scripts/fetch-signal-prices.ts",
+    "prices:revalidate-tw": "tsx scripts/revalidate-tw-price-quality.ts",
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
     "prices:replay": "tsx scripts/backfill-model-replay-prices.ts"
   },

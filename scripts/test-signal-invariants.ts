@@ -319,6 +319,60 @@ function testVerifiedPriceGate() {
     }).status,
     "needs_review",
   );
+  const verifiedWinbondPrice = {
+    ...verifiedPrice,
+    priceDate: "2026-02-26",
+    close: 122.5,
+    adjClose: 121.86,
+    provider: "twse-official+yahoo-chart",
+    verificationProvider: "twse-official+yahoo-adjustment-v1",
+  };
+  assert.equal(
+    assessLatestPrice("2344.TW", "TW", verifiedWinbondPrice, { asOfDate: "2026-02-26" }).status,
+    "verified",
+  );
+  assert.equal(
+    assessLatestPrice("2344.TW", "TW", {
+      ...verifiedWinbondPrice,
+      verificationProvider: "twse-official",
+    }).status,
+    "needs_review",
+  );
+  assert.equal(
+    assessLatestPrice("2344.TW", "TW", {
+      ...verifiedWinbondPrice,
+      close: 180,
+      adjClose: 180,
+    }).status,
+    "needs_review",
+  );
+  const verifiedAllRingPrice = {
+    ...verifiedPrice,
+    priceDate: "2026-04-30",
+    close: 1210,
+    adjClose: 1210,
+    provider: "tpex-official+yahoo-chart",
+    verificationProvider: "tpex-official+yahoo-adjustment-v1",
+  };
+  assert.equal(
+    assessLatestPrice("6187.TW", "TW", verifiedAllRingPrice, { asOfDate: "2026-04-30" }).status,
+    "verified",
+  );
+  assert.equal(
+    assessLatestPrice("6187.TW", "TW", {
+      ...verifiedAllRingPrice,
+      verificationProvider: "tpex-official",
+    }).status,
+    "needs_review",
+  );
+  assert.equal(
+    assessLatestPrice("6187.TW", "TW", {
+      ...verifiedAllRingPrice,
+      close: 1800,
+      adjClose: 1800,
+    }).status,
+    "needs_review",
+  );
 }
 
 function testCsvProvenance() {

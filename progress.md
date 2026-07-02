@@ -669,3 +669,13 @@ The next milestone is complete when:
 - The run reported `degraded: true`, meaning at least one external source task did not fully succeed, while Signal Ledger, evidence, confidence, backtest, and draft stages all completed. Partial source failure remains visible and does not become fabricated research evidence.
 - Follow-up dry-runs and real idempotent upserts succeeded for all four sources: TWSE, TPEx, SEC EDGAR, and FRED. The earlier degraded result was transient rather than a reproducible schema or parser failure.
 - External source tasks now retry once and report `attempts` plus cumulative duration. Downstream evidence, confidence, backtest, and publication tasks are never automatically retried.
+
+## 15. TW Price Quality Remediation (2026-07-02)
+
+- The 84-row price-quality backlog was separated by market and source before remediation. Korean prices remain deferred, and Yahoo-only US prices remain blocked until an independent source is available.
+- Nineteen TW rows were re-fetched on their exact trading dates and cross-checked against TWSE or TPEx official closes plus Yahoo adjustment data.
+- All nineteen passed the dual-source gate and were upserted as verified. A second dry-run found zero remaining TW `needs_review` rows.
+- `price-sanity-v3-2026-07-02` adds narrow, versioned ranges for `2344.TW` and `6187.TW`. The revised ranges are unusable unless both the official-market and Yahoo-adjustment verification markers are present.
+- Single-source records remain `needs_review`, and values above the revised maxima remain blocked. The change does not relax the general price-quality gate.
+- `npm run prices:revalidate-tw` is a safe dry-run maintenance command. Adding `-- --write` is required before verified replacements are written.
+- The expected unresolved backlog is now 65 rows: 38 deferred Korean rows and 27 Yahoo-only US rows. These must not enter backtests until their own source-quality requirements are satisfied.
