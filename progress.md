@@ -659,3 +659,9 @@ The next milestone is complete when:
 - Production testing exposed a false positive: the embodied-robotics Signal inherited a generic semiconductor capacity-utilization metric. `evidence-v4` now requires robotics-specific industry data such as robot shipments, adoption, orders, deployments, automation equipment, servo motors, or reducers.
 - The incorrect `evidence-v3` row remains in the ledger for auditability, but current confidence ignores it. The robotics score fell from 15.7 to 0, with explicit missing-data reasons.
 - Re-running the same v4 assessment kept the robotics snapshot count unchanged at three. Its refreshed draft remains ineligible and correctly shows Research Confidence 0.
+- The first production cron verification after this change exceeded Vercel's 300-second request budget. The request was cancelled and no success was reported.
+- Root cause analysis found that the daily job still re-ran four horizons for the latest 25 Signals, regardless of maturity or completed outcomes.
+- Daily backtesting now selects only mature horizons whose outcome is missing or pending, prioritizes never-attempted or oldest attempts, and processes at most five Signals per run.
+- A production database run processed 17 due horizons across five Signals in 23.5 seconds. Completed success, partial, and failed outcomes will not be recalculated by the daily job.
+- Historical replay validation is no longer embedded in daily ingestion. It remains available through the dedicated admin endpoint so it cannot exhaust the core data-ingestion budget.
+- Every scheduled source task now reports its own duration, making future timeout diagnosis observable instead of speculative.

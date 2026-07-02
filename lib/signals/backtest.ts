@@ -319,26 +319,65 @@ export async function runBacktestForAllSignals() {
   return results;
 }
 
-export async function runDailyBacktestUpdate(limit = 25) {
+export async function runDailyBacktestUpdate(limit = 5) {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("signal_events")
-    .select("id")
-    .order("signal_date", { ascending: false })
-    .limit(limit)
-    .returns<Array<{ id: string }>>();
+  const [{ data: signals, error: signalError }, { data: outcomes, error: outcomeError }] = await Promise.all([
+    supabase
+      .from("signal_events")
+      .select("id, signal_date")
+      .order("signal_date", { ascending: true })
+      .returns<Array<{ id: string; signal_date: string }>>(),
+    supabase
+      .from("signal_outcomes")
+      .select("signal_event_id, horizon_days, outcome, evaluated_at")
+      .returns<Array<{
+        signal_event_id: string;
+        horizon_days: number;
+        outcome: string;
+        evaluated_at: string | null;
+      }>>(),
+  ]);
+  if (signalError) throw signalError;
+  if (outcomeError) throw outcomeError;
 
-  if (error) throw error;
-
+  const outcomeByKey = new Map(
+    (outcomes ?? []).map((item) => [`${item.signal_event_id}:${item.horizon_days}`, item]),
+  );
+  const due = (signals ?? [])
+    .map((signal) => {
+      const horizons = SIGNAL_BACKTEST_HORIZONS.filter((horizonDays) => {
+        if (!isHorizonMature(signal.signal_date, horizonDays)) return false;
+        return outcomeByKey.get(`${signal.id}:${horizonDays}`)?.outcome !== "success" &&
+          outcomeByKey.get(`${signal.id}:${horizonDays}`)?.outcome !== "partial" &&
+          outcomeByKey.get(`${signal.id}:${horizonDays}`)?.outcome !== "failed";
+      });
+      const lastAttempt = horizons
+        .map((horizonDays) => outcomeByKey.get(`${signal.id}:${horizonDays}`)?.evaluated_at ?? "")
+        .sort()
+        .at(0) ?? "";
+      return { ...signal, horizons, lastAttempt };
+    })
+    .filter((signal) => signal.horizons.length > 0)
+    .sort((a, b) =>
+      a.lastAttempt.localeCompare(b.lastAttempt) ||
+      a.signal_date.localeCompare(b.signal_date))
+    .slice(0, Math.max(1, Math.min(limit, 20)));
   const results = [];
-  for (const signal of data ?? []) {
+  for (const signal of due) {
+    const horizonResults = [];
+    for (const horizonDays of signal.horizons) {
+      horizonResults.push(await upsertSignalOutcome(
+        await evaluateSignalOutcome(signal.id, horizonDays),
+      ));
+    }
     results.push({
       signalEventId: signal.id,
-      results: await runBacktestForSignal(signal.id),
+      results: horizonResults,
     });
   }
   return {
     signalCount: results.length,
+    horizonCount: results.reduce((sum, item) => sum + item.results.length, 0),
     results,
   };
 }

@@ -9,8 +9,6 @@ import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 import { generateSignalLedger } from "@/lib/signals/generate-ledger";
 import { runDailyBacktestUpdate } from "@/lib/signals/backtest";
-import { backfillVerifiedReplayPrices } from "@/lib/signals/model-replay-price-backfill";
-import { runModelReplayBacktestForSymbols } from "@/lib/signals/model-replay-backtest";
 import { createMissingPublicationDrafts } from "@/lib/signals/publication-review";
 import { materializeSignalResearchEvidence } from "@/lib/signals/evidence-materialization";
 import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
@@ -50,25 +48,20 @@ function currentTaipeiDate() {
   }).format(new Date());
 }
 
-function currentTaipeiWeekday() {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Taipei",
-    weekday: "short",
-  }).format(new Date());
-}
-
 type SyncResult =
-  | { status: "success"; data: unknown }
-  | { status: "skipped"; reason: string }
-  | { status: "failed"; error: string };
+  | { status: "success"; data: unknown; durationMs?: number }
+  | { status: "skipped"; reason: string; durationMs?: number }
+  | { status: "failed"; error: string; durationMs?: number };
 
 async function runSync(task: () => Promise<unknown>): Promise<SyncResult> {
+  const startedAt = Date.now();
   try {
-    return { status: "success", data: await task() };
+    return { status: "success", data: await task(), durationMs: Date.now() - startedAt };
   } catch (error) {
     return {
       status: "failed",
       error: error instanceof Error ? error.message : "Unknown source sync error",
+      durationMs: Date.now() - startedAt,
     };
   }
 }
@@ -124,23 +117,12 @@ export async function GET(request: NextRequest) {
     const researchConfidence = researchEvidence.status === "success"
       ? await runSync(() => recalculateResearchConfidenceSnapshots(today))
       : { status: "skipped" as const, reason: "Evidence materialization did not complete." };
-    const backtests = await runSync(() => runDailyBacktestUpdate());
+    const backtests = await runSync(() => runDailyBacktestUpdate(5));
     const publicationDrafts = await runSync(() => createMissingPublicationDrafts(5));
-    const replayValidation = currentTaipeiWeekday() === "Sun"
-      ? await runSync(async () => {
-          const prices = await backfillVerifiedReplayPrices({
-            maxSymbols: 1,
-            horizons: [7, 30, 60, 90],
-            dryRun: false,
-            excludedSymbols: ["1519.TW", "MU", "000660.KS", "005930.KS", "2408.TW"],
-          });
-          const backtest = await runModelReplayBacktestForSymbols(
-            prices.runId,
-            prices.selectedSymbols.map((item) => item.symbol),
-          );
-          return { prices, backtest };
-        })
-      : { status: "skipped" as const, reason: "Replay validation runs on Sunday (Asia/Taipei)." };
+    const replayValidation = {
+      status: "skipped" as const,
+      reason: "Historical replay runs through the dedicated admin endpoint, outside the daily ingestion budget.",
+    };
     const finalizedMonth = currentTaipeiDay() === "01"
       ? await finalizeMonthlySignals(previousMonthEnd())
       : null;
