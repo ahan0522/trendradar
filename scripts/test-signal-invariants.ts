@@ -25,6 +25,10 @@ import {
   publishableLatestPrice,
 } from "../lib/signals/price-quality";
 import {
+  crossVerifyUsPrice,
+  parseAlphaVantageDailySeries,
+} from "../lib/signals/us-price-verification";
+import {
   calculateReturn,
   isBacktestPriceUsable,
   parseStockPriceCsv,
@@ -373,6 +377,73 @@ function testVerifiedPriceGate() {
     }).status,
     "needs_review",
   );
+  const legacyMicronPrice = {
+    ...verifiedPrice,
+    symbol: "MU",
+    market: "US" as const,
+    close: 250,
+    adjClose: 250,
+    provider: "yahoo-chart",
+  };
+  assert.equal(assessLatestPrice("MU", "US", legacyMicronPrice).status, "verified");
+  assert.equal(assessLatestPrice("MU", "US", {
+    ...legacyMicronPrice,
+    close: 500,
+    adjClose: 500,
+  }).status, "needs_review");
+  assert.equal(assessLatestPrice("MU", "US", {
+    ...legacyMicronPrice,
+    close: 500,
+    adjClose: 500,
+    provider: "yahoo-chart+alpha-vantage",
+    verificationProvider: "yahoo-chart+alpha-vantage-daily",
+  }).status, "verified");
+  assert.equal(assessLatestPrice("MU", "US", {
+    ...legacyMicronPrice,
+    close: 1300,
+    adjClose: 1300,
+    provider: "yahoo-chart+alpha-vantage",
+    verificationProvider: "yahoo-chart+alpha-vantage-daily",
+  }).status, "needs_review");
+}
+
+function testIndependentUsPriceVerification() {
+  const sourceUrl = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=MU";
+  const prices = parseAlphaVantageDailySeries("mu", {
+    "Time Series (Daily)": {
+      "2026-05-29": {
+        "4. close": "970.50",
+        "5. volume": "123456",
+      },
+      invalid: {
+        "4. close": "10",
+      },
+    },
+  }, sourceUrl);
+  const independent = prices.get("2026-05-29");
+  assert.ok(independent);
+  assert.equal(independent.symbol, "MU");
+  assert.equal(independent.close, 970.5);
+  assert.equal(prices.has("invalid"), false);
+
+  const yahooPrice = {
+    symbol: "MU",
+    market: "US" as const,
+    priceDate: "2026-05-29",
+    close: 971,
+    adjClose: 971,
+    volume: 120000,
+    provider: "yahoo-chart",
+    sourceUrl: "https://query1.finance.yahoo.com/",
+    qualityStatus: "needs_review" as const,
+    verificationProvider: "yahoo-chart-structural-v1",
+  };
+  const verified = crossVerifyUsPrice(yahooPrice, independent);
+  assert.ok(verified);
+  assert.equal(verified.qualityStatus, "verified");
+  assert.equal(verified.verificationProvider, "yahoo-chart+alpha-vantage-daily");
+  assert.equal(crossVerifyUsPrice({ ...yahooPrice, close: 900 }, independent), null);
+  assert.equal(crossVerifyUsPrice({ ...yahooPrice, priceDate: "2026-05-28" }, independent), null);
 }
 
 function testCsvProvenance() {
@@ -1101,6 +1172,7 @@ function main() {
   testBeneficiaryResearchMapping();
   testTopicKeywordBoundaries();
   testVerifiedPriceGate();
+  testIndependentUsPriceVerification();
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();

@@ -679,3 +679,13 @@ The next milestone is complete when:
 - Single-source records remain `needs_review`, and values above the revised maxima remain blocked. The change does not relax the general price-quality gate.
 - `npm run prices:revalidate-tw` is a safe dry-run maintenance command. Adding `-- --write` is required before verified replacements are written.
 - The expected unresolved backlog is now 65 rows: 38 deferred Korean rows and 27 Yahoo-only US rows. These must not enter backtests until their own source-quality requirements are satisfied.
+
+## 16. US Independent Price Verification Gate (2026-07-04)
+
+- The remaining US backlog contains 27 Yahoo-only rows across `AMD`, `GEV`, and `MU`. None were promoted based on Yahoo alone.
+- `us-price-sanity-v1-2026-07-04` keeps each symbol's prior ceiling as a legacy boundary. Prices inside the old range retain existing behavior; only values above it can use the expanded range, and only with both Yahoo and Alpha Vantage verification markers.
+- The independent-source adapter parses Alpha Vantage `TIME_SERIES_DAILY` data, compares raw closes on the exact trading date, and rejects symbol, date, or close differences above 1%.
+- Stored provenance URLs never contain the Alpha Vantage API key.
+- `npm run prices:revalidate-us` is dry-run by default. `-- --write` is required to persist rows that pass every gate.
+- The production environment does not currently provide `ALPHA_VANTAGE_API_KEY`. The dry-run checked all 27 rows, verified zero, wrote zero, and retained all rows as `needs_review`.
+- Historical `outputsize=full` access may require an appropriate Alpha Vantage plan. Until a valid independent source is configured, these US prices remain excluded from backtests.

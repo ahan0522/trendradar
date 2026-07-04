@@ -19,6 +19,7 @@ export type PriceQuality = {
 type SanityRange = {
   min: number;
   max: number;
+  legacyMax?: number;
   note: string;
   revision?: string;
   verifiedOn?: string;
@@ -27,12 +28,34 @@ type SanityRange = {
 };
 
 export const PRICE_SANITY_RANGE_VERSION = "price-sanity-v3-2026-07-02";
+export const US_PRICE_SANITY_RANGE_VERSION = "us-price-sanity-v1-2026-07-04";
 
 const sanityRanges: Record<string, SanityRange> = {
-  "MU::US": { min: 20, max: 300, note: "Micron normal USD quote range" },
+  "MU::US": {
+    min: 20,
+    max: 1200,
+    legacyMax: 300,
+    note: "Micron USD quote range; values above the legacy ceiling require independent daily-close verification",
+    revision: US_PRICE_SANITY_RANGE_VERSION,
+    requiredVerificationProviders: ["yahoo-chart", "alpha-vantage-daily"],
+  },
   "NVDA::US": { min: 20, max: 500, note: "NVIDIA split-adjusted USD quote range" },
-  "AMD::US": { min: 20, max: 400, note: "AMD normal USD quote range" },
-  "GEV::US": { min: 50, max: 1000, note: "GE Vernova normal USD quote range" },
+  "AMD::US": {
+    min: 20,
+    max: 650,
+    legacyMax: 400,
+    note: "AMD USD quote range; values above the legacy ceiling require independent daily-close verification",
+    revision: US_PRICE_SANITY_RANGE_VERSION,
+    requiredVerificationProviders: ["yahoo-chart", "alpha-vantage-daily"],
+  },
+  "GEV::US": {
+    min: 50,
+    max: 1300,
+    legacyMax: 1000,
+    note: "GE Vernova USD quote range; values above the legacy ceiling require independent daily-close verification",
+    revision: US_PRICE_SANITY_RANGE_VERSION,
+    requiredVerificationProviders: ["yahoo-chart", "alpha-vantage-daily"],
+  },
   "ETN::US": { min: 50, max: 800, note: "Eaton normal USD quote range" },
   "VRT::US": { min: 20, max: 300, note: "Vertiv normal USD quote range" },
   "ABBNY::US": { min: 20, max: 120, note: "ABB Level I ADR normal USD quote range" },
@@ -129,9 +152,13 @@ export function assessLatestPrice(
   const range = sanityRanges[key(symbol, market)];
   if (!range) return { status: "needs_review", reason: "此標的尚未建立價格合理區間" };
 
-  if (range.requiredVerificationProviders?.length) {
+  const requiredVerificationProviders = range.requiredVerificationProviders ?? [];
+  const requiresRevisedRangeVerification =
+    requiredVerificationProviders.length > 0 &&
+    (range.legacyMax === undefined || close > range.legacyMax);
+  if (requiresRevisedRangeVerification) {
     const verificationProvider = price.verificationProvider?.toLowerCase() ?? "";
-    const missingProviders = range.requiredVerificationProviders.filter(
+    const missingProviders = requiredVerificationProviders.filter(
       (provider) => !verificationProvider.includes(provider.toLowerCase()),
     );
     if (missingProviders.length > 0) {
