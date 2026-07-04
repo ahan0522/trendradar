@@ -3,6 +3,8 @@ export type ArticleTimeInput = {
   sourceId?: string | null;
   publishedAt?: string | null;
   createdAt?: string | null;
+  verificationStatus?: "verified" | "conflict" | "unverifiable" | null;
+  verifiedAvailableAt?: string | null;
 };
 
 function isValidTimestamp(value: string | null | undefined) {
@@ -16,6 +18,12 @@ export function isHistoricalBackfillArticle(article: Pick<ArticleTimeInput, "id"
 
 export function getResearchAvailableAt(article: ArticleTimeInput) {
   if (isHistoricalBackfillArticle(article)) {
+    if (
+      article.verificationStatus === "verified" &&
+      isValidTimestamp(article.verifiedAvailableAt)
+    ) {
+      return article.verifiedAvailableAt as string;
+    }
     return isValidTimestamp(article.createdAt) ? article.createdAt as string : null;
   }
   return isValidTimestamp(article.publishedAt) ? article.publishedAt as string : null;

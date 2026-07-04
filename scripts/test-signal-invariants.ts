@@ -49,6 +49,7 @@ import {
   getResearchAvailableAt,
   getResearchEffectivePublishedAt,
 } from "../lib/historical-news/article-time";
+import { verifyHistoricalArticleTime } from "../lib/historical-news/time-verification";
 import {
   buildLifecycleTransitions,
   signalContinuityKey,
@@ -477,6 +478,53 @@ function testHistoricalArticleAvailability() {
     sourceId: "historical-google-news",
     publishedAt: "2025-06-05T07:00:00.000Z",
   }), null);
+  assert.equal(getResearchAvailableAt({
+    ...historical,
+    verificationStatus: "verified",
+    verifiedAvailableAt: "2025-06-06T02:00:00.000Z",
+  }), "2025-06-06T02:00:00.000Z");
+  assert.equal(getResearchEffectivePublishedAt({
+    ...historical,
+    verificationStatus: "verified",
+    verifiedAvailableAt: "2025-06-06T02:00:00.000Z",
+  }, "2025-06-30"), "2025-06-06T02:00:00.000Z");
+  assert.equal(getResearchAvailableAt({
+    ...historical,
+    verificationStatus: "unverifiable",
+    verifiedAvailableAt: "2025-06-06T02:00:00.000Z",
+  }), historical.createdAt);
+}
+
+function testHistoricalArticleTimeVerification() {
+  const conflict = verifyHistoricalArticleTime({
+    articleId: "historical-backfill-conflict",
+    title: "市場回顧｜豐雲學堂2026 年 06 月",
+    claimedPublishedAt: "2025-06-05T07:00:00.000Z",
+    createdAt: "2026-06-28T07:57:44.000Z",
+  });
+  assert.equal(conflict.status, "conflict");
+  assert.equal(conflict.method, "title-edition-conflict");
+
+  const unverified = verifyHistoricalArticleTime({
+    articleId: "historical-backfill-unverified",
+    title: "AI server demand expands",
+    claimedPublishedAt: "2025-06-05T07:00:00.000Z",
+    createdAt: "2026-06-28T07:57:44.000Z",
+    originalPagePublishedAt: "2025-06-05T08:00:00.000Z",
+  });
+  assert.equal(unverified.status, "unverifiable");
+
+  const verified = verifyHistoricalArticleTime({
+    articleId: "historical-backfill-verified",
+    title: "AI server demand expands",
+    claimedPublishedAt: "2025-06-05T07:00:00.000Z",
+    createdAt: "2026-06-28T07:57:44.000Z",
+    originalPagePublishedAt: "2025-06-05T08:00:00.000Z",
+    archiveFirstSeenAt: "2025-06-06T02:00:00.000Z",
+    originalUrl: "https://example.com/article",
+  });
+  assert.equal(verified.status, "verified");
+  assert.equal(verified.availableAt, "2025-06-06T02:00:00.000Z");
 }
 
 function testCsvProvenance() {
@@ -1207,6 +1255,7 @@ function main() {
   testVerifiedPriceGate();
   testIndependentUsPriceVerification();
   testHistoricalArticleAvailability();
+  testHistoricalArticleTimeVerification();
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();

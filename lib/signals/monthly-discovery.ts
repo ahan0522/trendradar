@@ -23,6 +23,7 @@ import {
   taipeiMonthStartIso,
 } from "@/lib/time/taipei";
 import { getResearchEffectivePublishedAt } from "@/lib/historical-news/article-time";
+import { ARTICLE_TIME_VERIFIER_VERSION } from "@/lib/historical-news/time-verification";
 
 type ArticleRow = {
   id: string;
@@ -34,6 +35,12 @@ type ArticleRow = {
   category: string | null;
   published_at: string | null;
   created_at: string | null;
+};
+
+type ArticleTimeVerificationRow = {
+  article_id: string;
+  verification_status: "verified" | "conflict" | "unverifiable";
+  available_at: string | null;
 };
 
 export const MONTHLY_DISCOVERY_MODEL_VERSION = "monthly-full-market-v3";
@@ -309,7 +316,11 @@ function buildLensCandidates(
   });
 }
 
-function toDiscoveryArticle(row: ArticleRow, asOfDate: string) {
+function toDiscoveryArticle(
+  row: ArticleRow,
+  asOfDate: string,
+  verification?: ArticleTimeVerificationRow,
+) {
   return {
     id: row.id,
     title: row.title,
@@ -322,8 +333,35 @@ function toDiscoveryArticle(row: ArticleRow, asOfDate: string) {
       sourceId: row.source_id,
       publishedAt: row.published_at,
       createdAt: row.created_at,
+      verificationStatus: verification?.verification_status,
+      verifiedAvailableAt: verification?.available_at,
     }, asOfDate),
   };
+}
+
+async function getArticleTimeVerifications(
+  articleIds: string[],
+): Promise<Map<string, ArticleTimeVerificationRow>> {
+  const supabase = getSupabaseAdmin();
+  const verifications = new Map<string, ArticleTimeVerificationRow>();
+
+  for (let offset = 0; offset < articleIds.length; offset += 500) {
+    const ids = articleIds.slice(offset, offset + 500);
+    if (ids.length === 0) continue;
+    const { data, error } = await supabase
+      .from("article_time_verifications")
+      .select("article_id, verification_status, available_at")
+      .eq("verifier_version", ARTICLE_TIME_VERIFIER_VERSION)
+      .in("article_id", ids)
+      .returns<ArticleTimeVerificationRow[]>();
+    if (error) {
+      if (error.code === "42P01" || error.code === "PGRST205") return new Map();
+      throw error;
+    }
+    for (const row of data ?? []) verifications.set(row.article_id, row);
+  }
+
+  return verifications;
 }
 
 export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { limit?: number }) {
@@ -350,9 +388,16 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
     if ((data ?? []).length < pageSize) break;
   }
 
+  const timeVerifications = await getArticleTimeVerifications(
+    rows
+      .filter((article) => article.id.startsWith("historical-backfill-"))
+      .map((article) => article.id),
+  );
   const historicalArticles = rows
     .filter((article) => !marketNoise.test(`${article.title} ${article.description ?? ""}`))
-    .map((article) => toDiscoveryArticle(article, asOfDate))
+    .map((article) =>
+      toDiscoveryArticle(article, asOfDate, timeVerifications.get(article.id))
+    )
     .filter((article) => article.publishedAt);
   const currentArticles = historicalArticles.filter(
     (article) =>

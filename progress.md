@@ -1,6 +1,6 @@
 # TrendRadar Development Progress
 
-Last updated: 2026-06-30
+Last updated: 2026-07-05
 Production: https://trendradar-prod.vercel.app
 Latest verified code commit: pending current changes
 Latest documentation commit: pending current changes
@@ -708,3 +708,17 @@ The next milestone is complete when:
 - The monthly API now reads only the current strict `monthly-full-market-v3` ledger by default. Older v1/v2 rows and their backtests remain preserved for audit and model comparison, but are not presented as valid current research.
 - Verification previews for 2025-01, 2025-06, and 2026-04 correctly returned zero eligible Signals. The 2026-06 preview retained five candidates based on data actually available by that date.
 - Historical Time Machine coverage must now be rebuilt from sources with independently verifiable publication or archive timestamps. Lowering the gate to restore old charts is not acceptable.
+
+## 19. Historical Article Time Verification Framework (2026-07-05)
+
+- An append-only `article_time_verifications` migration records the claimed publication time, independently verified publication time, earliest proven availability time, verification method, evidence, verifier version, and check time.
+- The first deterministic verifier recognizes explicit edition-date conflicts and accepts historical availability only when supported by original-page metadata plus archive evidence, or another independent archive existence proof.
+- A dry-run audited all 8,858 historical-backfill articles:
+  - 47 explicit timestamp conflicts
+  - 8,811 unverifiable rows
+  - 0 independently verified rows
+- The 8,811 unverifiable rows are not assumed false, but they cannot participate in a historical Time Machine replay until independent evidence proves when they were available.
+- Monthly Discovery now reads verified availability timestamps when present. Conflict, unverifiable, missing-table, and unreviewed records retain the conservative database `created_at` fallback.
+- Unit, research, lint, and production build checks pass with this gate.
+- Deployment blocker: the migration has not yet been applied to production because this execution environment has neither a Supabase CLI access token nor an attached authenticated Supabase browser session. No database password was written into source code or shell history.
+- After the migration is applied, run `npm run articles:audit-time -- --limit=10000 --write`. Expected initial result: 8,858 immutable verification rows, including 47 conflicts and no promoted 2025 Time Machine evidence.
