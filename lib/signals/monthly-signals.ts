@@ -10,6 +10,7 @@ import {
 import type { MarketCode } from "@/types/signals";
 import {
   getMonthlyDiscoverySignals,
+  MONTHLY_DISCOVERY_MODEL_VERSION,
   RESEARCH_CONFIDENCE_MODEL_VERSION,
 } from "@/lib/signals/monthly-discovery";
 import { assessEvidenceCoverage } from "@/lib/signals/evidence-source-registry";
@@ -17,15 +18,18 @@ import {
   taipeiMonthStartIso,
   taipeiNextMonthStartIso,
 } from "@/lib/time/taipei";
+import { getResearchEffectivePublishedAt } from "@/lib/historical-news/article-time";
 
 type ArticleRow = {
   id: string;
+  source_id: string | null;
   title: string;
   link: string;
   description: string | null;
   source_name: string;
   category: string | null;
   published_at: string | null;
+  created_at: string | null;
 };
 
 type PriceRow = {
@@ -457,9 +461,9 @@ function requiredEvidenceCoverageScore(
 export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
   const supabase = getSupabaseAdmin();
   const start = monthStart(asOfDate);
-  const { data: articles, error } = await supabase
+  const { data: articleRows, error } = await supabase
     .from("articles")
-    .select("id, title, link, description, source_name, category, published_at")
+    .select("id, source_id, title, link, description, source_name, category, published_at, created_at")
     .gte("published_at", taipeiMonthStartIso(start))
     .lt("published_at", taipeiNextMonthStartIso(start))
     .lte("published_at", `${asOfDate}T23:59:59+08:00`)
@@ -469,9 +473,21 @@ export async function getCurrentMonthlySignals(asOfDate = currentTaipeiDate()) {
 
   if (error) throw error;
 
+  const articles = (articleRows ?? [])
+    .map((article) => ({
+      ...article,
+      published_at: getResearchEffectivePublishedAt({
+        id: article.id,
+        sourceId: article.source_id,
+        publishedAt: article.published_at,
+        createdAt: article.created_at,
+      }, asOfDate),
+    }))
+    .filter((article) => article.published_at);
+
   const candidates = monthlyRules
     .map((rule) => {
-      const matchedArticles = (articles ?? []).filter((article) => matchesRule(article, rule));
+      const matchedArticles = articles.filter((article) => matchesRule(article, rule));
       const sourceNames = new Set(matchedArticles.map((article) => article.source_name));
       return {
         rule,
@@ -737,6 +753,7 @@ export async function getMonthlySignalReport(options?: {
     .from("signal_events")
     .select("id, signal_date, as_of_date, topic, signal_type, signal_strength, confidence_score, hypothesis, evidence, status, model_version")
     .like("id", "monthly-%")
+    .eq("model_version", MONTHLY_DISCOVERY_MODEL_VERSION)
     .gte("signal_date", `${startMonth}-01`)
     .lte("signal_date", reportEndDate)
     .order("signal_date", { ascending: true })

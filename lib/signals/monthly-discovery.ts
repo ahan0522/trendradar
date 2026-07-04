@@ -22,15 +22,18 @@ import {
   taipeiDateForTimestamp,
   taipeiMonthStartIso,
 } from "@/lib/time/taipei";
+import { getResearchEffectivePublishedAt } from "@/lib/historical-news/article-time";
 
 type ArticleRow = {
   id: string;
+  source_id: string | null;
   title: string;
   link: string;
   description: string | null;
   source_name: string;
   category: string | null;
   published_at: string | null;
+  created_at: string | null;
 };
 
 export const MONTHLY_DISCOVERY_MODEL_VERSION = "monthly-full-market-v3";
@@ -306,7 +309,7 @@ function buildLensCandidates(
   });
 }
 
-function toDiscoveryArticle(row: ArticleRow) {
+function toDiscoveryArticle(row: ArticleRow, asOfDate: string) {
   return {
     id: row.id,
     title: row.title,
@@ -314,7 +317,12 @@ function toDiscoveryArticle(row: ArticleRow) {
     sourceName: row.source_name,
     category: row.category ?? "新聞",
     link: row.link,
-    publishedAt: row.published_at,
+    publishedAt: getResearchEffectivePublishedAt({
+      id: row.id,
+      sourceId: row.source_id,
+      publishedAt: row.published_at,
+      createdAt: row.created_at,
+    }, asOfDate),
   };
 }
 
@@ -331,7 +339,7 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("articles")
-      .select("id, title, link, description, source_name, category, published_at")
+      .select("id, source_id, title, link, description, source_name, category, published_at, created_at")
       .gte("published_at", taipeiMonthStartIso(historyStart))
       .lte("published_at", `${asOfDate}T23:59:59+08:00`)
       .order("published_at", { ascending: false })
@@ -344,7 +352,8 @@ export async function getMonthlyDiscoverySignals(asOfDate: string, options?: { l
 
   const historicalArticles = rows
     .filter((article) => !marketNoise.test(`${article.title} ${article.description ?? ""}`))
-    .map(toDiscoveryArticle);
+    .map((article) => toDiscoveryArticle(article, asOfDate))
+    .filter((article) => article.publishedAt);
   const currentArticles = historicalArticles.filter(
     (article) =>
       article.publishedAt &&

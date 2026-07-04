@@ -698,3 +698,13 @@ The next milestone is complete when:
 - `npm run topics:archive-legacy` is dry-run by default and matches only the narrow legacy signature. `-- --write` changes matching rows to inactive without deleting them.
 - The production cleanup archived all 125 matching rows. Verification found seven active grouped topics, zero active null-slug topics, and 125 preserved inactive legacy rows.
 - Historical data remains available for audit. No topic, article, metric, or relationship row was deleted.
+
+## 18. Historical Article Availability Gate (2026-07-04)
+
+- A strict replay audit found that all 5,943 articles dated in 2025 were Google News historical-backfill rows first inserted on 2026-06-28. None can prove that TrendRadar possessed the data during 2025.
+- Several rows exposed concrete date contamination, including titles explicitly labelled June 2026 while carrying June 2025 `published_at` values.
+- Historical-backfill articles now use their database `created_at` as the earliest research-availability timestamp. Ordinary live RSS articles continue to use `published_at`.
+- A Signal replay excludes any article whose research-availability timestamp is later than `as_of_date`. Google News archive metadata can no longer manufacture historical foresight.
+- The monthly API now reads only the current strict `monthly-full-market-v3` ledger by default. Older v1/v2 rows and their backtests remain preserved for audit and model comparison, but are not presented as valid current research.
+- Verification previews for 2025-01, 2025-06, and 2026-04 correctly returned zero eligible Signals. The 2026-06 preview retained five candidates based on data actually available by that date.
+- Historical Time Machine coverage must now be rebuilt from sources with independently verifiable publication or archive timestamps. Lowering the gate to restore old charts is not acceptable.

@@ -46,6 +46,10 @@ import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
 import { matchCorporateActionAdjustment } from "../lib/signals/corporate-actions";
 import { isNonInvestableCandidateContent } from "../lib/signals/monthly-discovery";
 import {
+  getResearchAvailableAt,
+  getResearchEffectivePublishedAt,
+} from "../lib/historical-news/article-time";
+import {
   buildLifecycleTransitions,
   signalContinuityKey,
 } from "../lib/signals/signal-continuity";
@@ -444,6 +448,35 @@ function testIndependentUsPriceVerification() {
   assert.equal(verified.verificationProvider, "yahoo-chart+alpha-vantage-daily");
   assert.equal(crossVerifyUsPrice({ ...yahooPrice, close: 900 }, independent), null);
   assert.equal(crossVerifyUsPrice({ ...yahooPrice, priceDate: "2026-05-28" }, independent), null);
+}
+
+function testHistoricalArticleAvailability() {
+  const historical = {
+    id: "historical-backfill-example",
+    sourceId: "historical-google-news",
+    publishedAt: "2025-06-05T07:00:00.000Z",
+    createdAt: "2026-06-28T07:57:44.000Z",
+  };
+  assert.equal(getResearchAvailableAt(historical), historical.createdAt);
+  assert.equal(getResearchEffectivePublishedAt(historical, "2025-06-30"), null);
+  assert.equal(
+    getResearchEffectivePublishedAt(historical, "2026-06-30"),
+    historical.createdAt,
+  );
+  assert.equal(
+    getResearchEffectivePublishedAt({
+      id: "rss-example",
+      sourceId: "rss",
+      publishedAt: "2025-06-05T07:00:00.000Z",
+      createdAt: "2026-06-28T07:57:44.000Z",
+    }, "2025-06-30"),
+    "2025-06-05T07:00:00.000Z",
+  );
+  assert.equal(getResearchAvailableAt({
+    id: "historical-backfill-missing-created-at",
+    sourceId: "historical-google-news",
+    publishedAt: "2025-06-05T07:00:00.000Z",
+  }), null);
 }
 
 function testCsvProvenance() {
@@ -1173,6 +1206,7 @@ function main() {
   testTopicKeywordBoundaries();
   testVerifiedPriceGate();
   testIndependentUsPriceVerification();
+  testHistoricalArticleAvailability();
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();
