@@ -318,6 +318,8 @@ export async function detectSignalsFromTopics(asOfDate: string) {
       supabase
         .from("topics")
         .select("id, title, category, region, summary, trend_score, first_seen_at")
+        .eq("status", "active")
+        .not("slug", "is", null)
         .lte("first_seen_at", asOfIso)
         .returns<TopicRow[]>(),
       supabase

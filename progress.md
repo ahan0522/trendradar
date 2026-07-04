@@ -689,3 +689,12 @@ The next milestone is complete when:
 - `npm run prices:revalidate-us` is dry-run by default. `-- --write` is required to persist rows that pass every gate.
 - The production environment does not currently provide `ALPHA_VANTAGE_API_KEY`. The dry-run checked all 27 rows, verified zero, wrote zero, and retained all rows as `needs_review`.
 - Historical `outputsize=full` access may require an appropriate Alpha Vantage plan. Until a valid independent source is configured, these US prices remain excluded from backtests.
+
+## 17. Legacy RSS Topic Isolation (2026-07-04)
+
+- A production audit found 125 legacy `rss-topic-*` rows with `slug = null`, no grouped-sync timestamp, and `status = active`. These rows represented individual RSS headlines rather than durable grouped topics.
+- The legacy `syncRssToDatabase` path now writes articles only. Topic creation remains exclusively owned by `/api/topics/sync-grouped`.
+- General topic reads and formal Signal detection now require an active topic with a non-null slug, preventing archived or legacy headline rows from entering research inputs.
+- `npm run topics:archive-legacy` is dry-run by default and matches only the narrow legacy signature. `-- --write` changes matching rows to inactive without deleting them.
+- The production cleanup archived all 125 matching rows. Verification found seven active grouped topics, zero active null-slug topics, and 125 preserved inactive legacy rows.
+- Historical data remains available for audit. No topic, article, metric, or relationship row was deleted.

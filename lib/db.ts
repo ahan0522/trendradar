@@ -1,6 +1,5 @@
 import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase-server";
 import { getNewsItems } from "@/lib/rss";
-import { getTopicsFromNews } from "@/lib/topic-clustering";
 import type { NewsItem } from "@/types/news";
 import type { TrendTopic } from "@/types/trend";
 
@@ -27,24 +26,6 @@ function toArticleRow(item: NewsItem) {
     region: item.region,
     published_at: item.publishedAt,
     description: item.description,
-    updated_at: nowIso(),
-  };
-}
-
-function toTopicRow(topic: TrendTopic) {
-  return {
-    id: topic.id,
-    title: topic.title,
-    category: topic.category,
-    region: topic.region,
-    trend_score: topic.score,
-    velocity: topic.velocity,
-    sentiment: topic.sentiment,
-    summary: topic.summary,
-    bullets: topic.bullets,
-    sources: topic.sources,
-    metrics: topic.metrics,
-    last_seen_at: topic.updatedAt,
     updated_at: nowIso(),
   };
 }
@@ -223,7 +204,6 @@ export async function syncRssToDatabase(options?: { refresh?: boolean; limit?: n
 
   const supabase = getSupabaseAdmin();
   const articles = await getNewsItems({ limit: options?.limit ?? 150, refresh: options?.refresh ?? true });
-  const topics = await getTopicsFromNews({ limit: 60, refresh: false });
 
   if (articles.length) {
     const { error } = await supabase.from("articles").upsert(articles.map(toArticleRow), {
@@ -232,31 +212,11 @@ export async function syncRssToDatabase(options?: { refresh?: boolean; limit?: n
     if (error) throw new Error(`Sync articles failed: ${error.message}`);
   }
 
-  if (topics.length) {
-    const { error } = await supabase.from("topics").upsert(topics.map(toTopicRow), {
-      onConflict: "id",
-    });
-    if (error) throw new Error(`Sync topics failed: ${error.message}`);
-
-    const metricRows = topics.map((topic) => ({
-      topic_id: topic.id,
-      search_score: topic.metrics.searchScore,
-      news_score: topic.metrics.newsScore,
-      social_score: topic.metrics.socialScore,
-      engagement_score: topic.metrics.engagementScore,
-      velocity_score: topic.metrics.velocityScore,
-      diversity_score: topic.metrics.diversityScore,
-      total_score: topic.score,
-    }));
-
-    const { error: metricError } = await supabase.from("trend_metrics").insert(metricRows);
-    if (metricError) throw new Error(`Insert metrics failed: ${metricError.message}`);
-  }
-
   return {
     syncedAt: nowIso(),
     articleCount: articles.length,
-    topicCount: topics.length,
+    topicCount: 0,
+    topicWriteMode: "disabled_use_sync_grouped",
   };
 }
 
@@ -272,6 +232,8 @@ export async function getTopicsFromDatabase(options?: {
   let query = supabase
     .from("topics")
     .select("*")
+    .eq("status", "active")
+    .not("slug", "is", null)
     .order("trend_score", { ascending: false })
     .order("last_seen_at", { ascending: false })
     .limit(options?.limit ?? 30);

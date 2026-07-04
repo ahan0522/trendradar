@@ -13,6 +13,7 @@
     "prices:signals": "tsx scripts/fetch-signal-prices.ts",
     "prices:revalidate-tw": "tsx scripts/revalidate-tw-price-quality.ts",
     "prices:revalidate-us": "tsx scripts/revalidate-us-price-quality.ts",
+    "topics:archive-legacy": "tsx scripts/archive-legacy-rss-topics.ts",
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
     "prices:replay": "tsx scripts/backfill-model-replay-prices.ts"
   },
