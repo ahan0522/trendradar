@@ -47,31 +47,42 @@ async function main() {
   }, {});
 
   let written = 0;
+  let writeBatches = 0;
   if (write && results.length > 0) {
-    const { data: upserted, error: upsertError } = await supabase
-      .from("article_time_verifications")
-      .upsert(results.map((result) => ({
-        article_id: result.articleId,
-        claimed_published_at: result.claimedPublishedAt,
-        verified_published_at: result.verifiedPublishedAt,
-        available_at: result.availableAt,
-        verification_status: result.status,
-        verification_method: result.method,
-        evidence: result.evidence,
-        verifier_version: result.verifierVersion,
-      })), {
-        onConflict: "article_id,verifier_version",
-        ignoreDuplicates: true,
-      })
-      .select("id");
-    if (upsertError) throw upsertError;
-    written = upserted?.length ?? 0;
+    const writeBatchSize = 500;
+    for (let offset = 0; offset < results.length; offset += writeBatchSize) {
+      const batch = results.slice(offset, offset + writeBatchSize);
+      const { data: upserted, error: upsertError } = await supabase
+        .from("article_time_verifications")
+        .upsert(batch.map((result) => ({
+          article_id: result.articleId,
+          claimed_published_at: result.claimedPublishedAt,
+          verified_published_at: result.verifiedPublishedAt,
+          available_at: result.availableAt,
+          verification_status: result.status,
+          verification_method: result.method,
+          evidence: result.evidence,
+          verifier_version: result.verifierVersion,
+        })), {
+          onConflict: "article_id,verifier_version",
+          ignoreDuplicates: true,
+        })
+        .select("id");
+      if (upsertError) {
+        throw new Error(
+          `Verification write failed for rows ${offset + 1}-${offset + batch.length}: ${upsertError.message}`,
+        );
+      }
+      written += upserted?.length ?? 0;
+      writeBatches += 1;
+    }
   }
 
   console.log(JSON.stringify({
     mode: write ? "write" : "dry-run",
     checked: results.length,
     written,
+    writeBatches,
     counts,
     conflicts: results.filter((result) => result.status === "conflict").slice(0, 10),
   }, null, 2));

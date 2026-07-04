@@ -719,6 +719,7 @@ The next milestone is complete when:
   - 0 independently verified rows
 - The 8,811 unverifiable rows are not assumed false, but they cannot participate in a historical Time Machine replay until independent evidence proves when they were available.
 - Monthly Discovery now reads verified availability timestamps when present. Conflict, unverifiable, missing-table, and unreviewed records retain the conservative database `created_at` fallback.
+- The write audit persists at most 500 rows per request, reports completed batch counts, and identifies the exact failed row range. A rerun remains idempotent through the article/version uniqueness key.
 - Unit, research, lint, and production build checks pass with this gate.
 - Deployment blocker: the migration has not yet been applied to production because this execution environment has neither a Supabase CLI access token nor an attached authenticated Supabase browser session. No database password was written into source code or shell history.
 - After the migration is applied, run `npm run articles:audit-time -- --limit=10000 --write`. Expected initial result: 8,858 immutable verification rows, including 47 conflicts and no promoted 2025 Time Machine evidence.
