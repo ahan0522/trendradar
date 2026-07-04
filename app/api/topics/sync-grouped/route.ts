@@ -789,6 +789,18 @@ async function handleSyncGrouped(request: Request) {
     const syncedRuleTitles = new Set(
       syncedTopics.map((topic) => normalizeText(topic.title))
     );
+    const syncedTopicSlugs = new Set(syncedTopics.map((topic) => topic.slug));
+    const syncedRuleFamilies = new Set(
+      syncedTopics
+        .filter((topic) => topic.discoveryMode === "rule_based")
+        .map((topic) =>
+          getCandidateFamily({
+            title: topic.title,
+            slug: topic.slug,
+            category: topic.category,
+          })
+        )
+    );
     const candidateCategoryCounts = new Map<string, number>();
     const candidateFamilyCounts = new Map<string, number>();
     let skippedCandidateTopicsForDiversity = 0;
@@ -805,7 +817,10 @@ async function handleSyncGrouped(request: Request) {
     }> = [];
 
     for (const candidate of candidateTopics) {
-      if (syncedRuleTitles.has(normalizeText(candidate.title))) {
+      if (
+        syncedTopicSlugs.has(candidate.slug) ||
+        syncedRuleTitles.has(normalizeText(candidate.title))
+      ) {
         continue;
       }
 
@@ -850,15 +865,17 @@ async function handleSyncGrouped(request: Request) {
         continue;
       }
 
-      const isAlreadyCoveredByRules = matchedArticles.every(
+      const ruleCoveredArticleCount = matchedArticles.filter(
         (article) => article.link && ruleCoveredArticleLinks.has(article.link)
-      );
+      ).length;
+      const ruleCoverageRatio =
+        matchedArticles.length > 0
+          ? ruleCoveredArticleCount / matchedArticles.length
+          : 0;
+      const isAlreadyCoveredByRules =
+        syncedRuleFamilies.has(candidateFamily) && ruleCoverageRatio >= 0.6;
 
-      if (
-        isAlreadyCoveredByRules &&
-        normalizeText(candidate.category) === "ai" &&
-        candidate.qualityScore < 88
-      ) {
+      if (isAlreadyCoveredByRules) {
         skippedCandidateTopicsCoveredByRules += 1;
         continue;
       }
@@ -1012,6 +1029,7 @@ async function handleSyncGrouped(request: Request) {
         heatScore: candidate.heatScore,
         linkedArticleCount: topicArticleRows.length,
       });
+      syncedTopicSlugs.add(candidate.slug);
       candidateCategoryCounts.set(candidateCategory, candidateCategoryCount + 1);
       candidateFamilyCounts.set(candidateFamily, candidateFamilyCount + 1);
     }
