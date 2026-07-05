@@ -14,6 +14,7 @@
     "prices:revalidate-tw": "tsx scripts/revalidate-tw-price-quality.ts",
     "prices:revalidate-us": "tsx scripts/revalidate-us-price-quality.ts",
     "topics:archive-legacy": "tsx scripts/archive-legacy-rss-topics.ts",
+    "signals:rebuild-beneficiaries": "tsx scripts/rebuild-beneficiary-watchlists.ts",
     "articles:audit-time": "tsx scripts/audit-historical-article-times.ts",
     "articles:verify-source": "tsx scripts/verify-historical-article-source.ts",
     "articles:verify-manifest": "tsx scripts/verify-historical-source-manifest.ts",
