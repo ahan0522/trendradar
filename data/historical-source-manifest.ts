@@ -69,4 +69,11 @@ export const historicalSourceManifest: HistoricalSourceManifestEntry[] = [
     resolutionMethod: "exact-title-source-search",
     resolvedAt: "2026-07-05",
   },
+  {
+    articleId: "historical-backfill-b091778179797c193d22c5b03e8d5db17a47e248",
+    originalUrl:
+      "https://www.ey.gov.tw/Page/5A8A0CB5B41DA11E/c3f7a188-e4c6-4550-85a7-664f2613287d",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
 ];
