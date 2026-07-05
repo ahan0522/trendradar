@@ -1,4 +1,5 @@
 import { loadEnvConfig } from "@next/env";
+import { historicalSourceManifest } from "@/data/historical-source-manifest";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import {
   rankHistoricalVerificationCandidates,
@@ -52,8 +53,13 @@ async function main() {
     if ((data ?? []).length < pageSize) break;
   }
 
-  const verifiedIds = new Set<string>();
   const ids = rows.map((row) => row.id);
+  const rowIds = new Set(ids);
+  const verifiedIds = new Set(
+    historicalSourceManifest
+      .map((entry) => entry.articleId)
+      .filter((articleId) => rowIds.has(articleId)),
+  );
   for (let offset = 0; offset < ids.length; offset += 100) {
     const batch = ids.slice(offset, offset + 100);
     const { data, error } = await supabase
