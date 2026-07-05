@@ -15,6 +15,18 @@ type HistoricalArticleRow = {
   created_at: string | null;
 };
 
+function describeExternalError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    return ["code", "message", "details", "hint"]
+      .map((key) => record[key] ? `${key}=${String(record[key])}` : null)
+      .filter(Boolean)
+      .join("; ") || JSON.stringify(error);
+  }
+  return String(error);
+}
+
 async function fetchText(url: string) {
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     const response = await fetch(url, {
@@ -114,7 +126,9 @@ export async function verifyHistoricalArticleSource(input: {
         ignoreDuplicates: true,
       })
       .select("id");
-    if (error) throw error;
+    if (error) {
+      throw new Error(`article_time_verifications write failed: ${describeExternalError(error)}`);
+    }
     written = data?.length ?? 0;
   }
 

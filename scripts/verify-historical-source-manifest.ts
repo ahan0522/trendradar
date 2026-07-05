@@ -4,6 +4,18 @@ import { verifyHistoricalArticleSource } from "@/lib/historical-news/source-veri
 
 loadEnvConfig(process.cwd());
 
+function describeError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return String(error);
+    }
+  }
+  return String(error);
+}
+
 async function main() {
   const write = process.argv.includes("--write");
   const limitArg = process.argv.find((value) => value.startsWith("--limit="));
@@ -33,7 +45,7 @@ async function main() {
         status: "failed",
         resolutionMethod: entry.resolutionMethod,
         resolvedAt: entry.resolvedAt,
-        error: error instanceof Error ? error.message : "Unknown verification error",
+        error: describeError(error),
       });
     }
   }
