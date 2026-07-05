@@ -62,4 +62,11 @@ export const historicalSourceManifest: HistoricalSourceManifestEntry[] = [
     resolutionMethod: "exact-title-source-search",
     resolvedAt: "2026-07-05",
   },
+  {
+    articleId: "historical-backfill-d19fd639e0af2a50893d8e71d6e80df0335518bc",
+    originalUrl:
+      "https://www.cna.com.tw/topic/newsworld/205/202510310004.aspx",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
 ];
