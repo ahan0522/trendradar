@@ -82,4 +82,10 @@ export const historicalSourceManifest: HistoricalSourceManifestEntry[] = [
     resolutionMethod: "exact-title-source-search",
     resolvedAt: "2026-07-05",
   },
+  {
+    articleId: "historical-backfill-5d7f662b3617c0a469a03651c785d28fc6a2e8a6",
+    originalUrl: "https://www.ithome.com.tw/news/174217",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
 ];
