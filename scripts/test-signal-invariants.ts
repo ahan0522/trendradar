@@ -45,6 +45,7 @@ import { normalizeSignalFamily } from "../lib/signals/model-replay";
 import { buildReplayResearchReport } from "../lib/signals/replay-research-report";
 import { normalizeReplayPriceSkipReason } from "../lib/signals/model-replay-price-backfill";
 import { isReplayHorizonMature } from "../lib/signals/model-replay-backtest";
+import { buildStrictPerformanceStatistics } from "../lib/signals/strict-performance";
 import { matchCorporateActionAdjustment } from "../lib/signals/corporate-actions";
 import { isNonInvestableCandidateContent } from "../lib/signals/monthly-discovery";
 import {
@@ -833,6 +834,48 @@ function testMonthCoverageStatus() {
   }).code, "discovery_limited");
 }
 
+function testStrictPerformanceStatistics() {
+  const stats = buildStrictPerformanceStatistics({
+    asOfDate: "2026-07-31",
+    signals: [
+      { id: "strict", signal_date: "2026-06-30", topic: "Memory", model_version: "monthly-full-market-v3" },
+      { id: "legacy", signal_date: "2025-01-31", topic: "Legacy", model_version: "monthly-signal-v2" },
+    ],
+    watchlists: [
+      { signal_event_id: "strict", symbol: "MU", market: "US" },
+    ],
+    outcomes: [
+      {
+        signal_event_id: "strict",
+        horizon_days: 7,
+        basket_return: 8,
+        benchmark_return: 2,
+        excess_return: 6,
+        outcome: "success",
+        details: [{ symbol: "MU", market: "US" }],
+        evaluated_at: "2026-07-08T00:00:00.000Z",
+      },
+      {
+        signal_event_id: "strict",
+        horizon_days: 30,
+        basket_return: -2,
+        benchmark_return: 1,
+        excess_return: -3,
+        outcome: "failed",
+        details: [{ symbol: "OLD", market: "US" }],
+        evaluated_at: "2026-07-31T00:00:00.000Z",
+      },
+    ],
+  });
+  assert.equal(stats.strictSignalCount, 1);
+  assert.equal(stats.validOutcomeCount, 1);
+  assert.equal(stats.horizons.find((item) => item.horizonDays === 7)?.successRate, 1);
+  assert.equal(stats.horizons.find((item) => item.horizonDays === 30)?.validSampleCount, 0);
+  assert.equal(stats.failureReasons.staleBasket, 1);
+  assert.equal(stats.firstValidationLeadDays.averageDays, 7);
+  assert.equal(stats.marketConsensusLeadDays.available, false);
+}
+
 function testMonthlyCandidateGuard() {
   const monthCount = (startMonth: string, endMonth: string) => {
     const start = new Date(`${startMonth}-01T00:00:00Z`);
@@ -1456,6 +1499,7 @@ function main() {
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();
+  testStrictPerformanceStatistics();
   testMonthlyCandidateGuard();
   testArticleEventDedupe();
   testTaipeiMonthBoundary();
