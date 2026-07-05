@@ -482,7 +482,16 @@ function testHistoricalArticleAvailability() {
       publishedAt: "2025-06-05T07:00:00.000Z",
       createdAt: "2026-06-28T07:57:44.000Z",
     }, "2025-06-30"),
-    "2025-06-05T07:00:00.000Z",
+    null,
+  );
+  assert.equal(
+    getResearchEffectivePublishedAt({
+      id: "rss-example",
+      sourceId: "rss",
+      publishedAt: "2025-06-05T07:00:00.000Z",
+      createdAt: "2026-06-28T07:57:44.000Z",
+    }, "2026-06-30"),
+    "2026-06-28T07:57:44.000Z",
   );
   assert.equal(getResearchAvailableAt({
     id: "historical-backfill-missing-created-at",
@@ -764,6 +773,16 @@ function testMonthCoverageStatus() {
     stockPriceCount: 50,
     companyActionCount: 2,
   }).code, "multi_evidence_ready");
+  assert.equal(classifyMonthCoverage({
+    ...base,
+    articleCount: 486,
+    researchEventCount: 475,
+    effectiveSourceCount: 23,
+    stockPriceCount: 65,
+    commodityQuoteCount: 21,
+    companyActionCount: 13,
+    observedDayCount: 2,
+  }).code, "discovery_limited");
 }
 
 function testMonthlyCandidateGuard() {

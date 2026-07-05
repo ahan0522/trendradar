@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getArticleEventFingerprint } from "@/lib/article-dedupe";
 import { getCanonicalSourceName, isPlatformSourceName } from "@/lib/source-scoring";
+import { getResearchAvailableAt } from "@/lib/historical-news/article-time";
 import {
   taipeiDateForTimestamp,
   taipeiMonthForTimestamp,
@@ -17,7 +18,11 @@ export type CoverageMetric = {
 export type DataCoverageRow = {
   month: string;
   articles: CoverageMetric;
+  eligibleArticles: CoverageMetric;
   researchEvents: CoverageMetric;
+  observedDays: number;
+  firstKnownAt: string | null;
+  lastKnownAt: string | null;
   duplicateRate: number | null;
   effectiveSources: CoverageMetric;
   stockPrices: CoverageMetric;
@@ -42,11 +47,14 @@ export type MonthResearchStatus = {
 };
 
 type ArticleSourceRow = {
+  id: string;
+  source_id: string | null;
   source_name: string;
   title: string;
   description: string | null;
   link: string | null;
   published_at: string;
+  created_at: string | null;
 };
 
 function currentTaipeiMonth() {
@@ -117,12 +125,15 @@ async function getArticleCoverageByMonth(startMonth: string, endMonth: string) {
   const supabase = getSupabaseAdmin();
   const sourceSets = new Map<string, Set<string>>();
   const eventFingerprintsByMonth = new Map<string, Set<string>>();
+  const eligibleArticleCounts = new Map<string, number>();
+  const availabilityDatesByMonth = new Map<string, Set<string>>();
+  const availabilityRanges = new Map<string, { first: string; last: string }>();
   const pageSize = 1000;
 
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase
       .from("articles")
-      .select("source_name, title, description, link, published_at")
+      .select("id, source_id, source_name, title, description, link, published_at, created_at")
       .gte("published_at", asTimestampStart(startMonth))
       .lt("published_at", asTimestampEnd(endMonth))
       .order("published_at", { ascending: true })
@@ -132,6 +143,25 @@ async function getArticleCoverageByMonth(startMonth: string, endMonth: string) {
 
     for (const article of data ?? []) {
       const month = taipeiMonthForTimestamp(article.published_at);
+      const availableAt = getResearchAvailableAt({
+        id: article.id,
+        sourceId: article.source_id,
+        publishedAt: article.published_at,
+        createdAt: article.created_at,
+      });
+      if (!availableAt || availableAt >= asTimestampEnd(month)) continue;
+
+      eligibleArticleCounts.set(month, (eligibleArticleCounts.get(month) ?? 0) + 1);
+      const knownDate = taipeiDateForTimestamp(availableAt);
+      const availabilityDates = availabilityDatesByMonth.get(month) ?? new Set<string>();
+      availabilityDates.add(knownDate);
+      availabilityDatesByMonth.set(month, availabilityDates);
+      const range = availabilityRanges.get(month);
+      availabilityRanges.set(month, {
+        first: !range || availableAt < range.first ? availableAt : range.first,
+        last: !range || availableAt > range.last ? availableAt : range.last,
+      });
+
       const date = taipeiDateForTimestamp(article.published_at);
       const fingerprint = getArticleEventFingerprint({
         title: article.title,
@@ -162,7 +192,13 @@ async function getArticleCoverageByMonth(startMonth: string, endMonth: string) {
     [...eventFingerprintsByMonth].map(([month, fingerprints]) => [month, fingerprints.size]),
   );
 
-  return { sourceSets, researchEventCounts };
+  return {
+    sourceSets,
+    researchEventCounts,
+    eligibleArticleCounts,
+    availabilityDatesByMonth,
+    availabilityRanges,
+  };
 }
 
 export function classifyMonthCoverage(input: {
@@ -174,6 +210,7 @@ export function classifyMonthCoverage(input: {
   industryObservationCount: number;
   commodityQuoteCount: number;
   companyActionCount: number;
+  observedDayCount?: number;
 }): MonthResearchStatus {
   if (input.articleCount === 0) {
     return {
@@ -183,6 +220,13 @@ export function classifyMonthCoverage(input: {
     };
   }
   const researchEventCount = input.researchEventCount ?? input.articleCount;
+  if (input.observedDayCount !== undefined && input.observedDayCount < 14) {
+    return {
+      code: "discovery_limited",
+      label: "月份覆蓋不足",
+      reason: `本月目前只涵蓋 ${input.observedDayCount} 個實際收集日，不能代表完整月份。`,
+    };
+  }
   if (researchEventCount < 10 || input.effectiveSourceCount < 3) {
     return {
       code: "discovery_limited",
@@ -240,10 +284,16 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
         available: true,
         count: articleCoverage.sourceSets.get(month)?.size ?? 0,
       };
+      const eligibleArticles = {
+        available: true,
+        count: articleCoverage.eligibleArticleCounts.get(month) ?? 0,
+      };
       const researchEvents = {
         available: true,
         count: articleCoverage.researchEventCounts.get(month) ?? 0,
       };
+      const observedDays = articleCoverage.availabilityDatesByMonth.get(month)?.size ?? 0;
+      const availabilityRange = articleCoverage.availabilityRanges.get(month);
       const duplicateRate =
         (articles.count ?? 0) > 0
           ? Number(
@@ -251,7 +301,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
             )
           : null;
       const researchStatus = classifyMonthCoverage({
-        articleCount: articles.count ?? 0,
+        articleCount: eligibleArticles.count,
         researchEventCount: researchEvents.count,
         effectiveSourceCount: effectiveSources.count,
         stockPriceCount: stockPrices.count ?? 0,
@@ -259,12 +309,17 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
         industryObservationCount: industryObservations.count ?? 0,
         commodityQuoteCount: commodityQuotes.count ?? 0,
         companyActionCount: companyActions.count ?? 0,
+        observedDayCount: observedDays,
       });
 
       return {
         month,
         articles,
+        eligibleArticles,
         researchEvents,
+        observedDays,
+        firstKnownAt: availabilityRange?.first ?? null,
+        lastKnownAt: availabilityRange?.last ?? null,
         duplicateRate,
         effectiveSources,
         stockPrices,
@@ -280,6 +335,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
   const totals = rows.reduce(
     (acc, row) => {
       acc.articles += row.articles.count ?? 0;
+      acc.eligibleArticles += row.eligibleArticles.count ?? 0;
       acc.researchEvents += row.researchEvents.count ?? 0;
       acc.effectiveSources += row.effectiveSources.count ?? 0;
       acc.stockPrices += row.stockPrices.count ?? 0;
@@ -291,6 +347,7 @@ export async function getDataCoverage(options?: { startMonth?: string; endMonth?
     },
     {
       articles: 0,
+      eligibleArticles: 0,
       researchEvents: 0,
       effectiveSources: 0,
       stockPrices: 0,

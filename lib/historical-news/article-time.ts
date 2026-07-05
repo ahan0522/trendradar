@@ -26,6 +26,7 @@ export function getResearchAvailableAt(article: ArticleTimeInput) {
     }
     return isValidTimestamp(article.createdAt) ? article.createdAt as string : null;
   }
+  if (isValidTimestamp(article.createdAt)) return article.createdAt as string;
   return isValidTimestamp(article.publishedAt) ? article.publishedAt as string : null;
 }
 
