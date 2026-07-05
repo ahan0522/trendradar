@@ -730,3 +730,6 @@ The next milestone is complete when:
   - reject Google URLs and mismatched archive paths
   - produce a dry-run result unless `--write` is explicitly supplied
 - The first real dry-run verified iThome article `171039`: archived title similarity 1.0, archived publication date 2025-09-05, and archive first-seen time 2025-09-05 12:02:29 UTC. This proves the evidence path works, but the row remains unwritten until the migration is applied.
+- `npm run articles:verification-queue -- --month=YYYY-MM --limit=N` now creates a deterministic, read-only queue of unverified historical articles. It prioritizes official and trusted investable sources, emits exact-title/site search queries, and excludes ETF, stock-picking, price-target, institutional-flow, earnings-per-share, entertainment, and sports noise.
+- The September 2025 queue scanned 577 historical rows and produced ten high-priority candidates, led by Presidency, Ministry of Foreign Affairs, Executive Yuan, and Ministry of Economic Affairs primary-source records.
+- A second real dry-run verified Presidency article `39436`: the earliest archive snapshot retained the official ROC calendar publication date, the stored headline matched the archived headline as a full 0.95 prefix, and the archive first-seen time was 2025-09-09 13:29:17 UTC.

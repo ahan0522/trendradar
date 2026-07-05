@@ -106,10 +106,17 @@ export function parseHistoricalPageMetadata(html: string): HistoricalPageMetadat
   const visiblePublishedDate = html.match(
     /class=["'][^"']*\bcreated\b[^"']*["'][^>]*>\s*(\d{4}-\d{2}-\d{2})\s*<\/[^>]+>[\s\S]{0,160}?發表/i,
   )?.[1] ?? null;
+  const rocPageDateMatch = html.match(
+    /class=["'][^"']*\bpageDate\d*\b[^"']*["'][^>]*>[\s\S]{0,240}?class=["'][^"']*\bdate\b[^"']*["'][^>]*>\s*(\d{2,3})年(\d{2})月(\d{2})日/i,
+  );
+  const rocPageDate = rocPageDateMatch
+    ? `${Number(rocPageDateMatch[1]) + 1911}-${rocPageDateMatch[2]}-${rocPageDateMatch[3]}`
+    : null;
   const publishedAt = validIso(jsonLdDate) ??
     validIso(metaDate) ??
     validIso(timeDate) ??
-    validIso(visiblePublishedDate);
+    validIso(visiblePublishedDate) ??
+    validIso(rocPageDate);
   const publishedAtMethod = validIso(jsonLdDate)
     ? "jsonld-datePublished"
     : validIso(metaDate)
@@ -118,7 +125,9 @@ export function parseHistoricalPageMetadata(html: string): HistoricalPageMetadat
         ? "time-datetime"
         : validIso(visiblePublishedDate)
           ? "visible-created-date-with-published-label"
-          : null;
+          : validIso(rocPageDate)
+            ? "visible-roc-page-date"
+            : null;
 
   return {
     title: resolvedTitle?.trim() || null,
@@ -140,6 +149,9 @@ export function titleSimilarity(left: string, right: string) {
   const b = normalizeComparableTitle(right);
   if (!a || !b) return 0;
   if (a === b) return 1;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length > b.length ? a : b;
+  if (shorter.length >= 16 && longer.startsWith(shorter)) return 0.95;
   if (a.includes(b) || b.includes(a)) {
     return Number((Math.min(a.length, b.length) / Math.max(a.length, b.length)).toFixed(4));
   }

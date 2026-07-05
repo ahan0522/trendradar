@@ -57,6 +57,11 @@ import {
   titleSimilarity,
 } from "../lib/historical-news/source-evidence";
 import {
+  buildHistoricalVerificationSearchQuery,
+  historicalVerificationPriority,
+  rankHistoricalVerificationCandidates,
+} from "../lib/historical-news/verification-queue";
+import {
   buildLifecycleTransitions,
   signalContinuityKey,
 } from "../lib/signals/signal-continuity";
@@ -557,6 +562,12 @@ function testHistoricalSourceEvidence() {
     visibleDateMetadata.publishedAtMethod,
     "visible-created-date-with-published-label",
   );
+  const rocDateMetadata = parseHistoricalPageMetadata(`
+    <title>Official AI announcement</title>
+    <div class="pageDate1"><span class="date">114年09月09日</span></div>
+  `);
+  assert.equal(rocDateMetadata.publishedAt, "2025-09-09T00:00:00.000Z");
+  assert.equal(rocDateMetadata.publishedAtMethod, "visible-roc-page-date");
 
   const capture = parseWaybackFirstCapture([
     ["timestamp", "original", "statuscode"],
@@ -579,7 +590,48 @@ function testHistoricalSourceEvidence() {
     "AI server demand expands - Example News",
     "AI server demand expands",
   ) >= 0.72);
+  assert.equal(
+    titleSimilarity(
+      "副總統出席台灣人工智慧年會開幕期許AI帶領百工百業均衡發展-總統府新聞-新聞與活動",
+      "副總統出席台灣人工智慧年會開幕期許AI帶領百工百業均衡發展",
+    ),
+    0.95,
+  );
   assert.ok(titleSimilarity("Completely unrelated article", "AI server demand expands") < 0.72);
+}
+
+function testHistoricalVerificationQueue() {
+  const trusted = {
+    id: "historical-backfill-trusted",
+    title: "AI server demand expands and drives semiconductor supply",
+    sourceName: "iThome",
+    category: "AI",
+    publishedAt: "2025-09-05T07:00:00Z",
+    createdAt: "2026-06-28T07:00:00Z",
+  };
+  const noise = {
+    id: "historical-backfill-noise",
+    title: "外資買超與投信目標價推升今日漲停股",
+    sourceName: "Yahoo新聞",
+    category: "財經",
+    publishedAt: "2025-09-05T07:00:00Z",
+    createdAt: "2026-06-28T07:00:00Z",
+  };
+  assert.ok(historicalVerificationPriority(trusted) > 0);
+  assert.ok(historicalVerificationPriority(noise) < 0);
+  assert.equal(
+    buildHistoricalVerificationSearchQuery(trusted),
+    'site:ithome.com.tw "AI server demand expands and drives semiconductor supply"',
+  );
+  assert.equal(
+    buildHistoricalVerificationSearchQuery({
+      ...trusted,
+      sourceName: "president.gov.tw",
+    }),
+    'site:president.gov.tw "AI server demand expands and drives semiconductor supply"',
+  );
+  const ranked = rankHistoricalVerificationCandidates([noise, trusted], 10);
+  assert.deepEqual(ranked.map((item) => item.id), [trusted.id]);
 }
 
 function testCsvProvenance() {
@@ -1312,6 +1364,7 @@ function main() {
   testHistoricalArticleAvailability();
   testHistoricalArticleTimeVerification();
   testHistoricalSourceEvidence();
+  testHistoricalVerificationQueue();
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();
