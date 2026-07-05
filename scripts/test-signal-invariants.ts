@@ -250,15 +250,16 @@ function testBeneficiaryResearchMapping() {
   assert.equal(phison?.valueChainRole, "NAND 控制晶片與儲存方案");
   assert.notEqual(micron?.causalReason, phison?.causalReason);
   assert.ok(phison?.trackingMetrics?.includes("企業級 SSD／儲存方案營收"));
-  assert.equal(phison?.mappingVersion, "beneficiary-research-v2");
+  assert.equal(phison?.mappingVersion, "beneficiary-research-v3");
   assert.ok((phison?.mappingSources?.length ?? 0) > 0);
+  assert.ok(memory.every((item) => item.market !== "KR"));
   const power = mapBeneficiaries({
     topic: "AI 資料中心電力與電網",
     hypothesis: "AI 資料中心擴建推升電力、變壓器與電網設備需求。",
     signalEventId: "power-test",
   });
   assert.ok(power.length > 0);
-  assert.ok(power.every((item) => item.mappingVersion === "beneficiary-research-v2"));
+  assert.ok(power.every((item) => item.mappingVersion === "beneficiary-research-v3"));
   assert.ok(power.every((item) => (item.mappingSources?.length ?? 0) > 0));
   assert.equal(power.find((item) => item.symbol === "ETN")?.valueChainRole, "資料中心配電與電力管理設備");
   assert.equal(power.find((item) => item.symbol === "1519.TW")?.valueChainRole, "電力與配電變壓器、開關設備");
@@ -266,6 +267,28 @@ function testBeneficiaryResearchMapping() {
   assert.deepEqual(mapBeneficiaries({
     topic: "與企業營運沒有直接關係的熱門娛樂新聞",
   }), []);
+  assert.deepEqual(
+    mapBeneficiaries({ topic: "國防與軍工預算增加" }),
+    [],
+  );
+  const cooling = mapBeneficiaries({
+    topic: "AI 液冷與資料中心散熱",
+    signalEventId: "cooling-test",
+  });
+  assert.deepEqual(
+    cooling.map((item) => item.symbol),
+    ["VRT", "3017.TW", "3324.TW", "2308.TW"],
+  );
+  assert.ok(cooling.every((item) => (item.mappingSources?.length ?? 0) > 0));
+  const packaging = mapBeneficiaries({
+    topic: "CoWoS 與先進封裝產能",
+    signalEventId: "packaging-test",
+  });
+  assert.deepEqual(
+    packaging.map((item) => item.symbol),
+    ["2330.TW", "3711.TW", "AMKR"],
+  );
+  assert.ok(packaging.every((item) => item.mappingVersion === "beneficiary-research-v3"));
 }
 
 function testTopicKeywordBoundaries() {

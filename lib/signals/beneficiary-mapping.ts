@@ -279,10 +279,46 @@ const ruleGroups: RuleGroup[] = [
     trackingMetrics: ["液冷營收與出貨", "AI Server 散熱產品組合", "客戶認證", "單櫃功率密度"],
     invalidationConditions: ["液冷滲透率未提升", "客戶認證或量產延後", "相關營收未隨 AI Server 出貨成長"],
     items: [
-      { symbol: "VRT", companyName: "Vertiv", market: "US" },
-      { symbol: "3017.TW", companyName: "奇鋐", market: "TW" },
-      { symbol: "3324.TW", companyName: "雙鴻", market: "TW" },
-      { symbol: "2308.TW", companyName: "台達電", market: "TW" },
+      {
+        symbol: "VRT",
+        companyName: "Vertiv",
+        market: "US",
+        valueChainRole: "資料中心液冷、熱管理與電力基礎設施",
+        causalReason: "Vertiv 直接提供資料中心液冷、排熱與機櫃熱管理系統，高密度 AI 機櫃導入可由 Thermal Management 訂單、產能與交付驗證。",
+        trackingMetrics: ["Thermal Management 訂單與營收", "液冷產能與交付", "資料中心積壓訂單"],
+        invalidationConditions: ["液冷訂單未成長", "高密度機櫃部署延後", "產能擴張未轉化為交付與營收"],
+        mappingSources: ["https://www.vertiv.com/en-us/solutions/high-density/"],
+      },
+      {
+        symbol: "3017.TW",
+        companyName: "奇鋐",
+        market: "TW",
+        valueChainRole: "伺服器散熱模組、冷板與液冷零組件",
+        causalReason: "奇鋐直接供應伺服器散熱模組與液冷相關零組件；受惠程度需由散熱產品營收、液冷出貨與客戶量產驗證。",
+        trackingMetrics: ["散熱產品營收", "液冷冷板與零組件出貨", "AI Server 客戶量產進度"],
+        invalidationConditions: ["液冷出貨未放量", "客戶認證或量產延後", "散熱產品營收未隨 AI Server 成長"],
+        mappingSources: ["https://www.auras.com.tw/"],
+      },
+      {
+        symbol: "3324.TW",
+        companyName: "雙鴻",
+        market: "TW",
+        valueChainRole: "伺服器散熱模組與液冷方案",
+        causalReason: "雙鴻直接供應伺服器散熱與液冷產品；訊號成立需反映在液冷營收、產品組合及量產客戶數。",
+        trackingMetrics: ["液冷產品營收占比", "AI Server 散熱出貨", "客戶認證與量產時程"],
+        invalidationConditions: ["液冷營收占比未提升", "主要客戶量產延後", "AI Server 散熱出貨轉弱"],
+        mappingSources: ["https://www.avicon.com.tw/"],
+      },
+      {
+        symbol: "2308.TW",
+        companyName: "台達電",
+        market: "TW",
+        valueChainRole: "資料中心熱管理與液冷基礎設施",
+        causalReason: "台達電直接提供資料中心熱管理與液冷基礎設施，機櫃功率密度提升可由基礎設施營收、液冷產品出貨與專案導入驗證。",
+        trackingMetrics: ["基礎設施產品營收", "液冷與熱管理產品出貨", "高密度資料中心專案"],
+        invalidationConditions: ["液冷產品出貨未成長", "高密度資料中心專案延後", "基礎設施營收未改善"],
+        mappingSources: ["https://www.deltaww.com/en-US/products/Datacenter-Thermal-Management/ALL/"],
+      },
     ],
   },
   {
@@ -294,9 +330,36 @@ const ruleGroups: RuleGroup[] = [
     trackingMetrics: ["CoWoS／先進封裝產能", "設備訂單", "封測稼動率", "擴產資本支出"],
     invalidationConditions: ["擴產計畫下修", "設備訂單或稼動率未改善", "公司未取得先進封裝直接訂單"],
     items: [
-      { symbol: "2330.TW", companyName: "台積電", market: "TW" },
-      { symbol: "3711.TW", companyName: "日月光投控", market: "TW" },
-      { symbol: "AMKR", companyName: "Amkor", market: "US" },
+      {
+        symbol: "2330.TW",
+        companyName: "台積電",
+        market: "TW",
+        valueChainRole: "CoWoS、SoIC 與先進封裝產能",
+        causalReason: "台積電直接提供 CoWoS 與 3DFabric 先進封裝服務，AI 加速器需求可由封裝產能、擴產進度與 HPC 營收驗證。",
+        trackingMetrics: ["CoWoS 產能與擴產進度", "3DFabric 客戶導入", "HPC 營收與先進封裝資本支出"],
+        invalidationConditions: ["CoWoS 擴產下修", "客戶需求或 HPC 營收轉弱", "先進封裝瓶頸解除後稼動率下降"],
+        mappingSources: ["https://3dfabric.tsmc.com/english/dedicatedFoundry/technology/cowos.htm"],
+      },
+      {
+        symbol: "3711.TW",
+        companyName: "日月光投控",
+        market: "TW",
+        valueChainRole: "先進封裝、系統級封裝與封測服務",
+        causalReason: "日月光直接提供先進封裝與封測服務；受惠需由先進封裝營收、資本支出、訂單與稼動率驗證。",
+        trackingMetrics: ["先進封裝營收", "封測資本支出", "訂單與產能利用率"],
+        invalidationConditions: ["先進封裝營收未成長", "封測資本支出下修", "訂單或稼動率轉弱"],
+        mappingSources: ["https://www.aseglobal.com/ch/"],
+      },
+      {
+        symbol: "AMKR",
+        companyName: "Amkor",
+        market: "US",
+        valueChainRole: "先進封裝與半導體封測服務",
+        causalReason: "Amkor 直接提供先進封裝與測試服務；AI 與高效能運算需求可由 Advanced Products 營收、資本支出及產能利用驗證。",
+        trackingMetrics: ["Advanced Products 營收", "先進封裝資本支出", "HPC 客戶需求與產能利用"],
+        invalidationConditions: ["Advanced Products 營收轉弱", "先進封裝資本支出下修", "HPC 客戶訂單延後"],
+        mappingSources: ["https://amkor.com/technology/advanced-packaging/"],
+      },
       { symbol: "3131.TW", companyName: "弘塑", market: "TW" },
       { symbol: "6187.TW", companyName: "萬潤", market: "TW" },
       { symbol: "3583.TW", companyName: "辛耘", market: "TW" },
@@ -331,6 +394,15 @@ function matchRuleGroup(text: string) {
     )[0]?.group;
 }
 
+function isResearchReadyItem(item: RuleItem) {
+  return item.market !== "KR" &&
+    Boolean(item.valueChainRole?.trim()) &&
+    Boolean(item.causalReason?.trim()) &&
+    (item.trackingMetrics?.length ?? 0) >= 3 &&
+    (item.invalidationConditions?.length ?? 0) >= 3 &&
+    (item.mappingSources?.length ?? 0) > 0;
+}
+
 export function mapBeneficiaries(signal: {
   topic: string;
   hypothesis?: string;
@@ -343,10 +415,13 @@ export function mapBeneficiaries(signal: {
     return [];
   }
 
-  const weight = Number((1 / matched.items.length).toFixed(4));
+  const researchReadyItems = matched.items.filter(isResearchReadyItem);
+  if (researchReadyItems.length === 0) return [];
+
+  const weight = Number((1 / researchReadyItems.length).toFixed(4));
   const signalEventId = signal.signalEventId ?? "pending";
 
-  return matched.items.map((item) => ({
+  return researchReadyItems.map((item) => ({
     id: `${signalEventId}-${stableId(item.symbol)}`,
     signalEventId,
     symbol: item.symbol,
@@ -360,7 +435,7 @@ export function mapBeneficiaries(signal: {
     trackingMetrics: item.trackingMetrics ?? matched.trackingMetrics,
     invalidationConditions: item.invalidationConditions ?? matched.invalidationConditions,
     directOperatingLink: true,
-    mappingVersion: "beneficiary-research-v2",
-    mappingSources: item.mappingSources ?? [],
+    mappingVersion: "beneficiary-research-v3",
+    mappingSources: item.mappingSources,
   }));
 }

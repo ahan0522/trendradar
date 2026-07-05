@@ -104,35 +104,45 @@ export async function finalizeMonthlySignals(asOfDate: string) {
       updated_at: new Date().toISOString(),
     })),
   );
-  const { error: watchlistError } = await supabase
+  const signalIds = signals.map((signal) => signal.id);
+  const { error: cleanupError } = await supabase
     .from("signal_watchlists")
-    .upsert(watchlistRows, { onConflict: "signal_event_id,symbol,market", ignoreDuplicates: true });
-  if (watchlistError) {
-    if (!isMissingWatchlistResearchColumns(watchlistError)) throw watchlistError;
-    const legacyRows = watchlistRows.map((item) => {
-      const {
-        value_chain_role: _valueChainRole,
-        causal_reason: _causalReason,
-        tracking_metrics: _trackingMetrics,
-        invalidation_conditions: _invalidationConditions,
-        direct_operating_link: _directOperatingLink,
-        mapping_version: _mappingVersion,
-        mapping_sources: _mappingSources,
-        ...legacy
-      } = item;
-      void _valueChainRole;
-      void _causalReason;
-      void _trackingMetrics;
-      void _invalidationConditions;
-      void _directOperatingLink;
-      void _mappingVersion;
-      void _mappingSources;
-      return legacy;
-    });
-    const { error: legacyError } = await supabase
+    .delete()
+    .in("signal_event_id", signalIds)
+    .in("source", ["rule-based", "monthly-rule-based"]);
+  if (cleanupError) throw cleanupError;
+
+  if (watchlistRows.length > 0) {
+    const { error: watchlistError } = await supabase
       .from("signal_watchlists")
-      .upsert(legacyRows, { onConflict: "signal_event_id,symbol,market", ignoreDuplicates: true });
-    if (legacyError) throw legacyError;
+      .upsert(watchlistRows, { onConflict: "signal_event_id,symbol,market" });
+    if (watchlistError) {
+      if (!isMissingWatchlistResearchColumns(watchlistError)) throw watchlistError;
+      const legacyRows = watchlistRows.map((item) => {
+        const {
+          value_chain_role: _valueChainRole,
+          causal_reason: _causalReason,
+          tracking_metrics: _trackingMetrics,
+          invalidation_conditions: _invalidationConditions,
+          direct_operating_link: _directOperatingLink,
+          mapping_version: _mappingVersion,
+          mapping_sources: _mappingSources,
+          ...legacy
+        } = item;
+        void _valueChainRole;
+        void _causalReason;
+        void _trackingMetrics;
+        void _invalidationConditions;
+        void _directOperatingLink;
+        void _mappingVersion;
+        void _mappingSources;
+        return legacy;
+      });
+      const { error: legacyError } = await supabase
+        .from("signal_watchlists")
+        .upsert(legacyRows, { onConflict: "signal_event_id,symbol,market" });
+      if (legacyError) throw legacyError;
+    }
   }
 
   const beneficiaryMappingRows = signals.flatMap((signal) =>

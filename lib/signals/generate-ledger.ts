@@ -39,15 +39,15 @@ export async function generateSignalLedger(asOfDate: string) {
       signalEventId: signal.id,
     }),
   );
+  for (const signal of signals) {
+    const { error: cleanupError } = await supabase
+      .from("signal_watchlists")
+      .delete()
+      .eq("signal_event_id", signal.id)
+      .in("source", ["rule-based", "monthly-rule-based"]);
+    if (cleanupError) throw cleanupError;
+  }
   if (watchlists.length > 0) {
-    for (const signal of signals) {
-      const { error: cleanupError } = await supabase
-        .from("signal_watchlists")
-        .delete()
-        .eq("signal_event_id", signal.id)
-        .eq("source", "rule-based");
-      if (cleanupError) throw cleanupError;
-    }
     const watchlistRows = watchlists.map((item) => ({
         id: item.id,
         signal_event_id: item.signalEventId,
