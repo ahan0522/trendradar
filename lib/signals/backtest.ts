@@ -28,7 +28,25 @@ type OutcomeRow = {
   outcome: "success" | "partial" | "failed" | "pending";
 };
 
+type OutcomeStatusRow = {
+  signal_event_id: string;
+  horizon_days: number;
+  outcome: string;
+  evaluated_at: string | null;
+  details: unknown;
+};
+
+type WatchlistIdentity = {
+  signal_event_id?: string;
+  symbol: string;
+  market: string;
+};
+
 export const SIGNAL_BACKTEST_HORIZONS = [7, 30, 60, 90] as const;
+export const CURRENT_BACKTEST_MODEL_VERSIONS = [
+  "monthly-full-market-v3",
+  "rule-v2",
+] as const;
 
 export type StockReturnDetail = {
   symbol: string;
@@ -83,6 +101,30 @@ export function isPlausibleBacktestReturn(returnPct: number, horizonDays: number
 
 export function isPlausibleBasketReturn(returnPct: number) {
   return Number.isFinite(returnPct) && Math.abs(returnPct) <= 100;
+}
+
+export function outcomeMatchesWatchlist(
+  details: unknown,
+  watchlists: WatchlistIdentity[],
+) {
+  if (!Array.isArray(details) || watchlists.length === 0) return false;
+  const detailKeys = new Set(details.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as { symbol?: unknown; market?: unknown };
+    if (typeof row.symbol !== "string" || typeof row.market !== "string") return [];
+    return [`${row.market}:${row.symbol}`];
+  }));
+  const watchlistKeys = new Set(
+    watchlists.map((item) => `${item.market}:${item.symbol}`),
+  );
+  return detailKeys.size === watchlistKeys.size &&
+    [...watchlistKeys].every((key) => detailKeys.has(key));
+}
+
+export function isBacktestEligibleModelVersion(modelVersion: string | null) {
+  return CURRENT_BACKTEST_MODEL_VERSIONS.includes(
+    modelVersion as (typeof CURRENT_BACKTEST_MODEL_VERSIONS)[number],
+  );
 }
 
 function normalizeWeights(rows: WatchlistRow[]) {
@@ -321,35 +363,50 @@ export async function runBacktestForAllSignals() {
 
 export async function runDailyBacktestUpdate(limit = 5) {
   const supabase = getSupabaseAdmin();
-  const [{ data: signals, error: signalError }, { data: outcomes, error: outcomeError }] = await Promise.all([
+  const [
+    { data: signals, error: signalError },
+    { data: outcomes, error: outcomeError },
+    { data: watchlists, error: watchlistError },
+  ] = await Promise.all([
     supabase
       .from("signal_events")
-      .select("id, signal_date")
+      .select("id, signal_date, model_version")
       .order("signal_date", { ascending: true })
-      .returns<Array<{ id: string; signal_date: string }>>(),
+      .returns<Array<{ id: string; signal_date: string; model_version: string | null }>>(),
     supabase
       .from("signal_outcomes")
-      .select("signal_event_id, horizon_days, outcome, evaluated_at")
-      .returns<Array<{
-        signal_event_id: string;
-        horizon_days: number;
-        outcome: string;
-        evaluated_at: string | null;
-      }>>(),
+      .select("signal_event_id, horizon_days, outcome, evaluated_at, details")
+      .returns<OutcomeStatusRow[]>(),
+    supabase
+      .from("signal_watchlists")
+      .select("signal_event_id, symbol, market")
+      .returns<Array<Required<WatchlistIdentity>>>(),
   ]);
   if (signalError) throw signalError;
   if (outcomeError) throw outcomeError;
+  if (watchlistError) throw watchlistError;
 
   const outcomeByKey = new Map(
     (outcomes ?? []).map((item) => [`${item.signal_event_id}:${item.horizon_days}`, item]),
   );
+  const watchlistsBySignal = new Map<string, Array<Required<WatchlistIdentity>>>();
+  for (const item of watchlists ?? []) {
+    const rows = watchlistsBySignal.get(item.signal_event_id) ?? [];
+    rows.push(item);
+    watchlistsBySignal.set(item.signal_event_id, rows);
+  }
   const due = (signals ?? [])
+    .filter((signal) => isBacktestEligibleModelVersion(signal.model_version))
     .map((signal) => {
+      const currentWatchlists = watchlistsBySignal.get(signal.id) ?? [];
       const horizons = SIGNAL_BACKTEST_HORIZONS.filter((horizonDays) => {
         if (!isHorizonMature(signal.signal_date, horizonDays)) return false;
-        return outcomeByKey.get(`${signal.id}:${horizonDays}`)?.outcome !== "success" &&
-          outcomeByKey.get(`${signal.id}:${horizonDays}`)?.outcome !== "partial" &&
-          outcomeByKey.get(`${signal.id}:${horizonDays}`)?.outcome !== "failed";
+        if (currentWatchlists.length === 0) return false;
+        const existing = outcomeByKey.get(`${signal.id}:${horizonDays}`);
+        if (!existing || !outcomeMatchesWatchlist(existing.details, currentWatchlists)) return true;
+        return existing.outcome !== "success" &&
+          existing.outcome !== "partial" &&
+          existing.outcome !== "failed";
       });
       const lastAttempt = horizons
         .map((horizonDays) => outcomeByKey.get(`${signal.id}:${horizonDays}`)?.evaluated_at ?? "")

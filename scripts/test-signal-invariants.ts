@@ -18,6 +18,8 @@ import {
   isPlausibleBacktestReturn,
   isPlausibleBasketReturn,
   isValidBacktestWindow,
+  isBacktestEligibleModelVersion,
+  outcomeMatchesWatchlist,
   SIGNAL_BACKTEST_HORIZONS,
 } from "../lib/signals/backtest";
 import {
@@ -760,6 +762,29 @@ function testBacktestTimeBoundary() {
   assert.equal(isPlausibleBacktestReturn(249, 90), true);
   assert.equal(isPlausibleBasketReturn(100), true);
   assert.equal(isPlausibleBasketReturn(100.01), false);
+  assert.equal(outcomeMatchesWatchlist(
+    [
+      { symbol: "MU", market: "US" },
+      { symbol: "2408.TW", market: "TW" },
+    ],
+    [
+      { symbol: "2408.TW", market: "TW" },
+      { symbol: "MU", market: "US" },
+    ],
+  ), true);
+  assert.equal(outcomeMatchesWatchlist(
+    [{ symbol: "MU", market: "US" }],
+    [
+      { symbol: "MU", market: "US" },
+      { symbol: "2408.TW", market: "TW" },
+    ],
+  ), false);
+  assert.equal(outcomeMatchesWatchlist([], []), false);
+  assert.equal(isBacktestEligibleModelVersion("monthly-full-market-v3"), true);
+  assert.equal(isBacktestEligibleModelVersion("rule-v2"), true);
+  assert.equal(isBacktestEligibleModelVersion("monthly-full-market-v1"), false);
+  assert.equal(isBacktestEligibleModelVersion("monthly-signal-v2"), false);
+  assert.equal(isBacktestEligibleModelVersion(null), false);
 }
 
 function testMonthCoverageStatus() {
