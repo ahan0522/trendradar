@@ -56,4 +56,10 @@ export const historicalSourceManifest: HistoricalSourceManifestEntry[] = [
     resolutionMethod: "exact-title-source-search",
     resolvedAt: "2026-07-05",
   },
+  {
+    articleId: "historical-backfill-3a23a83de25ab9447a0a1ddf7ea13128b05dfc42",
+    originalUrl: "https://www.cna.com.tw/news/aipl/202510020262.aspx",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
 ];
