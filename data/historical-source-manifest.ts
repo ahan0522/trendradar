@@ -38,4 +38,22 @@ export const historicalSourceManifest: HistoricalSourceManifestEntry[] = [
     resolutionMethod: "exact-title-source-search",
     resolvedAt: "2026-07-05",
   },
+  {
+    articleId: "historical-backfill-3a4ef6217e01a4e81ac11e50ffc0f45819a6960e",
+    originalUrl: "https://www.president.gov.tw/News/39477",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
+  {
+    articleId: "historical-backfill-9fb31d4d6f656fe07027dbb734f78c25191eeb2f",
+    originalUrl: "https://www.cna.com.tw/news/afe/202509030067.aspx",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
+  {
+    articleId: "historical-backfill-bdfbea556d733eeeba75fdf69db9258ec47ce17a",
+    originalUrl: "https://www.cna.com.tw/news/afe/202509030140.aspx",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
 ];
