@@ -723,3 +723,10 @@ The next milestone is complete when:
 - Unit, research, lint, and production build checks pass with this gate.
 - Deployment blocker: the migration has not yet been applied to production because this execution environment has neither a Supabase CLI access token nor an attached authenticated Supabase browser session. No database password was written into source code or shell history.
 - After the migration is applied, run `npm run articles:audit-time -- --limit=10000 --write`. Expected initial result: 8,858 immutable verification rows, including 47 conflicts and no promoted 2025 Time Machine evidence.
+- `npm run articles:verify-source -- --article-id=<id> --original-url=<url>` now performs a strict single-article verification:
+  - query the earliest successful Internet Archive capture
+  - read title and publication metadata from that archived snapshot
+  - require at least 0.72 normalized title similarity
+  - reject Google URLs and mismatched archive paths
+  - produce a dry-run result unless `--write` is explicitly supplied
+- The first real dry-run verified iThome article `171039`: archived title similarity 1.0, archived publication date 2025-09-05, and archive first-seen time 2025-09-05 12:02:29 UTC. This proves the evidence path works, but the row remains unwritten until the migration is applied.

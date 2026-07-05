@@ -15,6 +15,7 @@
     "prices:revalidate-us": "tsx scripts/revalidate-us-price-quality.ts",
     "topics:archive-legacy": "tsx scripts/archive-legacy-rss-topics.ts",
     "articles:audit-time": "tsx scripts/audit-historical-article-times.ts",
+    "articles:verify-source": "tsx scripts/verify-historical-article-source.ts",
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
     "prices:replay": "tsx scripts/backfill-model-replay-prices.ts"
   },

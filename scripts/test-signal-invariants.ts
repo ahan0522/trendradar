@@ -51,6 +51,12 @@ import {
 } from "../lib/historical-news/article-time";
 import { verifyHistoricalArticleTime } from "../lib/historical-news/time-verification";
 import {
+  buildWaybackSnapshotUrl,
+  parseHistoricalPageMetadata,
+  parseWaybackFirstCapture,
+  titleSimilarity,
+} from "../lib/historical-news/source-evidence";
+import {
   buildLifecycleTransitions,
   signalContinuityKey,
 } from "../lib/signals/signal-continuity";
@@ -525,6 +531,55 @@ function testHistoricalArticleTimeVerification() {
   });
   assert.equal(verified.status, "verified");
   assert.equal(verified.availableAt, "2025-06-06T02:00:00.000Z");
+}
+
+function testHistoricalSourceEvidence() {
+  const metadata = parseHistoricalPageMetadata(`
+    <html>
+      <head>
+        <meta property="og:title" content="AI server demand expands">
+        <script type="application/ld+json">
+          {"@type":"NewsArticle","headline":"AI server demand expands","datePublished":"2025-09-05T08:30:00+08:00"}
+        </script>
+      </head>
+    </html>
+  `);
+  assert.equal(metadata.title, "AI server demand expands");
+  assert.equal(metadata.publishedAt, "2025-09-05T00:30:00.000Z");
+  assert.equal(metadata.publishedAtMethod, "jsonld-datePublished");
+
+  const visibleDateMetadata = parseHistoricalPageMetadata(`
+    <meta property="og:title" content="AI adoption expands">
+    <span class="created">2025-09-05</span><span class="pub-wording">發表</span>
+  `);
+  assert.equal(visibleDateMetadata.publishedAt, "2025-09-05T00:00:00.000Z");
+  assert.equal(
+    visibleDateMetadata.publishedAtMethod,
+    "visible-created-date-with-published-label",
+  );
+
+  const capture = parseWaybackFirstCapture([
+    ["timestamp", "original", "statuscode"],
+    ["20250905120229", "https://example.com/news/123", "200"],
+  ], "https://example.com/news/123");
+  assert.ok(capture);
+  assert.equal(capture.capturedAt, "2025-09-05T12:02:29.000Z");
+  assert.equal(
+    buildWaybackSnapshotUrl(capture),
+    "https://web.archive.org/web/20250905120229id_/https://example.com/news/123",
+  );
+  assert.equal(
+    parseWaybackFirstCapture([
+      ["timestamp", "original", "statuscode"],
+      ["20250905120229", "https://other.example/news/123", "200"],
+    ], "https://example.com/news/123"),
+    null,
+  );
+  assert.ok(titleSimilarity(
+    "AI server demand expands - Example News",
+    "AI server demand expands",
+  ) >= 0.72);
+  assert.ok(titleSimilarity("Completely unrelated article", "AI server demand expands") < 0.72);
 }
 
 function testCsvProvenance() {
@@ -1256,6 +1311,7 @@ function main() {
   testIndependentUsPriceVerification();
   testHistoricalArticleAvailability();
   testHistoricalArticleTimeVerification();
+  testHistoricalSourceEvidence();
   testCsvProvenance();
   testBacktestTimeBoundary();
   testMonthCoverageStatus();
