@@ -568,6 +568,27 @@ function testHistoricalSourceEvidence() {
   `);
   assert.equal(rocDateMetadata.publishedAt, "2025-09-09T00:00:00.000Z");
   assert.equal(rocDateMetadata.publishedAtMethod, "visible-roc-page-date");
+  const labeledOfficialDate = parseHistoricalPageMetadata(`
+    <meta property="og:title" content="Official semiconductor forum">
+    <span>發布時間：2025-09-09</span>
+  `);
+  assert.equal(labeledOfficialDate.publishedAt, "2025-09-09T00:00:00.000Z");
+  assert.equal(labeledOfficialDate.publishedAtMethod, "visible-labeled-published-date");
+  const labeledOfficialDateTime = parseHistoricalPageMetadata(`
+    <meta property="og:title" content="Official AI plan">
+    <div>發布日期：2025-09-30 17:15</div>
+  `);
+  assert.equal(labeledOfficialDateTime.publishedAt, "2025-09-30T09:15:00.000Z");
+  assert.equal(
+    labeledOfficialDateTime.publishedAtMethod,
+    "visible-labeled-published-date",
+  );
+  const labeledRocDate = parseHistoricalPageMetadata(`
+    <meta property="og:title" content="Official AI law">
+    <span>日期：114-09-12</span>
+  `);
+  assert.equal(labeledRocDate.publishedAt, "2025-09-12T00:00:00.000Z");
+  assert.equal(labeledRocDate.publishedAtMethod, "visible-labeled-roc-date");
 
   const capture = parseWaybackFirstCapture([
     ["timestamp", "original", "statuscode"],

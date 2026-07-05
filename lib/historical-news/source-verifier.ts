@@ -16,15 +16,22 @@ type HistoricalArticleRow = {
 };
 
 async function fetchText(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "TrendRadar/1.0 Historical Source Verification",
-      Accept: "text/html,application/xhtml+xml,application/json;q=0.9",
-    },
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`${url} returned ${response.status}`);
-  return response.text();
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "TrendRadar/1.0 Historical Source Verification",
+        Accept: "text/html,application/xhtml+xml,application/json;q=0.9",
+      },
+      cache: "no-store",
+    });
+    if (response.ok) return response.text();
+    const retryable = response.status === 429 || response.status >= 500;
+    if (!retryable || attempt === 3) {
+      throw new Error(`${url} returned ${response.status} after ${attempt} attempt(s)`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+  }
+  throw new Error(`${url} failed without a response`);
 }
 
 export async function verifyHistoricalArticleSource(input: {

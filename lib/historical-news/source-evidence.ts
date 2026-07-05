@@ -30,6 +30,18 @@ function validIso(value: unknown) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+function validTaipeiOfficialTimestamp(value: string | null) {
+  if (!value) return null;
+  const match = value.trim().match(
+    /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+  );
+  if (!match) return null;
+  if (!match[2]) return validIso(`${match[1]}T00:00:00Z`);
+  return validIso(
+    `${match[1]}T${match[2]}:${match[3]}:${match[4] ?? "00"}+08:00`,
+  );
+}
+
 function metaContent(html: string, names: string[]) {
   for (const name of names) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -112,9 +124,20 @@ export function parseHistoricalPageMetadata(html: string): HistoricalPageMetadat
   const rocPageDate = rocPageDateMatch
     ? `${Number(rocPageDateMatch[1]) + 1911}-${rocPageDateMatch[2]}-${rocPageDateMatch[3]}`
     : null;
+  const explicitPublishedDate = html.match(
+    /(?:發布時間|發布日期)\s*[：:]\s*(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)/i,
+  )?.[1] ?? null;
+  const explicitRocDateMatch = html.match(
+    /(?:發布日期|日期)\s*[：:]\s*(\d{2,3})-(\d{2})-(\d{2})/i,
+  );
+  const explicitRocDate = explicitRocDateMatch
+    ? `${Number(explicitRocDateMatch[1]) + 1911}-${explicitRocDateMatch[2]}-${explicitRocDateMatch[3]}`
+    : null;
   const publishedAt = validIso(jsonLdDate) ??
     validIso(metaDate) ??
     validIso(timeDate) ??
+    validTaipeiOfficialTimestamp(explicitPublishedDate) ??
+    validIso(explicitRocDate) ??
     validIso(visiblePublishedDate) ??
     validIso(rocPageDate);
   const publishedAtMethod = validIso(jsonLdDate)
@@ -123,6 +146,10 @@ export function parseHistoricalPageMetadata(html: string): HistoricalPageMetadat
       ? "meta-published-time"
       : validIso(timeDate)
         ? "time-datetime"
+        : validTaipeiOfficialTimestamp(explicitPublishedDate)
+          ? "visible-labeled-published-date"
+          : validIso(explicitRocDate)
+            ? "visible-labeled-roc-date"
         : validIso(visiblePublishedDate)
           ? "visible-created-date-with-published-label"
           : validIso(rocPageDate)

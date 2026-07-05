@@ -18,4 +18,24 @@ export const historicalSourceManifest: HistoricalSourceManifestEntry[] = [
     resolutionMethod: "exact-title-source-search",
     resolvedAt: "2026-07-05",
   },
+  {
+    articleId: "historical-backfill-03bb2f2a898bdbbee0697cfd8adfa3320b693392",
+    originalUrl: "https://www.mofa.gov.tw/News_Content.aspx?n=96&s=120631",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
+  {
+    articleId: "historical-backfill-a0d9108a4f3f06e7ed2ff115115da7bdb1d59350",
+    originalUrl:
+      "https://www.ey.gov.tw/Page/5A8A0CB5B41DA11E/b6fbf240-2d1a-4252-9f81-28144acb1d64",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
+  {
+    articleId: "historical-backfill-88a2f38226c7d49b2a9910c7cf53a2349355ebec",
+    originalUrl:
+      "https://www.moea.gov.tw/Mns/doit/news/News.aspx?kind=1&menu_id=13419&news_id=120600",
+    resolutionMethod: "exact-title-source-search",
+    resolvedAt: "2026-07-05",
+  },
 ];
