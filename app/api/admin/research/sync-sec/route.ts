@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSecret } from "@/lib/admin-auth";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
+import { syncSecCompanyFacts } from "@/lib/research-data/sec-company-facts";
 
 type RequestBody = {
   symbols?: string[];
@@ -15,13 +16,20 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json().catch(() => ({}))) as RequestBody;
-    const result = await syncSecResearchData({
-      symbols: body.symbols,
-      since: body.since,
-      limitPerCompany: body.limitPerCompany,
-      dryRun: body.dryRun ?? true,
-    });
-    return NextResponse.json(result);
+    const [actions, facts] = await Promise.all([
+      syncSecResearchData({
+        symbols: body.symbols,
+        since: body.since,
+        limitPerCompany: body.limitPerCompany,
+        dryRun: body.dryRun ?? true,
+      }),
+      syncSecCompanyFacts({
+        symbols: body.symbols,
+        since: body.since,
+        dryRun: body.dryRun ?? true,
+      }),
+    ]);
+    return NextResponse.json({ ok: true, actions, facts });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown SEC sync error";
     const migrationRequired = /relation .* does not exist|column .* does not exist/i.test(message);

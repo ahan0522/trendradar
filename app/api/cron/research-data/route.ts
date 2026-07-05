@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { getResearchDataQualityReport } from "@/lib/research-data/quality-report";
 import { syncFredResearchData } from "@/lib/research-data/fred";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
+import { syncSecCompanyFacts } from "@/lib/research-data/sec-company-facts";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
@@ -96,12 +97,16 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
-    const [twse, tpex, sec, fred] = await Promise.all([
+    const [twse, tpex, sec, secFacts, fred] = await Promise.all([
       runSync(() => syncTwseResearchData({ dryRun: false }), 1),
       runSync(() => syncTpexResearchData({ dryRun: false }), 1),
       runSync(() => syncSecResearchData({
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
+      }), 1),
+      runSync(() => syncSecCompanyFacts({
+        dryRun: false,
+        symbols: ["MU", "MSFT", "GOOGL", "META", "AMZN"],
       }), 1),
       runSync(() => syncFredResearchData({
         dryRun: false,
@@ -138,13 +143,14 @@ export async function GET(request: NextRequest) {
       : null;
 
     return NextResponse.json({
-      ok: [twse, tpex, sec, fred].some((result) => result.status === "success"),
-      degraded: [twse, tpex, sec, fred].some((result) => result.status !== "success"),
+      ok: [twse, tpex, sec, secFacts, fred].some((result) => result.status === "success"),
+      degraded: [twse, tpex, sec, secFacts, fred].some((result) => result.status !== "success"),
       mode: "daily-research-data",
       durationMs: Date.now() - startedAt,
       twse,
       tpex,
       sec,
+      secFacts,
       fred,
       quality: qualityAfter,
       signalLedger,

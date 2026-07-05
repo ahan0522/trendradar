@@ -16,6 +16,10 @@ import {
   getEvidenceRequirementsForSignal,
 } from "../lib/signals/evidence-source-registry";
 import { researchCoveragePlan } from "../lib/research-data/quality-report";
+import {
+  parseSecCompanyFacts,
+  type SecCompanyFacts,
+} from "../lib/research-data/sec-company-facts";
 
 function testTwseTimeParsing() {
   assert.equal(
@@ -58,6 +62,79 @@ function testResearchCoveragePlan() {
   assert.equal(byKey.get("power_grid_equipment")?.status, "automated");
   assert.equal(byKey.get("memory_pricing")?.status, "licensed_or_manual_required");
   assert.equal(byKey.get("ai_server_shipments")?.automatedSources.length, 0);
+  assert.equal(byKey.get("cloud_capex")?.status, "partial");
+}
+
+function testSecCompanyFactsParsing() {
+  const facts: SecCompanyFacts = {
+    cik: 723125,
+    entityName: "MICRON TECHNOLOGY INC",
+    facts: {
+      "us-gaap": {
+        InventoryNet: {
+          units: {
+            USD: [
+              {
+                end: "2026-02-26",
+                val: 9000000000,
+                accn: "0000723125-26-000010",
+                fy: 2026,
+                fp: "Q2",
+                form: "10-Q",
+                filed: "2026-03-26",
+              },
+            ],
+          },
+        },
+        PaymentsToAcquirePropertyPlantAndEquipment: {
+          units: {
+            USD: [
+              {
+                start: "2025-09-01",
+                end: "2026-02-26",
+                val: 7000000000,
+                accn: "0000723125-26-000010",
+                fy: 2026,
+                fp: "Q2",
+                form: "10-Q",
+                filed: "2026-03-26",
+              },
+            ],
+          },
+        },
+        PaymentsToAcquireProductiveAssets: {
+          units: {
+            USD: [
+              {
+                start: "2025-09-01",
+                end: "2026-02-26",
+                val: 7100000000,
+                accn: "0000723125-26-000011",
+                fy: 2026,
+                fp: "Q2",
+                form: "10-Q",
+                filed: "2026-03-27",
+              },
+            ],
+          },
+        },
+      },
+    },
+  };
+  const observations = parseSecCompanyFacts({
+    symbol: "MU",
+    facts,
+    since: "2026-01-01",
+    observedAt: "2026-07-05T12:00:00.000Z",
+  });
+  assert.equal(observations.length, 2);
+  assert.equal(observations[0].knownAt, "2026-03-26T23:59:59.000Z");
+  assert.equal(observations.every((item) => item.metadata?.scope === "company-wide"), true);
+  assert.equal(observations.some((item) => item.metricName.includes("存貨")), true);
+  assert.equal(
+    observations.find((item) => item.metricName.includes("資本支出"))?.metricValue,
+    7000000000,
+  );
 }
 
 function testTpexDateParsing() {
@@ -100,6 +177,7 @@ testTpexDateParsing();
 testHistoricalNewsParsing();
 testFredPowerSeriesRegistry();
 testResearchCoveragePlan();
+testSecCompanyFactsParsing();
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), false);
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Memory DRAM capacity utilization"), true);
 assert.equal(researchEvidenceRelevance("AI 晶片與算力供應鏈", "industry", "Semiconductor / Compute 半導體與其他電子元件工業生產指數"), true);

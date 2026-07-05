@@ -21,8 +21,8 @@ export const researchCoveragePlan = [
     key: "memory_supply",
     label: "記憶體產能、庫存與位元出貨",
     status: "partial",
-    automatedSources: ["SEC EDGAR", "TWSE OpenAPI"],
-    note: "公司公告已接入，但仍需解析財報與法說內容；泛用高科技產能指標不算記憶體專屬證據。",
+    automatedSources: ["SEC EDGAR Company Facts", "TWSE OpenAPI"],
+    note: "已接入美光公司總體庫存與資本支出；仍缺位元出貨與記憶體專屬產能，泛用高科技指標不可替代。",
   },
   {
     key: "ai_server_shipments",
@@ -30,6 +30,13 @@ export const researchCoveragePlan = [
     status: "licensed_or_manual_required",
     automatedSources: [],
     note: "目前缺少可合法重播的產業出貨序列；只有 filing metadata 不構成出貨證據。",
+  },
+  {
+    key: "cloud_capex",
+    label: "雲端業者資本支出",
+    status: "partial",
+    automatedSources: ["SEC EDGAR Company Facts"],
+    note: "已接入主要雲端業者公司總體資本支出，但不得標示為 AI 專屬資本支出。",
   },
   {
     key: "power_grid_equipment",
