@@ -16,6 +16,7 @@
     "topics:archive-legacy": "tsx scripts/archive-legacy-rss-topics.ts",
     "articles:audit-time": "tsx scripts/audit-historical-article-times.ts",
     "articles:verify-source": "tsx scripts/verify-historical-article-source.ts",
+    "articles:verify-manifest": "tsx scripts/verify-historical-source-manifest.ts",
     "articles:verification-queue": "tsx scripts/list-historical-verification-queue.ts",
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
     "prices:replay": "tsx scripts/backfill-model-replay-prices.ts"
