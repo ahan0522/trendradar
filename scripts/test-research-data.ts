@@ -69,7 +69,7 @@ function testResearchCoveragePlan() {
 }
 
 function testCurrentEvidenceVersion() {
-  assert.equal(EVIDENCE_MATERIALIZATION_VERSION, "evidence-v6");
+  assert.equal(EVIDENCE_MATERIALIZATION_VERSION, "evidence-v7");
 }
 
 function testLatestResearchObservationSelection() {
@@ -156,6 +156,23 @@ function testSecCompanyFactsParsing() {
     observations.find((item) => item.metricName.includes("資本支出"))?.metricValue,
     7000000000,
   );
+  const coolingObservations = parseSecCompanyFacts({
+    symbol: "VRT",
+    facts,
+    since: "2026-01-01",
+    observedAt: "2026-07-05T12:00:00.000Z",
+  });
+  assert.equal(coolingObservations.length, 2);
+  assert.equal(
+    coolingObservations.every((item) => item.industry === "AI Cooling / Thermal"),
+    true,
+  );
+  assert.equal(parseSecCompanyFacts({
+    symbol: "UNKNOWN",
+    facts,
+    since: "2026-01-01",
+    observedAt: "2026-07-05T12:00:00.000Z",
+  }).length, 0);
 }
 
 function testTpexDateParsing() {

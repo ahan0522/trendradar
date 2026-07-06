@@ -116,16 +116,31 @@ function filingDirectoryUrl(cik: number, accession: string) {
   return `${SEC_ARCHIVES_BASE}/${cik}/${accession.replace(/-/g, "")}/`;
 }
 
-function industryForSymbol(symbol: string) {
-  if (symbol === "MU") return "Memory / DRAM / NAND";
-  return "AI Compute / Cloud Capex";
-}
-
-function allowedRolesForSymbol(symbol: string) {
-  return symbol === "MU"
-    ? new Set<FactDefinition["role"]>(["capex", "inventory", "revenue"])
-    : new Set<FactDefinition["role"]>(["capex"]);
-}
+const companyFactProfiles: Record<string, {
+  industry: string;
+  roles: FactDefinition["role"][];
+}> = {
+  MU: {
+    industry: "Memory / DRAM / NAND",
+    roles: ["capex", "inventory", "revenue"],
+  },
+  MSFT: { industry: "AI Compute / Cloud Capex", roles: ["capex"] },
+  GOOGL: { industry: "AI Compute / Cloud Capex", roles: ["capex"] },
+  META: { industry: "AI Compute / Cloud Capex", roles: ["capex"] },
+  AMZN: { industry: "AI Compute / Cloud Capex", roles: ["capex"] },
+  GEV: {
+    industry: "AI Power / Grid",
+    roles: ["capex", "inventory", "revenue"],
+  },
+  ETN: {
+    industry: "AI Power / Grid",
+    roles: ["capex", "inventory", "revenue"],
+  },
+  VRT: {
+    industry: "AI Cooling / Thermal",
+    roles: ["capex", "inventory", "revenue"],
+  },
+};
 
 export function parseSecCompanyFacts(input: {
   symbol: string;
@@ -134,7 +149,9 @@ export function parseSecCompanyFacts(input: {
   observedAt: string;
 }): IndustryObservation[] {
   const symbol = input.symbol.toUpperCase();
-  const allowedRoles = allowedRolesForSymbol(symbol);
+  const profile = companyFactProfiles[symbol];
+  if (!profile) return [];
+  const allowedRoles = new Set(profile.roles);
   const selected = new Map<string, {
     definition: FactDefinition;
     unit: string;
@@ -180,7 +197,7 @@ export function parseSecCompanyFacts(input: {
     const knownAt = `${item.value.filed}T23:59:59.000Z`;
     return {
           id: `sec-fact-${stableId(`${input.facts.cik}|${periodKey}|${item.value.accn}`)}`,
-          industry: industryForSymbol(symbol),
+          industry: profile.industry,
           metricName: `${symbol} ${item.definition.metricName}`,
           metricValue: item.value.val,
           unit: item.unit,
@@ -217,9 +234,9 @@ export async function fetchSecCompanyFacts(options?: {
   since?: string;
 }) {
   const symbols = [...new Set(
-    (options?.symbols ?? ["MU", "MSFT", "GOOGL", "META", "AMZN"])
+    (options?.symbols ?? ["MU", "MSFT", "GOOGL", "META", "AMZN", "GEV", "ETN", "VRT"])
       .map((item) => item.toUpperCase()),
-  )].slice(0, 8);
+  )].slice(0, 12);
   const since = options?.since ?? new Date(Date.now() - 400 * 86400000).toISOString().slice(0, 10);
   const tickerMap = await fetchSecJson<Record<string, SecTickerRow>>(SEC_TICKERS_URL);
   const byTicker = new Map(Object.values(tickerMap).map((item) => [item.ticker.toUpperCase(), item]));

@@ -7,7 +7,7 @@ type IndustryRow = { id: string; industry: string; metric_name: string; metric_v
 type CommodityRow = { id: string; commodity_code: string; commodity_name: string; quote_date: string; price: number; currency: string; unit: string; known_at: string; source_id: string | null; source_url: string };
 type CompanyRow = { id: string; company_symbol: string; market: string; company_name: string; action_type: string; title: string; summary: string | null; known_at: string; source_id: string | null; source_url: string };
 
-export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v6";
+export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v7";
 
 export function selectLatestIndustryRows<
   T extends { id: string; metric_name: string; period_end: string | null; known_at: string },
@@ -202,10 +202,13 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
     for (const item of industries.values()) evidenceRows.push({
       id: `${signal.id}-${EVIDENCE_MATERIALIZATION_VERSION}-industry-${item.id}`, signal_event_id: signal.id,
       evidence_date: item.known_at.slice(0, 10), source_name: item.source_id ?? "verified-industry-source",
-      source_url: item.source_url, source_type: "industry",
+      source_url: item.source_url,
+      source_type: item.source_id === "sec-company-facts" ? "official" : "industry",
       title: `${item.metric_name}：${item.metric_value ?? item.metric_text ?? "-"} ${item.unit ?? ""}`.trim(),
       summary: `產業分類：${item.industry}`,
-      why_it_matters: "用合法原始產業資料檢查新聞敘事是否有實體活動支持。",
+      why_it_matters: item.source_id === "sec-company-facts"
+        ? "公司總體財務事實只驗證企業活動，不代表 AI 或該產業分部的專屬表現。"
+        : "用合法原始產業資料檢查新聞敘事是否有實體活動支持。",
       known_at_signal_time: true,
     });
     for (const item of commodities.values()) evidenceRows.push({

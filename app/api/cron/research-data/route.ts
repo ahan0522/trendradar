@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
       }), 1),
       runSync(() => syncSecCompanyFacts({
         dryRun: false,
-        symbols: ["MU", "MSFT", "GOOGL", "META", "AMZN"],
+        symbols: ["MU", "MSFT", "GOOGL", "META", "AMZN", "GEV", "ETN", "VRT"],
       }), 1),
       runSync(() => syncFredResearchData({
         dryRun: false,
