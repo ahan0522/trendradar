@@ -110,7 +110,7 @@ import {
 function testSignalScore() {
   assert.equal(MONTHLY_DISCOVERY_MODEL_VERSION, "monthly-full-market-v3");
   assert.equal(RESEARCH_CONFIDENCE_MODEL_VERSION, "research-confidence-v3");
-  assert.equal(EVIDENCE_MATERIALIZATION_VERSION, "evidence-v4");
+  assert.equal(EVIDENCE_MATERIALIZATION_VERSION, "evidence-v6");
   assert.equal(
     researchEvidenceRelevance(
       "具身 AI 機器人平台發表",

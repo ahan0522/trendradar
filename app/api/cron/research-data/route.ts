@@ -15,7 +15,7 @@ import {
 } from "@/lib/signals/backtest";
 import { backfillVerifiedSignalPrices } from "@/lib/signals/verified-price-backfill";
 import { createMissingPublicationDrafts } from "@/lib/signals/publication-review";
-import { materializeSignalResearchEvidence } from "@/lib/signals/evidence-materialization";
+import { materializeCurrentModelResearchEvidence } from "@/lib/signals/evidence-materialization";
 import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
 
 export const runtime = "nodejs";
@@ -126,15 +126,17 @@ export async function GET(request: NextRequest) {
       if (signalLedger.status !== "success") {
         throw new Error("Signal Ledger generation failed; evidence materialization was skipped.");
       }
-      const ledger = signalLedger.data as { signals?: Array<{ id: string }> };
-      const results = [];
-      for (const signal of ledger.signals ?? []) {
-        results.push(await materializeSignalResearchEvidence(signal.id));
-      }
-      return results;
+      return materializeCurrentModelResearchEvidence(CURRENT_BACKTEST_MODEL_VERSIONS);
     });
     const researchConfidence = researchEvidence.status === "success"
-      ? await runSync(() => recalculateResearchConfidenceSnapshots(today))
+      ? await runSync(async () => {
+          const materialized = researchEvidence.data as { asOfDates?: string[] };
+          const results = [];
+          for (const asOfDate of materialized.asOfDates ?? [today]) {
+            results.push(await recalculateResearchConfidenceSnapshots(asOfDate));
+          }
+          return results;
+        })
       : { status: "skipped" as const, reason: "Evidence materialization did not complete." };
     const verifiedPriceBackfill = await runSync(() => backfillVerifiedSignalPrices({
       modelVersions: [...CURRENT_BACKTEST_MODEL_VERSIONS],

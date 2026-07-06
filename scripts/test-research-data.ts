@@ -7,8 +7,11 @@ import {
 } from "../lib/research-data/fred";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
 import {
+  EVIDENCE_MATERIALIZATION_VERSION,
   companyActionResearchRelevance,
   researchEvidenceRelevance,
+  selectLatestCommodityRows,
+  selectLatestIndustryRows,
 } from "../lib/signals/evidence-materialization";
 import {
   assessEvidenceCoverage,
@@ -63,6 +66,24 @@ function testResearchCoveragePlan() {
   assert.equal(byKey.get("memory_pricing")?.status, "licensed_or_manual_required");
   assert.equal(byKey.get("ai_server_shipments")?.automatedSources.length, 0);
   assert.equal(byKey.get("cloud_capex")?.status, "partial");
+}
+
+function testCurrentEvidenceVersion() {
+  assert.equal(EVIDENCE_MATERIALIZATION_VERSION, "evidence-v6");
+}
+
+function testLatestResearchObservationSelection() {
+  const industries = selectLatestIndustryRows([
+    { id: "old", metric_name: "capacity", period_end: "2025-01-01", known_at: "2026-06-27" },
+    { id: "new", metric_name: "capacity", period_end: "2026-05-01", known_at: "2026-06-27" },
+  ]);
+  assert.equal(industries.get("capacity")?.id, "new");
+
+  const commodities = selectLatestCommodityRows([
+    { id: "old", commodity_code: "COPPER", quote_date: "2003-12-01", known_at: "2026-07-02" },
+    { id: "new", commodity_code: "COPPER", quote_date: "2026-05-01", known_at: "2026-07-02" },
+  ]);
+  assert.equal(commodities.get("COPPER")?.id, "new");
 }
 
 function testSecCompanyFactsParsing() {
@@ -177,6 +198,8 @@ testTpexDateParsing();
 testHistoricalNewsParsing();
 testFredPowerSeriesRegistry();
 testResearchCoveragePlan();
+testCurrentEvidenceVersion();
+testLatestResearchObservationSelection();
 testSecCompanyFactsParsing();
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Semiconductor / Compute 高科技製造產能利用率"), false);
 assert.equal(researchEvidenceRelevance("記憶體 HBM 供需", "industry", "Memory DRAM capacity utilization"), true);

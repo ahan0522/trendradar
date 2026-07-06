@@ -3,11 +3,41 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 type SignalRow = { id: string; as_of_date: string; topic: string; hypothesis: string };
 type WatchRow = { signal_event_id: string; symbol: string; market: string };
 type MappingSnapshotRow = WatchRow & { mapping_version: string };
-type IndustryRow = { id: string; industry: string; metric_name: string; metric_value: number | null; metric_text: string | null; unit: string | null; known_at: string; source_id: string | null; source_url: string };
+type IndustryRow = { id: string; industry: string; metric_name: string; metric_value: number | null; metric_text: string | null; unit: string | null; period_end: string | null; known_at: string; source_id: string | null; source_url: string };
 type CommodityRow = { id: string; commodity_code: string; commodity_name: string; quote_date: string; price: number; currency: string; unit: string; known_at: string; source_id: string | null; source_url: string };
 type CompanyRow = { id: string; company_symbol: string; market: string; company_name: string; action_type: string; title: string; summary: string | null; known_at: string; source_id: string | null; source_url: string };
 
-export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v4";
+export const EVIDENCE_MATERIALIZATION_VERSION = "evidence-v6";
+
+export function selectLatestIndustryRows<
+  T extends { id: string; metric_name: string; period_end: string | null; known_at: string },
+>(rows: T[]) {
+  const selected = new Map<string, T>();
+  for (const item of rows) {
+    const current = selected.get(item.metric_name);
+    const itemOrder = `${item.period_end ?? ""}|${item.known_at}|${item.id}`;
+    const currentOrder = current
+      ? `${current.period_end ?? ""}|${current.known_at}|${current.id}`
+      : "";
+    if (!current || itemOrder > currentOrder) selected.set(item.metric_name, item);
+  }
+  return selected;
+}
+
+export function selectLatestCommodityRows<
+  T extends { id: string; commodity_code: string; quote_date: string; known_at: string },
+>(rows: T[]) {
+  const selected = new Map<string, T>();
+  for (const item of rows) {
+    const current = selected.get(item.commodity_code);
+    const itemOrder = `${item.quote_date}|${item.known_at}|${item.id}`;
+    const currentOrder = current
+      ? `${current.quote_date}|${current.known_at}|${current.id}`
+      : "";
+    if (!current || itemOrder > currentOrder) selected.set(item.commodity_code, item);
+  }
+  return selected;
+}
 
 function normalized(value: string) {
   return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
@@ -136,12 +166,14 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
     const symbols = [...new Set(watches.map((item) => item.symbol))];
     const [industryResult, commodityResult, companyResult] = await Promise.all([
       supabase.from("industry_observations")
-        .select("id, industry, metric_name, metric_value, metric_text, unit, known_at, source_id, source_url")
+        .select("id, industry, metric_name, metric_value, metric_text, unit, period_end, known_at, source_id, source_url")
         .eq("quality_status", "verified").gte("known_at", start).lte("known_at", end)
+        .lte("period_end", signal.as_of_date)
         .order("known_at", { ascending: false }).returns<IndustryRow[]>(),
       supabase.from("commodity_quotes")
         .select("id, commodity_code, commodity_name, quote_date, price, currency, unit, known_at, source_id, source_url")
         .eq("quality_status", "verified").gte("known_at", start).lte("known_at", end)
+        .lte("quote_date", signal.as_of_date)
         .order("known_at", { ascending: false }).returns<CommodityRow[]>(),
       symbols.length
         ? supabase.from("company_actions")
@@ -156,18 +188,16 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
     if (companyResult.error) throw companyResult.error;
 
     const signalText = `${signal.topic} ${signal.hypothesis}`;
-    const industries = new Map<string, IndustryRow>();
-    for (const item of industryResult.data ?? []) {
-      if (researchEvidenceRelevance(signalText, "industry", `${item.industry} ${item.metric_name}`) && !industries.has(item.metric_name)) {
-        industries.set(item.metric_name, item);
-      }
-    }
-    const commodities = new Map<string, CommodityRow>();
-    for (const item of commodityResult.data ?? []) {
-      if (researchEvidenceRelevance(signalText, "commodity", `${item.commodity_code} ${item.commodity_name}`) && !commodities.has(item.commodity_code)) {
-        commodities.set(item.commodity_code, item);
-      }
-    }
+    const industries = selectLatestIndustryRows(
+      (industryResult.data ?? []).filter((item) =>
+        researchEvidenceRelevance(signalText, "industry", `${item.industry} ${item.metric_name}`)
+      ),
+    );
+    const commodities = selectLatestCommodityRows(
+      (commodityResult.data ?? []).filter((item) =>
+        researchEvidenceRelevance(signalText, "commodity", `${item.commodity_code} ${item.commodity_name}`)
+      ),
+    );
 
     for (const item of industries.values()) evidenceRows.push({
       id: `${signal.id}-${EVIDENCE_MATERIALIZATION_VERSION}-industry-${item.id}`, signal_event_id: signal.id,
@@ -210,4 +240,32 @@ export async function materializeSignalResearchEvidence(signalEventId?: string) 
     if (error) throw error;
   }
   return { ok: true, signalCount: signalIds.length, evidenceCount: evidenceRows.length };
+}
+
+export async function materializeCurrentModelResearchEvidence(
+  modelVersions: readonly string[],
+) {
+  if (modelVersions.length === 0) {
+    return { ok: true, signalCount: 0, evidenceCount: 0, asOfDates: [] as string[] };
+  }
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("signal_events")
+    .select("id, as_of_date")
+    .in("model_version", [...modelVersions])
+    .order("as_of_date", { ascending: true })
+    .returns<Array<{ id: string; as_of_date: string }>>();
+  if (error) throw error;
+
+  let evidenceCount = 0;
+  for (const signal of data ?? []) {
+    const result = await materializeSignalResearchEvidence(signal.id);
+    evidenceCount += result.evidenceCount;
+  }
+  return {
+    ok: true,
+    signalCount: data?.length ?? 0,
+    evidenceCount,
+    asOfDates: [...new Set((data ?? []).map((item) => item.as_of_date))],
+  };
 }
