@@ -9,7 +9,11 @@ import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 import { generateSignalLedger } from "@/lib/signals/generate-ledger";
-import { runDailyBacktestUpdate } from "@/lib/signals/backtest";
+import {
+  CURRENT_BACKTEST_MODEL_VERSIONS,
+  runDailyBacktestUpdate,
+} from "@/lib/signals/backtest";
+import { backfillVerifiedSignalPrices } from "@/lib/signals/verified-price-backfill";
 import { createMissingPublicationDrafts } from "@/lib/signals/publication-review";
 import { materializeSignalResearchEvidence } from "@/lib/signals/evidence-materialization";
 import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
@@ -132,6 +136,11 @@ export async function GET(request: NextRequest) {
     const researchConfidence = researchEvidence.status === "success"
       ? await runSync(() => recalculateResearchConfidenceSnapshots(today))
       : { status: "skipped" as const, reason: "Evidence materialization did not complete." };
+    const verifiedPriceBackfill = await runSync(() => backfillVerifiedSignalPrices({
+      modelVersions: [...CURRENT_BACKTEST_MODEL_VERSIONS],
+      signalLimit: 5,
+      dryRun: false,
+    }));
     const backtests = await runSync(() => runDailyBacktestUpdate(5));
     const publicationDrafts = await runSync(() => createMissingPublicationDrafts(5));
     const replayValidation = {
@@ -156,6 +165,7 @@ export async function GET(request: NextRequest) {
       signalLedger,
       researchEvidence,
       researchConfidence,
+      verifiedPriceBackfill,
       backtests,
       publicationDrafts,
       replayValidation,

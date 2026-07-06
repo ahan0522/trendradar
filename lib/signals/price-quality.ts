@@ -143,6 +143,19 @@ export function assessLatestPrice(
   if (price.qualityStatus === "verified" && (!price.provider || !price.sourceUrl)) {
     return { status: "needs_review", reason: "已驗證價格缺少 provider 或 source URL" };
   }
+  if (market === "US") {
+    const verificationProvider = price.verificationProvider?.toLowerCase() ?? "";
+    const requiredProviders = ["yahoo-chart", "alpha-vantage-daily"];
+    const missingProviders = requiredProviders.filter(
+      (provider) => !verificationProvider.includes(provider),
+    );
+    if (missingProviders.length > 0) {
+      return {
+        status: "needs_review",
+        reason: `美股價格需要雙來源同日驗證：${missingProviders.join(", ")}`,
+      };
+    }
+  }
 
   const close = Number(price.adjClose ?? price.close);
   if (!Number.isFinite(close) || close <= 0) {

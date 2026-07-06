@@ -427,12 +427,19 @@ function testVerifiedPriceGate() {
     adjClose: 250,
     provider: "yahoo-chart",
   };
-  assert.equal(assessLatestPrice("MU", "US", legacyMicronPrice).status, "verified");
+  assert.equal(assessLatestPrice("MU", "US", legacyMicronPrice).status, "needs_review");
   assert.equal(assessLatestPrice("MU", "US", {
     ...legacyMicronPrice,
     close: 500,
     adjClose: 500,
   }).status, "needs_review");
+  assert.equal(assessLatestPrice("MU", "US", {
+    ...legacyMicronPrice,
+    close: 250,
+    adjClose: 250,
+    provider: "yahoo-chart+alpha-vantage",
+    verificationProvider: "yahoo-chart+alpha-vantage-daily",
+  }).status, "verified");
   assert.equal(assessLatestPrice("MU", "US", {
     ...legacyMicronPrice,
     close: 500,

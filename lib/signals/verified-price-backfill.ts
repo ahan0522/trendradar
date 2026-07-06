@@ -10,6 +10,7 @@ type SignalRow = {
   id: string;
   signal_date: string;
   signal_type: string;
+  model_version: string | null;
 };
 
 type WatchlistRow = {
@@ -44,6 +45,7 @@ function benchmarkFor(signalType: string, markets: MarketCode[]) {
 export async function backfillVerifiedSignalPrices(options?: {
   signalEventId?: string;
   signalIdPrefix?: string;
+  modelVersions?: string[];
   signalLimit?: number;
   dryRun?: boolean;
 }) {
@@ -51,11 +53,14 @@ export async function backfillVerifiedSignalPrices(options?: {
   const signalLimit = Math.max(1, Math.min(options?.signalLimit ?? 10, 100));
   let signalQuery = supabase
     .from("signal_events")
-    .select("id, signal_date, signal_type")
+    .select("id, signal_date, signal_type, model_version")
     .order("signal_date", { ascending: false })
     .limit(signalLimit);
   if (options?.signalEventId) signalQuery = signalQuery.eq("id", options.signalEventId);
   if (options?.signalIdPrefix) signalQuery = signalQuery.like("id", `${options.signalIdPrefix}%`);
+  if (options?.modelVersions?.length) {
+    signalQuery = signalQuery.in("model_version", options.modelVersions);
+  }
 
   const { data: signals, error: signalError } = await signalQuery.returns<SignalRow[]>();
   if (signalError) throw signalError;

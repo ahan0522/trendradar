@@ -2,6 +2,10 @@ import type { MarketCode, StockPrice } from "@/types/signals";
 import { upsertStockPrices } from "@/lib/signals/stock-prices";
 import { assessLatestPrice } from "@/lib/signals/price-quality";
 import { matchCorporateActionAdjustment } from "@/lib/signals/corporate-actions";
+import {
+  crossVerifyUsPrice,
+  fetchAlphaVantageDailySeries,
+} from "@/lib/signals/us-price-verification";
 
 export type PriceSourceProvider = "twse" | "tpex" | "yahoo_chart" | "manual_required";
 
@@ -339,6 +343,82 @@ async function fetchYahooPrice(
     price: errors.length > 0 ? null : price,
     warnings,
     errors,
+  };
+}
+
+const alphaVantageSeriesCache = new Map<
+  string,
+  ReturnType<typeof fetchAlphaVantageDailySeries>
+>();
+
+async function fetchCrossVerifiedUsPrice(
+  symbol: string,
+  requestedDate: string,
+  direction: "after" | "before",
+  rangeDays: number,
+): Promise<StockPriceFetchResult> {
+  const yahoo = await fetchYahooPrice(
+    symbol,
+    "US",
+    requestedDate,
+    direction,
+    rangeDays,
+    symbol,
+    true,
+  );
+  if (!yahoo.price) return yahoo;
+
+  const normalizedSymbol = normalizeSymbol(symbol);
+  let independentPromise = alphaVantageSeriesCache.get(normalizedSymbol);
+  if (!independentPromise) {
+    independentPromise = fetchAlphaVantageDailySeries(normalizedSymbol);
+    alphaVantageSeriesCache.set(normalizedSymbol, independentPromise);
+  }
+  const independent = await independentPromise;
+  if (independent.error) {
+    return {
+      ...yahoo,
+      status: "skipped",
+      price: null,
+      errors: [...yahoo.errors, independent.error],
+    };
+  }
+
+  const secondSource = independent.prices.get(yahoo.price.priceDate);
+  const verified = secondSource
+    ? crossVerifyUsPrice(yahoo.price, secondSource)
+    : null;
+  if (!verified) {
+    return {
+      ...yahoo,
+      status: "skipped",
+      price: null,
+      errors: [
+        ...yahoo.errors,
+        secondSource
+          ? "US cross-source close difference exceeded 1%."
+          : `Independent source has no exact-date close for ${yahoo.price.priceDate}.`,
+      ],
+    };
+  }
+
+  const quality = assessLatestPrice(normalizedSymbol, "US", {
+    priceDate: verified.priceDate,
+    close: verified.close,
+    adjClose: verified.adjClose ?? null,
+    volume: verified.volume ?? null,
+    qualityStatus: verified.qualityStatus,
+    provider: verified.provider,
+    sourceUrl: verified.sourceUrl,
+    verificationProvider: verified.verificationProvider,
+  });
+  return {
+    ...yahoo,
+    status: quality.status === "verified" ? "fetched" : "error",
+    price: quality.status === "verified" ? verified : null,
+    errors: quality.status === "verified"
+      ? yahoo.errors
+      : [...yahoo.errors, quality.reason ?? "US cross-verified price failed final validation."],
   };
 }
 
@@ -725,7 +805,10 @@ export async function fetchValidatedStockPriceOnOrBefore(
       : { ...tpex, warnings: [...twse.warnings, ...tpex.warnings], errors: [...twse.errors, ...tpex.errors] };
   }
 
-  if (request.market === "US" || request.market === "KR" || request.market === "JP") {
+  if (request.market === "US") {
+    return fetchCrossVerifiedUsPrice(symbol, date, "before", lookbackDays);
+  }
+  if (request.market === "KR" || request.market === "JP") {
     return fetchYahooPrice(symbol, request.market, date, "before", lookbackDays);
   }
 
@@ -777,7 +860,10 @@ export async function fetchValidatedStockPriceOnOrAfter(
         )
       : { ...tpex, warnings: [...twse.warnings, ...tpex.warnings], errors: [...twse.errors, ...tpex.errors] };
   }
-  if (request.market === "US" || request.market === "KR" || request.market === "JP") {
+  if (request.market === "US") {
+    return fetchCrossVerifiedUsPrice(symbol, date, "after", lookforwardDays);
+  }
+  if (request.market === "KR" || request.market === "JP") {
     return fetchYahooPrice(symbol, request.market, date, "after", lookforwardDays);
   }
   return {
