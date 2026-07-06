@@ -808,3 +808,11 @@ The next milestone is complete when:
 - The evidence registry accepts Data Center revenue as an AI compute demand proxy, but the quality plan remains `partial`: segment revenue is not labelled as GPU or AI Server shipment volume.
 - Daily research ingestion now refreshes these SEC exhibits independently of generic filing metadata.
 - Actual GPU and AI Server shipment counts remain an explicit licensed/manual data gap.
+## 28. First Strict 7-Day Validation Readiness (2026-07-06)
+
+- Audited all eight current strict Signals against their current beneficiary baskets and stored outcomes.
+- The mapped June monthly Signals use `2026-06-30` as the Signal date. Their first 7-day horizon matures on `2026-07-07`; no result was calculated early.
+- Verified-price backfill requested 27 entry, exit, and benchmark observations. Twelve TW observations passed exact-date TWSE plus Yahoo adjustment checks and were written as `verified`.
+- Fifteen US or SPY requests remained blocked because `ALPHA_VANTAGE_API_KEY` is not configured. They remain pending and are not replaced with zero returns or single-source Yahoo data.
+- Existing unmapped CPO, robotics, geopolitical, and optical-network Signals remain explicitly unmapped. The system does not invent beneficiary baskets merely to increase sample size.
+- A mixed-market outcome will remain pending until every member of its immutable current basket and its benchmark pass the strict price gate.
