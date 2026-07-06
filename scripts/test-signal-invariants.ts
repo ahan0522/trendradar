@@ -382,13 +382,30 @@ function testVerifiedPriceGate() {
       ...verifiedWinbondPrice,
       verificationProvider: "twse-official",
     }).status,
+    "verified",
+  );
+  assert.equal(
+    assessLatestPrice("2344.TW", "TW", {
+      ...verifiedWinbondPrice,
+      close: 207.5,
+      adjClose: 207.5,
+    }).status,
+    "verified",
+  );
+  assert.equal(
+    assessLatestPrice("2344.TW", "TW", {
+      ...verifiedWinbondPrice,
+      close: 207.5,
+      adjClose: 207.5,
+      verificationProvider: "twse-official",
+    }).status,
     "needs_review",
   );
   assert.equal(
     assessLatestPrice("2344.TW", "TW", {
       ...verifiedWinbondPrice,
-      close: 180,
-      adjClose: 180,
+      close: 360,
+      adjClose: 360,
     }).status,
     "needs_review",
   );

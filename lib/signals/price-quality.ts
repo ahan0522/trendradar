@@ -27,7 +27,7 @@ type SanityRange = {
   requiredVerificationProviders?: string[];
 };
 
-export const PRICE_SANITY_RANGE_VERSION = "price-sanity-v3-2026-07-02";
+export const PRICE_SANITY_RANGE_VERSION = "price-sanity-v4-2026-07-06";
 export const US_PRICE_SANITY_RANGE_VERSION = "us-price-sanity-v1-2026-07-04";
 
 const sanityRanges: Record<string, SanityRange> = {
@@ -90,10 +90,11 @@ const sanityRanges: Record<string, SanityRange> = {
   },
   "2344.TW::TW": {
     min: 5,
-    max: 150,
-    note: "華邦電台股報價合理區間；2026-07-02 由 TWSE 官方收盤與 Yahoo 同日調整價格交叉驗證",
+    max: 350,
+    legacyMax: 150,
+    note: "華邦電台股報價合理區間；2026-06-30 收盤 207.50 由 TWSE 官方資料與 Yahoo 同日行情交叉驗證",
     revision: PRICE_SANITY_RANGE_VERSION,
-    verifiedOn: "2026-07-02",
+    verifiedOn: "2026-06-30",
     verificationBasis: "TWSE STOCK_DAY official close plus Yahoo same-date structural and adjustment verification",
     requiredVerificationProviders: ["twse-official", "yahoo-adjustment-v1"],
   },
