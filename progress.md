@@ -784,3 +784,11 @@ The next milestone is complete when:
 - The first production expansion wrote 103 verified Company Facts observations: 33 GEV, 33 ETN, and 37 VRT. The v7 refresh produced 18 relevant evidence rows; Power/Grid gained official company activity while both required grid-equipment and power-demand gaps remained open, confirming that company-wide facts do not falsely complete industry requirements.
 - The EIA US48 Grid Monitor adapter is ready for daily average and peak electricity demand. It requires `EIA_API_KEY`, uses retrieval time as `known_at`, and labels the observations as general grid demand rather than data-center-specific consumption. EIA bulk archives were rejected for Vercel ingestion after HEAD checks found 672 MB and 290 MB ZIP files.
 - `price-sanity-v4-2026-07-06` expands the 2344.TW ceiling only above the prior 150 boundary and only when TWSE official and Yahoo same-date verification markers are both present. The 2026-06-30 close was independently reproduced as 207.50 from both sources.
+## 25. Grid Equipment Evidence Expansion (2026-07-06)
+
+- Added the official FRED/BLS `WPU117409` monthly producer price index for power and distribution transformers.
+- Added the Federal Reserve `IPG3353S` monthly industrial production index for electrical equipment manufacturing.
+- Both series retain the FRED source URL, observation period, and TrendRadar retrieval time. Historical periods are not treated as historically known before retrieval.
+- FRED ingestion now isolates failures by series. One unavailable series no longer discards all other verified observations; a complete provider failure still fails the source task.
+- A live CSV-fallback verification fetched both series with no failures. The latest available observations were May 2026: transformer PPI `365.306` and electrical-equipment production `97.4443`.
+- Research and Signal invariants, lint, and production build pass. Existing lint warnings remain unrelated to this data change.

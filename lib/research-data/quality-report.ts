@@ -42,8 +42,13 @@ export const researchCoveragePlan = [
     key: "power_grid_equipment",
     label: "變壓器與電網設備活動",
     status: "automated",
-    automatedSources: ["FRED PCU335311335311", "FRED IPG22112S"],
-    note: "使用 BLS／Federal Reserve 官方序列，known_at 採 TrendRadar 首次取得時間。",
+    automatedSources: [
+      "FRED PCU335311335311",
+      "FRED WPU117409",
+      "FRED IPG3353S",
+      "FRED IPG22112S",
+    ],
+    note: "使用 BLS／Federal Reserve 官方序列，涵蓋變壓器價格與電氣設備產出；known_at 採 TrendRadar 首次取得時間。",
   },
   {
     key: "power_demand",

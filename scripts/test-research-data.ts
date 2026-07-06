@@ -56,6 +56,8 @@ function testFredMissingValues() {
 function testFredPowerSeriesRegistry() {
   const ids = new Set(FRED_DEFAULT_SERIES.map((series) => series.id));
   assert.equal(ids.has("PCU335311335311"), true);
+  assert.equal(ids.has("WPU117409"), true);
+  assert.equal(ids.has("IPG3353S"), true);
   assert.equal(ids.has("IPG22112S"), true);
   assert.equal(ids.has("IPG2211S"), true);
   assert.equal(ids.has("CAPUTLG2211S"), true);

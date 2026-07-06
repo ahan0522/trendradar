@@ -97,6 +97,22 @@ export const FRED_DEFAULT_SERIES: FredSeries[] = [
     frequency: "monthly",
   },
   {
+    id: "WPU117409",
+    name: "電力與配電變壓器生產者物價指數",
+    kind: "industry",
+    industry: "AI Power / Grid",
+    unit: "Index Dec 1999=100",
+    frequency: "monthly",
+  },
+  {
+    id: "IPG3353S",
+    name: "電氣設備製造工業生產指數",
+    kind: "industry",
+    industry: "AI Power / Grid",
+    unit: "Index 2017=100",
+    frequency: "monthly",
+  },
+  {
     id: "IPG22112S",
     name: "電力輸配、控制與配送工業生產指數",
     kind: "industry",
@@ -227,12 +243,23 @@ export async function fetchFredResearchData(options?: {
     throw new Error("FRED_API_KEY is required for scheduled FRED ingestion.");
   }
   const observedAt = new Date().toISOString();
-  const results = await Promise.all(selected.map(async (series) => ({
+  const settled = await Promise.allSettled(selected.map(async (series) => ({
     series,
     observations: apiKey
       ? await fetchFredSeriesFromApi(series, startDate, observedAt, apiKey)
       : await fetchFredSeriesFromCsv(series, startDate, observedAt),
   })));
+  const results = settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+  const failures = settled.flatMap((result, index) => result.status === "rejected"
+    ? [{
+        id: selected[index].id,
+        name: selected[index].name,
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      }]
+    : []);
+  if (results.length === 0 && failures.length > 0) {
+    throw new Error(`All FRED series failed: ${failures.map((item) => `${item.id}: ${item.error}`).join("; ")}`);
+  }
 
   const commodityQuotes: CommodityQuote[] = [];
   const industryObservations: IndustryObservation[] = [];
@@ -294,6 +321,7 @@ export async function fetchFredResearchData(options?: {
     source: fredSource,
     startDate,
     providerMode,
+    failures,
     series: results.map((result) => ({
       id: result.series.id,
       name: result.series.name,
@@ -339,6 +367,7 @@ export async function syncFredResearchData(options?: {
       source: result.source.name,
       startDate: result.startDate,
       providerMode: result.providerMode,
+      failures: result.failures,
       series: result.series,
       commodityQuoteCount: result.commodityQuotes.length,
       industryObservationCount: result.industryObservations.length,
@@ -358,6 +387,7 @@ export async function syncFredResearchData(options?: {
     source: result.source.name,
     startDate: result.startDate,
     providerMode: result.providerMode,
+    failures: result.failures,
     series: result.series,
     commodityQuoteCount: quotes.count,
     industryObservationCount: observations.count,
