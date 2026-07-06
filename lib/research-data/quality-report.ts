@@ -27,9 +27,9 @@ export const researchCoveragePlan = [
   {
     key: "ai_server_shipments",
     label: "AI Server / GPU / accelerator 出貨",
-    status: "licensed_or_manual_required",
-    automatedSources: [],
-    note: "目前缺少可合法重播的產業出貨序列；只有 filing metadata 不構成出貨證據。",
+    status: "partial",
+    automatedSources: ["SEC EDGAR NVIDIA Exhibits"],
+    note: "已接入 NVIDIA Data Center 部門營收作為需求代理；仍缺可合法重播的 GPU／AI Server 實際出貨序列，部門營收不得標示為出貨量。",
   },
   {
     key: "cloud_capex",

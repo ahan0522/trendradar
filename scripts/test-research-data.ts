@@ -7,6 +7,7 @@ import {
 } from "../lib/research-data/fred";
 import { parseEiaGridDemand } from "../lib/research-data/eia-grid-demand";
 import { parseMicronInvestorRelease } from "../lib/research-data/micron-investor";
+import { parseNvidiaSecRelease } from "../lib/research-data/nvidia-sec";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
 import {
   EVIDENCE_MATERIALIZATION_VERSION,
@@ -118,11 +119,37 @@ function testMicronInvestorReleaseParsing() {
   assert.equal(conservativeDate[0].knownAt, "2026-06-24T23:59:59.000Z");
 }
 
+function testNvidiaSecReleaseParsing() {
+  const observations = parseNvidiaSecRelease({
+    html: `
+      <div>NVIDIA Announces Financial Results</div>
+      <div>SANTA CLARA, Calif.—May 20, 2026—NVIDIA reported results.</div>
+      <li>Record Data Center revenue of $75.2 billion, up 92% from a year ago</li>
+    `,
+    sourceUrl: "https://www.sec.gov/example.htm",
+    release: "Fiscal Q1 2027",
+    periodEnd: "2026-04-26",
+    observedAt: "2026-07-06T12:00:00.000Z",
+  });
+  assert.equal(observations.length, 1);
+  assert.equal(observations[0].metricValue, 75_200_000_000);
+  assert.equal(observations[0].knownAt, "2026-05-20T23:59:59.000Z");
+  assert.equal(observations[0].metadata?.scope, "company-segment");
+}
+
 function testResearchCoveragePlan() {
   const byKey = new Map(researchCoveragePlan.map((item) => [item.key, item]));
   assert.equal(byKey.get("power_grid_equipment")?.status, "automated");
   assert.equal(byKey.get("memory_pricing")?.status, "licensed_or_manual_required");
-  assert.equal(byKey.get("ai_server_shipments")?.automatedSources.length, 0);
+  assert.equal(byKey.get("ai_server_shipments")?.status, "partial");
+  assert.deepEqual(
+    byKey.get("ai_server_shipments")?.automatedSources,
+    ["SEC EDGAR NVIDIA Exhibits"],
+  );
+  assert.match(
+    byKey.get("ai_server_shipments")?.note ?? "",
+    /不得標示為出貨量/,
+  );
   assert.equal(byKey.get("cloud_capex")?.status, "partial");
 }
 
@@ -274,6 +301,7 @@ testHistoricalNewsParsing();
 testFredPowerSeriesRegistry();
 testEiaGridDemandParsing();
 testMicronInvestorReleaseParsing();
+testNvidiaSecReleaseParsing();
 testResearchCoveragePlan();
 testCurrentEvidenceVersion();
 testLatestResearchObservationSelection();

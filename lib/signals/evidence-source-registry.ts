@@ -77,7 +77,7 @@ export const evidenceFamilySpecs: EvidenceFamilySpec[] = [
         priority: "required",
         minItems: 1,
         acceptedSourceTypes: ["industry", "supply_chain", "official"],
-        examples: ["AI server shipment", "GPU shipment", "accelerator demand", "AI Server 出貨", "GPU 出貨", "工業生產指數"],
+        examples: ["AI server shipment", "GPU shipment", "accelerator demand", "Data Center revenue", "AI Server 出貨", "GPU 出貨", "資料中心營收", "工業生產指數"],
       },
       {
         key: "cloud_capex",

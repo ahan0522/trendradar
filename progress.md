@@ -800,3 +800,11 @@ The next milestone is complete when:
 - Each observation retains the SEC exhibit URL and explicit `company-product` scope. It is not treated as a market-wide shipment, capacity, contract-price, or bit-shipment series.
 - Direct Micron IR HTML is protected by a bot challenge in server-side fetches, so the reproducible SEC exhibit is the ingestion source.
 - DRAM/NAND contract pricing, comparable industry capacity, and bit-shipment series remain open licensed/manual data gaps.
+## 27. NVIDIA Data Center Demand Proxy (2026-07-06)
+
+- Added a reproducible SEC Exhibit parser for NVIDIA fiscal Q4 2026 and fiscal Q1 2027 releases.
+- Materialized verified Data Center segment revenue observations of USD 62.3 billion and USD 75.2 billion for periods ending 2026-01-25 and 2026-04-26.
+- Each observation uses conservative end-of-release-date UTC as `known_at`, retains its SEC URL, and is scoped as `company-segment`.
+- The evidence registry accepts Data Center revenue as an AI compute demand proxy, but the quality plan remains `partial`: segment revenue is not labelled as GPU or AI Server shipment volume.
+- Daily research ingestion now refreshes these SEC exhibits independently of generic filing metadata.
+- Actual GPU and AI Server shipment counts remain an explicit licensed/manual data gap.
