@@ -5,6 +5,7 @@ import {
   FRED_DEFAULT_SERIES,
   parseFredObservationValue,
 } from "../lib/research-data/fred";
+import { parseEiaGridDemand } from "../lib/research-data/eia-grid-demand";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
 import {
   EVIDENCE_MATERIALIZATION_VERSION,
@@ -58,6 +59,32 @@ function testFredPowerSeriesRegistry() {
   assert.equal(ids.has("IPG22112S"), true);
   assert.equal(ids.has("IPG2211S"), true);
   assert.equal(ids.has("CAPUTLG2211S"), true);
+}
+
+function testEiaGridDemandParsing() {
+  const observations = parseEiaGridDemand({
+    observedAt: "2026-07-06T10:00:00.000Z",
+    sourceUrl: "https://api.eia.gov/v2/electricity/rto/region-data/data/",
+    rows: [
+      { period: "2026-07-05T00", respondent: "US48", type: "D", value: "400000" },
+      { period: "2026-07-05T01", respondent: "US48", type: "D", value: "500000" },
+      { period: "2026-07-05T02", respondent: "OTHER", type: "D", value: "900000" },
+      { period: "invalid", respondent: "US48", type: "D", value: "1" },
+    ],
+  });
+  assert.equal(observations.length, 2);
+  assert.equal(
+    observations.find((item) => item.metadata?.aggregation === "daily_average")?.metricValue,
+    450000,
+  );
+  assert.equal(
+    observations.find((item) => item.metadata?.aggregation === "daily_peak")?.metricValue,
+    500000,
+  );
+  assert.equal(
+    observations.every((item) => item.metadata?.scope === "general-grid-demand"),
+    true,
+  );
 }
 
 function testResearchCoveragePlan() {
@@ -214,6 +241,7 @@ testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
 testFredPowerSeriesRegistry();
+testEiaGridDemandParsing();
 testResearchCoveragePlan();
 testCurrentEvidenceVersion();
 testLatestResearchObservationSelection();

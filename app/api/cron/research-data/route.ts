@@ -5,6 +5,7 @@ import { getResearchDataQualityReport } from "@/lib/research-data/quality-report
 import { syncFredResearchData } from "@/lib/research-data/fred";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
 import { syncSecCompanyFacts } from "@/lib/research-data/sec-company-facts";
+import { syncEiaGridDemand } from "@/lib/research-data/eia-grid-demand";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
@@ -101,7 +102,7 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
-    const [twse, tpex, sec, secFacts, fred] = await Promise.all([
+    const [twse, tpex, sec, secFacts, fred, eia] = await Promise.all([
       runSync(() => syncTwseResearchData({ dryRun: false }), 1),
       runSync(() => syncTpexResearchData({ dryRun: false }), 1),
       runSync(() => syncSecResearchData({
@@ -118,6 +119,12 @@ export async function GET(request: NextRequest) {
         apiKey: process.env.FRED_API_KEY?.trim(),
         allowCsvFallback: true,
       }), 1),
+      process.env.EIA_API_KEY?.trim()
+        ? runSync(() => syncEiaGridDemand({ dryRun: false }), 1)
+        : Promise.resolve({
+            status: "skipped" as const,
+            reason: "EIA_API_KEY is not configured.",
+          }),
     ]);
     const qualityAfter = await getResearchDataQualityReport();
     const today = currentTaipeiDate();
@@ -163,6 +170,7 @@ export async function GET(request: NextRequest) {
       sec,
       secFacts,
       fred,
+      eia,
       quality: qualityAfter,
       signalLedger,
       researchEvidence,

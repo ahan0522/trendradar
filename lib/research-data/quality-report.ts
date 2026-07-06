@@ -48,9 +48,13 @@ export const researchCoveragePlan = [
   {
     key: "power_demand",
     label: "電力發電、輸配與利用率",
-    status: "automated_general",
-    automatedSources: ["FRED IPG2211S", "FRED CAPUTLG2211S"],
-    note: "可驗證一般電力活動，但不能冒充資料中心專屬用電需求。",
+    status: "automated_general_key_required",
+    automatedSources: [
+      "FRED IPG2211S",
+      "FRED CAPUTLG2211S",
+      "EIA US48 Grid Monitor",
+    ],
+    note: "EIA adapter 已完成，設定 EIA_API_KEY 後可每日同步全美電網實際負載；所有序列都只能驗證一般電力活動，不能冒充資料中心專屬用電需求。",
   },
 ] as const;
 
