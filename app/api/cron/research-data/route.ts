@@ -6,6 +6,7 @@ import { syncFredResearchData } from "@/lib/research-data/fred";
 import { syncSecResearchData } from "@/lib/research-data/sec-edgar";
 import { syncSecCompanyFacts } from "@/lib/research-data/sec-company-facts";
 import { syncEiaGridDemand } from "@/lib/research-data/eia-grid-demand";
+import { syncMicronInvestorData } from "@/lib/research-data/micron-investor";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { syncTpexResearchData } from "@/lib/research-data/tpex";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
-    const [twse, tpex, sec, secFacts, fred, eia] = await Promise.all([
+    const [twse, tpex, sec, secFacts, micron, fred, eia] = await Promise.all([
       runSync(() => syncTwseResearchData({ dryRun: false }), 1),
       runSync(() => syncTpexResearchData({ dryRun: false }), 1),
       runSync(() => syncSecResearchData({
@@ -113,6 +114,7 @@ export async function GET(request: NextRequest) {
         dryRun: false,
         symbols: ["MU", "MSFT", "GOOGL", "META", "AMZN", "GEV", "ETN", "VRT"],
       }), 1),
+      runSync(() => syncMicronInvestorData({ dryRun: false }), 1),
       runSync(() => syncFredResearchData({
         dryRun: false,
         startDate: new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10),
@@ -161,14 +163,15 @@ export async function GET(request: NextRequest) {
       : null;
 
     return NextResponse.json({
-      ok: [twse, tpex, sec, secFacts, fred].some((result) => result.status === "success"),
-      degraded: [twse, tpex, sec, secFacts, fred].some((result) => result.status !== "success"),
+      ok: [twse, tpex, sec, secFacts, micron, fred].some((result) => result.status === "success"),
+      degraded: [twse, tpex, sec, secFacts, micron, fred].some((result) => result.status !== "success"),
       mode: "daily-research-data",
       durationMs: Date.now() - startedAt,
       twse,
       tpex,
       sec,
       secFacts,
+      micron,
       fred,
       eia,
       quality: qualityAfter,

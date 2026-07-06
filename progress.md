@@ -792,3 +792,11 @@ The next milestone is complete when:
 - FRED ingestion now isolates failures by series. One unavailable series no longer discards all other verified observations; a complete provider failure still fails the source task.
 - A live CSV-fallback verification fetched both series with no failures. The latest available observations were May 2026: transformer PPI `365.306` and electrical-equipment production `97.4443`.
 - Research and Signal invariants, lint, and production build pass. Existing lint warnings remain unrelated to this data change.
+## 26. Micron Official Memory Milestones (2026-07-06)
+
+- Added a server-compatible parser for Micron's fiscal Q3 2026 press release filed as SEC Form 8-K Exhibit 99.1.
+- Materialized two verified company-product observations: HBM4 high-volume shipments and the stated HBM4E calendar-2027 volume-production plan.
+- The SEC exhibit does not expose an exact release minute, so `known_at` conservatively uses 23:59:59 UTC on the filing date. The pipeline does not claim earlier availability.
+- Each observation retains the SEC exhibit URL and explicit `company-product` scope. It is not treated as a market-wide shipment, capacity, contract-price, or bit-shipment series.
+- Direct Micron IR HTML is protected by a bot challenge in server-side fetches, so the reproducible SEC exhibit is the ingestion source.
+- DRAM/NAND contract pricing, comparable industry capacity, and bit-shipment series remain open licensed/manual data gaps.

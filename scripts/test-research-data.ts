@@ -6,6 +6,7 @@ import {
   parseFredObservationValue,
 } from "../lib/research-data/fred";
 import { parseEiaGridDemand } from "../lib/research-data/eia-grid-demand";
+import { parseMicronInvestorRelease } from "../lib/research-data/micron-investor";
 import { parseTpexRocDate } from "../lib/research-data/tpex";
 import {
   EVIDENCE_MATERIALIZATION_VERSION,
@@ -87,6 +88,34 @@ function testEiaGridDemandParsing() {
     observations.every((item) => item.metadata?.scope === "general-grid-demand"),
     true,
   );
+}
+
+function testMicronInvestorReleaseParsing() {
+  const observations = parseMicronInvestorRelease({
+    html: `
+      <div>June 24, 2026 at 4:01 PM EDT</div>
+      <li>HBM4, built on 1-beta DRAM technology, is in high-volume shipments for our lead customer's platform, and qualification samples have been shipped to multiple end-customers.</li>
+      <li>Development of HBM4E, built on 1-gamma DRAM technology, is well underway, with volume production expected in calendar 2027.</li>
+    `,
+    sourceUrl: "https://investors.micron.com/node/50671",
+    release: "Fiscal Q3 2026",
+    observedAt: "2026-07-06T12:00:00.000Z",
+  });
+  assert.equal(observations.length, 2);
+  assert.equal(observations[0].knownAt, "2026-06-24T20:01:00.000Z");
+  assert.equal(observations.every((item) => item.qualityStatus === "verified"), true);
+  assert.equal(observations.every((item) => item.metadata?.scope === "company-product"), true);
+  assert.equal(observations.some((item) => item.metricName.includes("HBM4E")), true);
+  const conservativeDate = parseMicronInvestorRelease({
+    html: `
+      <div>BOISE, Idaho, June&#160;24, 2026 &#8211; Micron announced results.</div>
+      <li>HBM4, built on 1-beta DRAM technology, is in high-volume shipments for our lead customer's platform, and qualification samples have been shipped to multiple end-customers.</li>
+    `,
+    sourceUrl: "https://www.sec.gov/example.htm",
+    release: "Fiscal Q3 2026",
+    observedAt: "2026-07-06T12:00:00.000Z",
+  });
+  assert.equal(conservativeDate[0].knownAt, "2026-06-24T23:59:59.000Z");
 }
 
 function testResearchCoveragePlan() {
@@ -244,6 +273,7 @@ testTpexDateParsing();
 testHistoricalNewsParsing();
 testFredPowerSeriesRegistry();
 testEiaGridDemandParsing();
+testMicronInvestorReleaseParsing();
 testResearchCoveragePlan();
 testCurrentEvidenceVersion();
 testLatestResearchObservationSelection();

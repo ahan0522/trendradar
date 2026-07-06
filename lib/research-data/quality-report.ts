@@ -21,8 +21,8 @@ export const researchCoveragePlan = [
     key: "memory_supply",
     label: "記憶體產能、庫存與位元出貨",
     status: "partial",
-    automatedSources: ["SEC EDGAR Company Facts", "TWSE OpenAPI"],
-    note: "已接入美光公司總體庫存與資本支出；仍缺位元出貨與記憶體專屬產能，泛用高科技指標不可替代。",
+    automatedSources: ["SEC EDGAR Company Facts", "SEC EDGAR Micron Exhibits", "TWSE OpenAPI"],
+    note: "已接入美光公司總體庫存、資本支出及官方 HBM 產品里程碑；仍缺可比較的位元出貨與全產業產能序列，泛用高科技指標不可替代。",
   },
   {
     key: "ai_server_shipments",
