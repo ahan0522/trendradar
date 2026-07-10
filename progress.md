@@ -1,6 +1,6 @@
 # TrendRadar Development Progress
 
-Last updated: 2026-07-05
+Last updated: 2026-07-11
 Production: https://trendradar-prod.vercel.app
 Latest verified code commit: pending current changes
 Latest documentation commit: pending current changes
@@ -19,6 +19,15 @@ It converts news, industry observations, commodity data, company actions, and ma
 6. A versioned Signal Ledger
 
 TrendRadar is not a news summary website, investment advisory service, or automatic trading system. External daily, weekly, and monthly reports remain a later publishing layer. The current product is the internal data collection, research, review, and validation engine.
+
+### Live-First Policy
+
+TrendRadar now treats `2026-07-01` onward as the formal live Signal Ledger start date.
+
+- July 2026 and later data is the primary product dataset.
+- Historical 2025 and early 2026 backfills remain audit/sample material unless independently time-verified.
+- Large historical backfill expansion is intentionally deprioritized to reduce token, compute, and review cost.
+- Paid/public research should be built from live-collected Signals first; historical cases can demonstrate methodology but should not be marketed as strict live discoveries unless verified.
 
 ## 2. Current Architecture
 

@@ -94,6 +94,12 @@ import {
   RESEARCH_CONFIDENCE_MODEL_VERSION,
 } from "../lib/signals/monthly-discovery";
 import {
+  isLiveSignalLedgerDate,
+  LIVE_COLLECTION_POLICY,
+  LIVE_SIGNAL_LEDGER_START_DATE,
+  signalDataModeForDate,
+} from "../lib/signals/live-collection-policy";
+import {
   dedupeArticlesByEvent,
   dedupeArticlesByEventWindow,
   dedupeArticlesByFingerprintWindow,
@@ -232,6 +238,16 @@ function testSignalScore() {
   assert.match(cpoHypothesis, /CPO、矽光子與封裝量產/);
   assert.match(cpoHypothesis, /2 個獨立來源/);
   assert.doesNotMatch(cpoHypothesis, /英特爾|特斯拉/);
+}
+
+function testLiveCollectionPolicy() {
+  assert.equal(LIVE_SIGNAL_LEDGER_START_DATE, "2026-07-01");
+  assert.equal(LIVE_COLLECTION_POLICY.policyVersion, "live-first-2026-07");
+  assert.equal(signalDataModeForDate("2026-06-30"), "historical-audit");
+  assert.equal(signalDataModeForDate("2026-07-01"), "live-ledger");
+  assert.equal(signalDataModeForDate("2026-07-31"), "live-ledger");
+  assert.equal(isLiveSignalLedgerDate("2025-12-31"), false);
+  assert.equal(isLiveSignalLedgerDate("2026-07-01"), true);
 }
 
 function testBeneficiaryResearchMapping() {
@@ -1512,6 +1528,7 @@ function testEvidencePanel() {
 
 function main() {
   testSignalScore();
+  testLiveCollectionPolicy();
   testBeneficiaryResearchMapping();
   testTopicKeywordBoundaries();
   testVerifiedPriceGate();

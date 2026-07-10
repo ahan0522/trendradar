@@ -20,6 +20,7 @@ import { backfillVerifiedSignalPrices } from "@/lib/signals/verified-price-backf
 import { createMissingPublicationDrafts } from "@/lib/signals/publication-review";
 import { materializeCurrentModelResearchEvidence } from "@/lib/signals/evidence-materialization";
 import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
+import { LIVE_COLLECTION_POLICY, signalDataModeForDate } from "@/lib/signals/live-collection-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -168,6 +169,11 @@ export async function GET(request: NextRequest) {
       ok: [twse, tpex, sec, secFacts, micron, nvidia, fred].some((result) => result.status === "success"),
       degraded: [twse, tpex, sec, secFacts, micron, nvidia, fred].some((result) => result.status !== "success"),
       mode: "daily-research-data",
+      collectionPolicy: {
+        ...LIVE_COLLECTION_POLICY,
+        todayDataMode: signalDataModeForDate(today),
+        historicalBackfillUse: "audit-only",
+      },
       durationMs: Date.now() - startedAt,
       twse,
       tpex,
