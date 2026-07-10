@@ -6,6 +6,7 @@ import {
 import type {
   InstitutionalFlowSummary,
   MarketBrief,
+  MarketBriefDataQualityItem,
   MarketBriefPeriod,
   MarketBriefSection,
   MarketBriefSignal,
@@ -94,6 +95,31 @@ function pendingInstitution(label: InstitutionalFlowSummary["label"]): Instituti
     direction: "pending",
     status: "pending",
     reason: "尚未接入 TWSE/TPEx 三大法人與投信外資連續買賣超資料表。",
+  };
+}
+
+function indexCoverageQuality(
+  label: string,
+  indices: MarketIndexMove[],
+): MarketBriefDataQualityItem {
+  const readyCount = indices.filter((item) => item.status === "ready").length;
+  const partialCount = indices.filter((item) => item.status === "partial").length;
+  const usableCount = readyCount + partialCount;
+  if (usableCount === 0) {
+    return {
+      label,
+      status: "pending",
+      coverage: `0/${indices.length}`,
+      reason: "指數價格尚未有足夠的可信日資料，相關漲跌與連續天數暫不輸出。",
+    };
+  }
+  return {
+    label,
+    status: readyCount === indices.length ? "ready" : "partial",
+    coverage: `${usableCount}/${indices.length}`,
+    reason: readyCount === indices.length
+      ? "指數價格已具備可信日資料。"
+      : "部分指數已有可用價格，但仍需補齊 verified 品質與更長序列。",
   };
 }
 
@@ -217,6 +243,22 @@ export function buildMarketBrief(input: {
         dataNeeded: ["跨來源事件集中度", "產業硬資料", "可驗證受惠標的"],
         status: "pending",
       }];
+  const dataQuality = [
+    indexCoverageQuality("台股指數價格", taiwan.indices),
+    indexCoverageQuality("美股指數價格", us.indices),
+    {
+      label: "台股法人與產業排行",
+      status: "pending",
+      coverage: "0/2",
+      reason: "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
+    },
+    {
+      label: "美股產業與成分股排行",
+      status: "pending",
+      coverage: "0/2",
+      reason: "美股 sector 與 constituent performance 尚未接入可信資料源。",
+    },
+  ] satisfies MarketBriefDataQualityItem[];
 
   return {
     ok: true,
@@ -241,6 +283,7 @@ export function buildMarketBrief(input: {
     weeklyOrMonthlyNotes: input.period === "daily"
       ? ["週報將彙整本週訊號變化、價格驗證進度與資料缺口。"]
       : ["需比較本期與前期 Signal 的延續、降溫、重新升溫與回測成熟度。"],
+    dataQuality,
     dataGaps: [...new Set(dataGaps)],
   };
 }

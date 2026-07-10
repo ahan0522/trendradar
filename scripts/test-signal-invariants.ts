@@ -277,6 +277,8 @@ function testMarketBriefContract() {
   assert.equal(report.period, "daily");
   assert.equal(report.signals.length, 1);
   assert.equal(report.taiwan.institutionalFlows?.[0].status, "pending");
+  assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
+  assert.ok(report.dataQuality.some((item) => item.label === "美股產業與成分股排行" && item.coverage === "0/2"));
   assert.ok(report.dataGaps.some((item) => item.includes("法人買賣超")));
   assert.ok(report.tomorrowWatch[0].dataNeeded.includes("產業硬資料"));
 
@@ -296,6 +298,16 @@ function testMarketBriefContract() {
   assert.equal(index.status, "partial");
   assert.equal(index.changePct, 2);
   assert.match(index.streakLabel, /上漲/);
+  const pricedReport = buildMarketBrief({
+    period: "daily",
+    asOfDate: "2026-07-11",
+    generatedAt: "2026-07-11T00:00:00.000Z",
+    usIndices: [index],
+  });
+  assert.ok(pricedReport.dataQuality.some((item) =>
+    item.label === "美股指數價格" &&
+    item.status === "partial" &&
+    item.coverage === "1/1"));
 }
 
 function testBeneficiaryResearchMapping() {

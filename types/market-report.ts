@@ -68,6 +68,13 @@ export type TomorrowWatchItem = {
   status: MarketBriefStatus;
 };
 
+export type MarketBriefDataQualityItem = {
+  label: string;
+  status: MarketBriefStatus;
+  coverage: string;
+  reason?: string;
+};
+
 export type MarketBrief = {
   ok: boolean;
   period: MarketBriefPeriod;
@@ -85,5 +92,6 @@ export type MarketBrief = {
   signals: MarketBriefSignal[];
   tomorrowWatch: TomorrowWatchItem[];
   weeklyOrMonthlyNotes: string[];
+  dataQuality: MarketBriefDataQualityItem[];
   dataGaps: string[];
 };
