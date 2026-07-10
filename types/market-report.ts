@@ -75,6 +75,18 @@ export type MarketBriefDataQualityItem = {
   reason?: string;
 };
 
+export type MarketBriefDataRequirement = {
+  id: string;
+  label: string;
+  market: "TW" | "US";
+  priority: "critical" | "high" | "medium";
+  status: MarketBriefStatus;
+  requiredFor: MarketBriefPeriod[];
+  suggestedSources: string[];
+  blocksReportNumbers: boolean;
+  reason: string;
+};
+
 export type MarketBrief = {
   ok: boolean;
   period: MarketBriefPeriod;
@@ -93,5 +105,6 @@ export type MarketBrief = {
   tomorrowWatch: TomorrowWatchItem[];
   weeklyOrMonthlyNotes: string[];
   dataQuality: MarketBriefDataQualityItem[];
+  dataRequirements: MarketBriefDataRequirement[];
   dataGaps: string[];
 };

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { marketDataRequirementsForReport } from "@/lib/reports/market-data-requirements";
 import {
   LIVE_SIGNAL_LEDGER_START_DATE,
   signalDataModeForDate,
@@ -284,6 +285,7 @@ export function buildMarketBrief(input: {
       ? ["週報將彙整本週訊號變化、價格驗證進度與資料缺口。"]
       : ["需比較本期與前期 Signal 的延續、降溫、重新升溫與回測成熟度。"],
     dataQuality,
+    dataRequirements: marketDataRequirementsForReport(),
     dataGaps: [...new Set(dataGaps)],
   };
 }

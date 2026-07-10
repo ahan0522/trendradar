@@ -279,6 +279,13 @@ function testMarketBriefContract() {
   assert.equal(report.taiwan.institutionalFlows?.[0].status, "pending");
   assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
   assert.ok(report.dataQuality.some((item) => item.label === "美股產業與成分股排行" && item.coverage === "0/2"));
+  assert.ok(report.dataRequirements.some((item) =>
+    item.id === "tw-institutional-flows" &&
+    item.priority === "critical" &&
+    item.blocksReportNumbers));
+  assert.ok(report.dataRequirements.some((item) =>
+    item.id === "us-sector-movers" &&
+    item.suggestedSources.some((source) => source.includes("sector"))));
   assert.ok(report.dataGaps.some((item) => item.includes("法人買賣超")));
   assert.ok(report.tomorrowWatch[0].dataNeeded.includes("產業硬資料"));
 
