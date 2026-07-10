@@ -100,6 +100,10 @@ import {
   signalDataModeForDate,
 } from "../lib/signals/live-collection-policy";
 import {
+  buildIndexMoveFromPrices,
+  buildMarketBrief,
+} from "../lib/reports/market-brief";
+import {
   dedupeArticlesByEvent,
   dedupeArticlesByEventWindow,
   dedupeArticlesByFingerprintWindow,
@@ -248,6 +252,50 @@ function testLiveCollectionPolicy() {
   assert.equal(signalDataModeForDate("2026-07-31"), "live-ledger");
   assert.equal(isLiveSignalLedgerDate("2025-12-31"), false);
   assert.equal(isLiveSignalLedgerDate("2026-07-01"), true);
+}
+
+function testMarketBriefContract() {
+  const report = buildMarketBrief({
+    period: "daily",
+    asOfDate: "2026-07-11",
+    generatedAt: "2026-07-11T00:00:00.000Z",
+    signals: [{
+      id: "signal-1",
+      topic: "AI 資料中心電力",
+      signalStrength: 72,
+      confidenceScore: 44,
+      status: "partial",
+      watchlist: [{
+        symbol: "2308.TW",
+        companyName: "台達電",
+        market: "TW",
+        reason: "資料中心電源觀察標的。",
+      }],
+    }],
+  });
+  assert.equal(report.dataPolicy.mode, "live-ledger");
+  assert.equal(report.period, "daily");
+  assert.equal(report.signals.length, 1);
+  assert.equal(report.taiwan.institutionalFlows?.[0].status, "pending");
+  assert.ok(report.dataGaps.some((item) => item.includes("法人買賣超")));
+  assert.ok(report.tomorrowWatch[0].dataNeeded.includes("產業硬資料"));
+
+  const historical = buildMarketBrief({
+    period: "daily",
+    asOfDate: "2026-06-30",
+    generatedAt: "2026-06-30T00:00:00.000Z",
+  });
+  assert.equal(historical.dataPolicy.mode, "historical-audit");
+  assert.equal(historical.signals.length, 0);
+  assert.equal(historical.tomorrowWatch[0].status, "pending");
+
+  const index = buildIndexMoveFromPrices("S&P 500", "^GSPC", "US", [
+    { symbol: "^GSPC", market: "US", price_date: "2026-07-10", close: 5100, adj_close: null, quality_status: "verified" },
+    { symbol: "^GSPC", market: "US", price_date: "2026-07-09", close: 5000, adj_close: null, quality_status: "verified" },
+  ]);
+  assert.equal(index.status, "partial");
+  assert.equal(index.changePct, 2);
+  assert.match(index.streakLabel, /上漲/);
 }
 
 function testBeneficiaryResearchMapping() {
@@ -1529,6 +1577,7 @@ function testEvidencePanel() {
 function main() {
   testSignalScore();
   testLiveCollectionPolicy();
+  testMarketBriefContract();
   testBeneficiaryResearchMapping();
   testTopicKeywordBoundaries();
   testVerifiedPriceGate();

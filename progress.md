@@ -29,6 +29,18 @@ TrendRadar now treats `2026-07-01` onward as the formal live Signal Ledger start
 - Large historical backfill expansion is intentionally deprioritized to reduce token, compute, and review cost.
 - Paid/public research should be built from live-collected Signals first; historical cases can demonstrate methodology but should not be marketed as strict live discoveries unless verified.
 
+### Market Brief Layer
+
+The external reporting layer starts from the live dataset and remains separate from the internal Signal Ledger.
+
+- Added `/api/reports/market-brief`.
+- Supported periods: `daily`, `weekly`, `monthly`.
+- Daily brief contract now includes Taiwan market, US market, internal Signals, tomorrow watch items, and data gaps.
+- Taiwan placeholders explicitly cover index moves, industry winners/losers, top stocks, and institutional flows.
+- US placeholders explicitly cover Dow, Nasdaq, S&P 500, Philadelphia Semiconductor, industry movers, and top stocks.
+- Missing market data is reported as `pending`; the system must not fabricate institutional flow, sector ranking, streak, or index numbers.
+- Next data tasks are official/authorized Taiwan institutional flows, Taiwan industry constituents, US sector/constituent performance, and verified index price series.
+
 ## 2. Current Architecture
 
 ```text
