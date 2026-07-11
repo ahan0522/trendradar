@@ -58,11 +58,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "台股產業漲跌與成分股排行",
     market: "TW",
     priority: "high",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly", "monthly"],
     suggestedSources: ["TWSE industry index", "TPEx industry index", "maintained TW sector constituent map", "FinMind API if license permits"],
     blocksReportNumbers: true,
-    reason: "缺少產業分類與成分股日漲跌時，不能輸出上漲/下跌產業與前 3-5 個股。",
+    reason: "已可用維護主題籃子與 verified 台股價格產出內部族群強弱；官方產業指數、櫃買產業與完整成分股仍待補齊。",
   },
   {
     id: "tw-futures-positioning",
@@ -168,6 +168,8 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
 export function marketDataRequirementsForReport() {
   return MARKET_DATA_REQUIREMENTS.map((item) => ({ ...item }));
 }
+
+
 
 
 

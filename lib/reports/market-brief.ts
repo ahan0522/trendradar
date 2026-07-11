@@ -56,6 +56,65 @@ const US_INDEX_SYMBOLS = [
   { label: "費城半導體", symbol: "^SOX" },
 ];
 
+const TW_THEME_GROUPS = [
+  {
+    label: "記憶體族群",
+    symbols: [
+      { symbol: "2408.TW", companyName: "南亞科" },
+      { symbol: "2344.TW", companyName: "華邦電" },
+      { symbol: "8299.TW", companyName: "群聯" },
+    ],
+  },
+  {
+    label: "AI 電力與重電族群",
+    symbols: [
+      { symbol: "2308.TW", companyName: "台達電" },
+      { symbol: "1513.TW", companyName: "中興電" },
+      { symbol: "1519.TW", companyName: "華城" },
+    ],
+  },
+  {
+    label: "AI 散熱族群",
+    symbols: [
+      { symbol: "3017.TW", companyName: "奇鋐" },
+      { symbol: "3324.TW", companyName: "雙鴻" },
+      { symbol: "2308.TW", companyName: "台達電" },
+    ],
+  },
+  {
+    label: "AI 伺服器族群",
+    symbols: [
+      { symbol: "2317.TW", companyName: "鴻海" },
+      { symbol: "6669.TW", companyName: "緯穎" },
+      { symbol: "2382.TW", companyName: "廣達" },
+    ],
+  },
+  {
+    label: "先進封裝族群",
+    symbols: [
+      { symbol: "2330.TW", companyName: "台積電" },
+      { symbol: "3711.TW", companyName: "日月光投控" },
+    ],
+  },
+  {
+    label: "光通訊族群",
+    symbols: [
+      { symbol: "6451.TW", companyName: "訊芯-KY" },
+      { symbol: "3081.TW", companyName: "聯亞" },
+      { symbol: "3363.TW", companyName: "上詮" },
+      { symbol: "3163.TW", companyName: "波若威" },
+    ],
+  },
+];
+
+const TW_THEME_SYMBOLS = [...new Set(TW_THEME_GROUPS.flatMap((group) => group.symbols.map((item) => item.symbol)))];
+
+type ThemeGroupMove = {
+  label: string;
+  changePct: number;
+  stockMoves: Array<{ symbol: string; companyName: string; changePct: number }>;
+};
+
 function currentTaipeiDate() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Taipei",
@@ -233,6 +292,91 @@ export function buildIndexMoveFromPrices(
   };
 }
 
+function priceValue(row: PriceRow) {
+  return Number(row.adj_close ?? row.close);
+}
+
+function verifiedRowsForSymbol(prices: PriceRow[], symbol: string, market: "TW" | "US") {
+  return prices
+    .filter((item) => item.symbol === symbol && item.market === market && item.quality_status === "verified")
+    .sort((a, b) => b.price_date.localeCompare(a.price_date));
+}
+
+function latestVerifiedOnOrBefore(rows: PriceRow[], asOfDate: string) {
+  return rows.find((item) => item.price_date <= asOfDate) ?? null;
+}
+
+function comparisonVerifiedPrice(rows: PriceRow[], startDate: string, latestDate: string) {
+  const beforeStart = rows.find((item) => item.price_date < startDate && item.price_date < latestDate);
+  if (beforeStart) return beforeStart;
+  return rows.find((item) => item.price_date < latestDate) ?? null;
+}
+
+function buildThemeGroupMoves(prices: PriceRow[], startDate: string, asOfDate: string): ThemeGroupMove[] {
+  return TW_THEME_GROUPS.flatMap((group) => {
+    const stockMoves = group.symbols.flatMap((stock) => {
+      const rows = verifiedRowsForSymbol(prices, stock.symbol, "TW");
+      const latest = latestVerifiedOnOrBefore(rows, asOfDate);
+      if (!latest) return [];
+      const base = comparisonVerifiedPrice(rows, startDate, latest.price_date);
+      if (!base) return [];
+      const latestClose = priceValue(latest);
+      const baseClose = priceValue(base);
+      if (!Number.isFinite(latestClose) || !Number.isFinite(baseClose) || baseClose <= 0) return [];
+      return [{
+        symbol: stock.symbol,
+        companyName: stock.companyName,
+        changePct: Number((((latestClose - baseClose) / baseClose) * 100).toFixed(2)),
+      }];
+    });
+
+    if (stockMoves.length < Math.min(2, group.symbols.length)) return [];
+    const changePct = stockMoves.reduce((sum, item) => sum + item.changePct, 0) / stockMoves.length;
+    return [{
+      label: group.label,
+      changePct: Number(changePct.toFixed(2)),
+      stockMoves,
+    }];
+  });
+}
+
+function themeMoveToSector(group: ThemeGroupMove, direction: "up" | "down"): MarketSectorMove {
+  const sortedStocks = group.stockMoves
+    .slice()
+    .sort((a, b) => direction === "up" ? b.changePct - a.changePct : a.changePct - b.changePct)
+    .slice(0, 5);
+  return {
+    label: group.label,
+    direction,
+    changePct: group.changePct,
+    topStocks: sortedStocks.map((item) => ({
+      symbol: item.symbol,
+      companyName: item.companyName,
+      changePct: item.changePct,
+      reason: "維護主題籃子；僅用 verified 台股價格計算，非官方產業指數。",
+    })),
+    status: "partial",
+    reason: "以 TrendRadar 維護的直接受惠台股主題籃子計算族群強弱；官方產業指數與完整成分股仍需補齊。",
+  };
+}
+
+export function buildTaiwanThemeMovesFromPrices(
+  prices: PriceRow[],
+  startDate: string,
+  asOfDate: string,
+): MarketSectorMove[] {
+  const groupMoves = buildThemeGroupMoves(prices, startDate, asOfDate);
+  const strongest = groupMoves.filter((item) => item.changePct > 0).sort((a, b) => b.changePct - a.changePct)[0];
+  const weakest = groupMoves.filter((item) => item.changePct < 0).sort((a, b) => a.changePct - b.changePct)[0];
+  return [
+    strongest
+      ? themeMoveToSector(strongest, "up")
+      : pendingSector("上漲族群", "維護主題籃子尚未有足夠 verified 價格可計算上漲族群。"),
+    weakest
+      ? themeMoveToSector(weakest, "down")
+      : pendingSector("下跌族群", "維護主題籃子尚未有足夠 verified 價格可計算下跌族群。"),
+  ];
+}
 function briefSignalRows(signals: SignalRow[], watchlists: WatchlistRow[]): MarketBriefSignal[] {
   const watchlistsBySignal = new Map<string, WatchlistRow[]>();
   for (const item of watchlists) {
@@ -271,6 +415,7 @@ export function buildMarketBrief(input: {
   taiwanIndices?: MarketIndexMove[];
   usIndices?: MarketIndexMove[];
   twInstitutionalFlows?: TwseInstitutionalTradingSummary[];
+  taiwanSectors?: MarketSectorMove[];
   signals?: MarketBriefSignal[];
   dataGaps?: string[];
 }): MarketBrief {
@@ -279,7 +424,7 @@ export function buildMarketBrief(input: {
   const signals = input.signals ?? [];
   const dataGaps = [
     ...(input.dataGaps ?? []),
-    "台股法人買賣超、產業漲跌與前 3-5 個股仍需接入官方或授權資料源。",
+    "台股官方產業指數、櫃買法人與完整成分股漲跌仍需接入官方或授權資料源。",
     "美股產業漲跌與成分股排行仍需接入可信 sector/constituent 資料源。",
   ];
   const taiwan: MarketBriefSection = {
@@ -288,9 +433,9 @@ export function buildMarketBrief(input: {
     status: input.taiwanIndices?.some((item) => item.status !== "pending") ? "partial" : "pending",
     summary: "台股日報骨架已建立；目前優先呈現可信資料，缺口不以推測補齊。",
     indices: input.taiwanIndices ?? TW_INDEX_SYMBOLS.map((item) => pendingIndex(item.label, item.symbol, "TW")),
-    sectors: [
-      pendingSector("上漲產業", "尚未接入可信產業分類與成分股日漲跌資料。"),
-      pendingSector("下跌產業", "尚未接入可信產業分類與成分股日漲跌資料。"),
+    sectors: input.taiwanSectors ?? [
+      pendingSector("上漲族群", "尚未接入可信主題籃子或官方產業分類與成分股日漲跌資料。"),
+      pendingSector("下跌族群", "尚未接入可信主題籃子或官方產業分類與成分股日漲跌資料。"),
     ],
     institutionalFlows: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
       institutionFromTwse(label, input.twInstitutionalFlows)),
@@ -307,6 +452,7 @@ export function buildMarketBrief(input: {
     ],
   };
   const taiwanInstitutionCoverage = taiwan.institutionalFlows?.some((item) => item.status !== "pending") ?? false;
+  const taiwanSectorCoverage = taiwan.sectors.some((item) => item.status !== "pending");
   const tomorrowWatch: TomorrowWatchItem[] = signals.length > 0
     ? signals.slice(0, 3).map((signal) => ({
         title: signal.topic,
@@ -325,10 +471,10 @@ export function buildMarketBrief(input: {
     indexCoverageQuality("美股指數價格", us.indices),
     {
       label: "台股法人與產業排行",
-      status: taiwanInstitutionCoverage ? "partial" : "pending",
-      coverage: `${taiwanInstitutionCoverage ? 1 : 0}/2`,
-      reason: taiwanInstitutionCoverage
-        ? "TWSE 上市三大法人單日、期間累積與連續買賣已可用；櫃買法人與產業成分股漲跌仍待補齊。"
+      status: taiwanInstitutionCoverage || taiwanSectorCoverage ? "partial" : "pending",
+      coverage: `${(taiwanInstitutionCoverage ? 1 : 0) + (taiwanSectorCoverage ? 1 : 0)}/2`,
+      reason: taiwanInstitutionCoverage || taiwanSectorCoverage
+        ? "TWSE 上市三大法人與維護主題籃子 movers 已部分可用；櫃買法人、官方產業指數與完整成分股仍待補齊。"
         : "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
     },
     {
@@ -395,10 +541,10 @@ export async function getMarketBrief(options?: {
     supabase
       .from("stock_prices")
       .select("symbol, market, price_date, close, adj_close, quality_status")
-      .in("symbol", [...TW_INDEX_SYMBOLS, ...US_INDEX_SYMBOLS].map((item) => item.symbol))
+      .in("symbol", [...TW_INDEX_SYMBOLS, ...US_INDEX_SYMBOLS].map((item) => item.symbol).concat(TW_THEME_SYMBOLS))
       .lte("price_date", asOfDate)
       .order("price_date", { ascending: false })
-      .limit(80)
+      .limit(500)
       .returns<PriceRow[]>(),
     fetchTwseInstitutionalTradingRange({ startDate, endDate: asOfDate }).catch(() => []),
   ]);
@@ -415,6 +561,7 @@ export async function getMarketBrief(options?: {
   const priceRows = prices ?? [];
   const taiwanIndices = TW_INDEX_SYMBOLS.map((item) => buildIndexMoveFromPrices(item.label, item.symbol, "TW", priceRows));
   const usIndices = US_INDEX_SYMBOLS.map((item) => buildIndexMoveFromPrices(item.label, item.symbol, "US", priceRows));
+  const taiwanSectors = buildTaiwanThemeMovesFromPrices(priceRows, startDate, asOfDate);
   const briefSignals = briefSignalRows(signals ?? [], watchlists ?? []);
 
   return buildMarketBrief({
@@ -424,9 +571,12 @@ export async function getMarketBrief(options?: {
     taiwanIndices,
     usIndices,
     twInstitutionalFlows,
+    taiwanSectors,
     signals: briefSignals,
   });
 }
+
+
 
 
 

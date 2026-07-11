@@ -102,6 +102,7 @@ import {
 import {
   buildIndexMoveFromPrices,
   buildMarketBrief,
+  buildTaiwanThemeMovesFromPrices,
   reportStartDateForPeriod,
 } from "../lib/reports/market-brief";
 import {
@@ -347,6 +348,37 @@ function testMarketBriefContract() {
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].topStocks?.[0].symbol, "2382.TW");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].cumulativeAmount, 1000);
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].consecutiveDays, 1);
+  const taiwanThemeMoves = buildTaiwanThemeMovesFromPrices([
+    { symbol: "2408.TW", market: "TW", price_date: "2026-07-10", close: 120, adj_close: null, quality_status: "verified" },
+    { symbol: "2408.TW", market: "TW", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
+    { symbol: "2344.TW", market: "TW", price_date: "2026-07-10", close: 60, adj_close: null, quality_status: "verified" },
+    { symbol: "2344.TW", market: "TW", price_date: "2026-07-09", close: 50, adj_close: null, quality_status: "verified" },
+    { symbol: "2308.TW", market: "TW", price_date: "2026-07-10", close: 90, adj_close: null, quality_status: "verified" },
+    { symbol: "2308.TW", market: "TW", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
+    { symbol: "1519.TW", market: "TW", price_date: "2026-07-10", close: 80, adj_close: null, quality_status: "verified" },
+    { symbol: "1519.TW", market: "TW", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
+  ], "2026-07-10", "2026-07-10");
+  assert.equal(taiwanThemeMoves[0].label, "記憶體族群");
+  assert.equal(taiwanThemeMoves[0].direction, "up");
+  assert.equal(taiwanThemeMoves[0].status, "partial");
+  assert.equal(taiwanThemeMoves[0].topStocks[0].symbol, "2408.TW");
+  assert.equal(taiwanThemeMoves[1].label, "AI 電力與重電族群");
+  assert.equal(taiwanThemeMoves[1].direction, "down");
+  assert.ok(taiwanThemeMoves[0].topStocks[0].reason?.includes("非官方產業指數"));
+  const themeReport = buildMarketBrief({
+    period: "daily",
+    asOfDate: "2026-07-11",
+    generatedAt: "2026-07-11T00:00:00.000Z",
+    taiwanSectors: taiwanThemeMoves,
+  });
+  assert.ok(themeReport.dataQuality.some((item) =>
+    item.label === "台股法人與產業排行" &&
+    item.status === "partial" &&
+    item.coverage === "1/2"));
+  assert.ok(themeReport.dataRequirements.some((item) =>
+    item.id === "tw-sector-movers" &&
+    item.status === "partial" &&
+    item.reason.includes("verified 台股價格")));
   assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
   assert.ok(report.dataQuality.some((item) => item.label === "美股產業與成分股排行" && item.coverage === "0/2"));
   assert.ok(report.dataRequirements.some((item) =>
@@ -383,7 +415,7 @@ function testMarketBriefContract() {
   assert.ok(report.priceTargets.some((item) =>
     item.symbol === "^GSPC" &&
     item.automationStatus === "needs_independent_source"));
-  assert.ok(report.dataGaps.some((item) => item.includes("法人買賣超")));
+  assert.ok(report.dataGaps.some((item) => item.includes("櫃買法人") && item.includes("官方產業指數")));
   assert.ok(report.tomorrowWatch[0].dataNeeded.includes("產業硬資料"));
 
   const historical = buildMarketBrief({
@@ -1738,6 +1770,9 @@ function main() {
 }
 
 main();
+
+
+
 
 
 

@@ -883,3 +883,11 @@ The next milestone is complete when:
 - Weekends and unpublished dates remain empty rather than being treated as zero. The report uses the latest verified trading day available within the window.
 - The July live dry-run for 2026-07-01 through 2026-07-11 returned 16 verified rows across four labels, with the latest available official trading date at 2026-07-07 in this environment.
 - Taiwan institutional-flow requirements are now marked partial: TWSE listed-market flows are available, while TPEx institutional flows, value-based totals, sector movers, and constituent movers remain open gaps.
+
+## 34. Taiwan Theme Movers for July Briefs (2026-07-11)
+
+- Added maintained Taiwan theme baskets for July daily/weekly/monthly briefs: Memory, AI Power/Grid, AI Cooling, AI Server, Advanced Packaging, and Optical/CPO.
+- Market brief now fetches those theme-basket symbols with the Taiwan and US index rows, then computes internal up/down theme movers only from `verified` Taiwan prices.
+- The output is explicitly marked `partial` and described as a TrendRadar maintained theme basket, not an official TWSE/TPEx industry index.
+- Each available theme mover can expose the strongest or weakest 3-5 constituent stocks with change percentage and a reason string.
+- Taiwan report data quality can now reach `2/2` only when both TWSE institutional flows and theme movers are available; official industry indices, TPEx institutional flows, and complete constituents remain open gaps.
