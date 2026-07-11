@@ -3,6 +3,8 @@ import { upsertResearchSources } from "@/lib/research-data/repository";
 import type { ResearchSource } from "@/types/research-data";
 
 const TPEX_PRICES_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes";
+const TPEX_OTC_INDEX_URL = "https://www.tpex.org.tw/www/zh-tw/indexInfo/inx";
+const TPEX_OTC_INDEX_SYMBOL = "^TWOII";
 
 type TpexPriceRow = {
   Date?: string;
@@ -13,6 +15,15 @@ type TpexPriceRow = {
   High?: string;
   Low?: string;
   TradingShares?: string;
+};
+
+type TpexIndexResponse = {
+  stat?: string;
+  tables?: Array<{
+    title?: string;
+    fields?: string[];
+    data?: string[][];
+  }>;
 };
 
 const tpexSource: ResearchSource = {
@@ -36,6 +47,17 @@ export function parseTpexRocDate(value: string | undefined) {
   return result;
 }
 
+function parseTpexGregorianDate(value: string | undefined) {
+  const match = (value ?? "").trim().match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (!match) throw new Error(`Invalid TPEx Gregorian date: ${value ?? "missing"}`);
+  const result = `${match[1]}-${match[2]}-${match[3]}`;
+  const parsed = new Date(`${result}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== result) {
+    throw new Error(`Invalid TPEx Gregorian date: ${value ?? "missing"}`);
+  }
+  return result;
+}
+
 function parsePositiveNumber(value: string | undefined) {
   const normalized = value?.trim().replace(/,/g, "");
   if (!normalized || normalized === "---") return null;
@@ -54,6 +76,70 @@ async function fetchTpexJson<T>(url: string) {
   });
   if (!response.ok) throw new Error(`TPEx request failed: ${response.status} ${url}`);
   return (await response.json()) as T;
+}
+
+async function postTpexJson<T>(url: string, body: Record<string, string>) {
+  const response = await fetch(url, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+      "User-Agent": "TrendRadar/1.0 research-data@trendradar",
+    },
+    body: new URLSearchParams(body).toString(),
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error(`TPEx request failed: ${response.status} ${url}`);
+  return (await response.json()) as T;
+}
+
+function tpexIndexMonth(date?: string) {
+  const source = date ?? new Date().toISOString().slice(0, 10);
+  const match = source.match(/^(\d{4})-(\d{2})/);
+  if (!match) throw new Error(`Invalid TPEx index date: ${date ?? "missing"}`);
+  return `${match[1]}${match[2]}`;
+}
+
+function tpexOtcIndexSourceUrl(month: string) {
+  return `${TPEX_OTC_INDEX_URL}?date=${month}&response=json`;
+}
+
+export function parseTpexOtcIndexPrices(response: TpexIndexResponse, sourceUrl: string, fetchedAt: string) {
+  if (!response.tables?.length) return [];
+  const table = response.tables.find((item) => item.title?.includes("櫃買指數")) ?? response.tables[0];
+  const fields = table.fields ?? [];
+  const dateIndex = fields.indexOf("日期");
+  const openIndex = fields.indexOf("開市");
+  const highIndex = fields.indexOf("最高");
+  const lowIndex = fields.indexOf("最低");
+  const closeIndex = fields.indexOf("收市");
+  if ([dateIndex, openIndex, highIndex, lowIndex, closeIndex].some((index) => index < 0)) {
+    throw new Error(`Unexpected TPEx OTC index fields: ${fields.join(",")}`);
+  }
+
+  return (table.data ?? []).flatMap((row) => {
+    const close = parsePositiveNumber(row[closeIndex]);
+    if (!close) return [];
+    return [{
+      symbol: TPEX_OTC_INDEX_SYMBOL,
+      market: "TW",
+      price_date: parseTpexGregorianDate(row[dateIndex]),
+      open: parsePositiveNumber(row[openIndex]),
+      high: parsePositiveNumber(row[highIndex]),
+      low: parsePositiveNumber(row[lowIndex]),
+      close,
+      adj_close: close,
+      volume: null,
+      provider: tpexSource.id,
+      source_url: sourceUrl,
+      fetched_at: fetchedAt,
+      quality_status: "verified",
+      verified_at: fetchedAt,
+      verification_provider: tpexSource.id,
+      updated_at: fetchedAt,
+    }];
+  });
 }
 
 export async function fetchTpexDailyPrices() {
@@ -86,9 +172,28 @@ export async function fetchTpexDailyPrices() {
   });
 }
 
-export async function syncTpexResearchData(options?: { dryRun?: boolean }) {
+export async function fetchTpexOtcIndexPrices(options?: { date?: string }) {
+  const month = tpexIndexMonth(options?.date);
+  const sourceUrl = tpexOtcIndexSourceUrl(month);
+  const response = await postTpexJson<TpexIndexResponse>(TPEX_OTC_INDEX_URL, {
+    date: month,
+    response: "json",
+  });
+  return parseTpexOtcIndexPrices(response, sourceUrl, new Date().toISOString());
+}
+
+export async function syncTpexResearchData(options?: {
+  dryRun?: boolean;
+  includePrices?: boolean;
+  includeIndices?: boolean;
+  indexDate?: string;
+}) {
   const dryRun = options?.dryRun ?? true;
-  const prices = await fetchTpexDailyPrices();
+  const includePrices = options?.includePrices ?? true;
+  const includeIndices = options?.includeIndices ?? true;
+  const equityPrices = includePrices ? await fetchTpexDailyPrices() : [];
+  const indexPrices = includeIndices ? await fetchTpexOtcIndexPrices({ date: options?.indexDate }) : [];
+  const prices = [...equityPrices, ...indexPrices];
   const dates = [...new Set(prices.map((item) => item.price_date))].sort();
 
   if (dryRun) {
@@ -97,6 +202,8 @@ export async function syncTpexResearchData(options?: { dryRun?: boolean }) {
       dryRun: true,
       source: tpexSource.name,
       priceCount: prices.length,
+      equityPriceCount: equityPrices.length,
+      indexPriceCount: indexPrices.length,
       dates,
       priceSamples: prices.slice(0, 5),
     };
@@ -113,6 +220,10 @@ export async function syncTpexResearchData(options?: { dryRun?: boolean }) {
     dryRun: false,
     source: tpexSource.name,
     priceCount: prices.length,
+    equityPriceCount: equityPrices.length,
+    indexPriceCount: indexPrices.length,
     dates,
   };
 }
+
+

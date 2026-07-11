@@ -867,3 +867,11 @@ The next milestone is complete when:
 - Market brief now prefers `T86` for Taiwan institutional-flow output instead of the foreign-only `TWT38U` feed.
 - Dates where TWSE has not published data still return pending; the system does not infer July figures from missing or future official data.
 - Cumulative flow and consecutive buy/sell streaks remain open until historical sequences are connected and verified.
+
+## 32. TPEx OTC Index Connector for July Market Briefs (2026-07-11)
+
+- Added a TPEx official OTC index connector for `^TWOII` using the `indexInfo/inx` monthly index endpoint behind the TPEx market-index page.
+- The parser accepts the official fields `日期`, `開市`, `最高`, `最低`, `收市`, and writes verified daily index rows with source URL, fetched time, and TPEx verification provider.
+- `syncTpexResearchData` can now sync OTC equity prices and OTC index prices together, or selectively via `includePrices`, `includeIndices`, and `indexDate`.
+- The July live dry-run produced 7 official `^TWOII` rows from 2026-07-01 through 2026-07-09. The endpoint is treated as live/monthly evidence, not as a guaranteed complete historical archive.
+- Market brief data requirements now mark Taiwan index connectors as ready, while still requiring actual database synchronization and complete trading-day coverage before daily/weekly/monthly report numbers can be emitted.

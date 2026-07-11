@@ -7,9 +7,17 @@ export async function POST(request: NextRequest) {
   if (unauthorized) return unauthorized;
 
   try {
-    const body = (await request.json().catch(() => ({}))) as { dryRun?: boolean };
+    const body = (await request.json().catch(() => ({}))) as {
+      dryRun?: boolean;
+      includePrices?: boolean;
+      includeIndices?: boolean;
+      indexDate?: string;
+    };
     return NextResponse.json(await syncTpexResearchData({
       dryRun: body.dryRun ?? true,
+      includePrices: body.includePrices,
+      includeIndices: body.includeIndices,
+      indexDate: body.indexDate,
     }));
   } catch (error) {
     return NextResponse.json(

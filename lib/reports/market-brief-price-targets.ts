@@ -23,9 +23,9 @@ export const MARKET_BRIEF_INDEX_PRICE_TARGETS: MarketBriefPriceTarget[] = [
     label: "櫃買指數",
     market: "TW",
     assetType: "index",
-    automationStatus: "needs_connector",
-    preferredSource: "TPEx official market index endpoint",
-    reason: "既有 fetch-prices 主要支援個股，不能把 ^TWOII 當股票代號送進 TPEx tradingStock。",
+    automationStatus: "ready",
+    preferredSource: "TPEx official indexInfo/inx endpoint",
+    reason: "已由 TPEx 官方櫃買指數月查詢端點寫入 ^TWOII；不可把 ^TWOII 當個股代號送進 tradingStock。",
   },
   {
     symbol: "^DJI",
@@ -68,3 +68,6 @@ export const MARKET_BRIEF_INDEX_PRICE_TARGETS: MarketBriefPriceTarget[] = [
 export function marketBriefIndexPriceTargets() {
   return MARKET_BRIEF_INDEX_PRICE_TARGETS.map((item) => ({ ...item }));
 }
+
+
+

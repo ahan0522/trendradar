@@ -345,6 +345,14 @@ function testMarketBriefContract() {
     item.symbol === "^TWII" &&
     item.automationStatus === "ready"));
   assert.ok(report.priceTargets.some((item) =>
+    item.symbol === "^TWOII" &&
+    item.automationStatus === "ready" &&
+    item.preferredSource.includes("indexInfo/inx")));
+  assert.ok(report.dataRequirements.some((item) =>
+    item.id === "tw-index-prices" &&
+    item.status === "ready" &&
+    item.reason.includes("資料庫已同步")));
+  assert.ok(report.priceTargets.some((item) =>
     item.symbol === "^GSPC" &&
     item.automationStatus === "needs_independent_source"));
   assert.ok(report.dataGaps.some((item) => item.includes("法人買賣超")));
@@ -1702,6 +1710,8 @@ function main() {
 }
 
 main();
+
+
 
 
 

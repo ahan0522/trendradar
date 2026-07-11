@@ -32,11 +32,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "台股加權與櫃買指數日資料",
     market: "TW",
     priority: "critical",
-    status: "partial",
+    status: "ready",
     requiredFor: ["daily", "weekly", "monthly"],
-    suggestedSources: ["TWSE official TAIEX history", "TPEx official index", "verified price provider"],
+    suggestedSources: ["TWSE official TAIEX history", "TPEx official indexInfo/inx", "verified price provider"],
     blocksReportNumbers: true,
-    reason: "加權指數已具備 TWSE connector；櫃買指數尚待 TPEx connector，未補齊前台股整體盤勢仍不可視為完整。",
+    reason: "加權指數與櫃買指數皆已有官方 connector；每日/每週/月報仍必須確認資料庫已同步且交易日資料完整才可輸出數字。",
   },
   {
     id: "tw-institutional-flows",
@@ -168,3 +168,6 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
 export function marketDataRequirementsForReport() {
   return MARKET_DATA_REQUIREMENTS.map((item) => ({ ...item }));
 }
+
+
+

@@ -13,7 +13,7 @@ import {
 import { parseEiaGridDemand } from "../lib/research-data/eia-grid-demand";
 import { parseMicronInvestorRelease } from "../lib/research-data/micron-investor";
 import { parseNvidiaSecRelease } from "../lib/research-data/nvidia-sec";
-import { parseTpexRocDate } from "../lib/research-data/tpex";
+import { parseTpexOtcIndexPrices, parseTpexRocDate } from "../lib/research-data/tpex";
 import {
   EVIDENCE_MATERIALIZATION_VERSION,
   companyActionResearchRelevance,
@@ -68,6 +68,28 @@ function testTwseTaiexIndexParsing() {
   assert.equal(prices[0].close, 47018.99);
   assert.equal(prices[0].quality_status, "verified");
   assert.equal(prices[0].verification_provider, "twse-openapi");
+}
+
+function testTpexOtcIndexParsing() {
+  const prices = parseTpexOtcIndexPrices({
+    stat: "OK",
+    tables: [{
+      title: "櫃買指數(月查詢)",
+      fields: ["日期", "開市", "最高", "最低", "收市", "漲/跌"],
+      data: [["2026/07/01", "430.29", "437.56", "430.29", "431.23", "4.26"]],
+    }],
+  }, "https://www.tpex.org.tw/www/zh-tw/indexInfo/inx?date=202607&response=json", "2026-07-11T00:00:00.000Z");
+
+  assert.equal(prices.length, 1);
+  assert.equal(prices[0].symbol, "^TWOII");
+  assert.equal(prices[0].market, "TW");
+  assert.equal(prices[0].price_date, "2026-07-01");
+  assert.equal(prices[0].close, 431.23);
+  assert.equal(prices[0].quality_status, "verified");
+  assert.equal(prices[0].verification_provider, "tpex-openapi");
+  assert.throws(() => parseTpexOtcIndexPrices({
+    tables: [{ fields: ["日期", "收市"], data: [] }],
+  }, "url", "now"), /Unexpected TPEx OTC index fields/);
 }
 
 function testTwseForeignInvestorTradingParsing() {
@@ -370,6 +392,7 @@ function testHistoricalNewsParsing() {
 
 testTwseTimeParsing();
 testTwseTaiexIndexParsing();
+testTpexOtcIndexParsing();
 testTwseForeignInvestorTradingParsing();
 testTwseInstitutionalTradingParsing();
 testFredMissingValues();
@@ -458,6 +481,9 @@ assert.equal(roboticsCoverage.totalRequiredCount, 2);
 assert.equal(roboticsCoverage.satisfiedRequiredCount, 1);
 assert.equal(roboticsCoverage.missingRequired[0].key, "robotics_orders_adoption");
 console.log("Research data invariants: PASS");
+
+
+
 
 
 
