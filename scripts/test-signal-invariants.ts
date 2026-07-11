@@ -374,7 +374,9 @@ function testMarketBriefContract() {
   assert.ok(themeReport.dataQuality.some((item) =>
     item.label === "台股法人與產業排行" &&
     item.status === "partial" &&
-    item.coverage === "1/2"));
+    item.coverage === "1/2" &&
+    item.reason?.includes("維護主題籃子 movers 已可用") === true &&
+    item.reason?.includes("TWSE 上市三大法人與維護主題籃子") === false));
   assert.ok(themeReport.dataRequirements.some((item) =>
     item.id === "tw-sector-movers" &&
     item.status === "partial" &&
@@ -1770,6 +1772,9 @@ function main() {
 }
 
 main();
+
+
+
 
 
 

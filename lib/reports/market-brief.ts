@@ -473,9 +473,13 @@ export function buildMarketBrief(input: {
       label: "台股法人與產業排行",
       status: taiwanInstitutionCoverage || taiwanSectorCoverage ? "partial" : "pending",
       coverage: `${(taiwanInstitutionCoverage ? 1 : 0) + (taiwanSectorCoverage ? 1 : 0)}/2`,
-      reason: taiwanInstitutionCoverage || taiwanSectorCoverage
+      reason: taiwanInstitutionCoverage && taiwanSectorCoverage
         ? "TWSE 上市三大法人與維護主題籃子 movers 已部分可用；櫃買法人、官方產業指數與完整成分股仍待補齊。"
-        : "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
+        : taiwanInstitutionCoverage
+          ? "TWSE 上市三大法人單日、期間累積與連續買賣已可用；主題籃子、櫃買法人與官方產業指數仍待補齊。"
+          : taiwanSectorCoverage
+            ? "維護主題籃子 movers 已可用；TWSE/TPEx 法人、官方產業指數與完整成分股仍待補齊。"
+            : "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
     },
     {
       label: "美股產業與成分股排行",
@@ -575,6 +579,7 @@ export async function getMarketBrief(options?: {
     signals: briefSignals,
   });
 }
+
 
 
 
