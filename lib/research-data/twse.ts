@@ -8,6 +8,7 @@ import type { CompanyAction, ResearchSource } from "@/types/research-data";
 
 const TWSE_ACTIONS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap04_L";
 const TWSE_PRICES_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
+const TWSE_TAIEX_HIST_URL = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST";
 
 type TwseActionRow = {
   出表日期?: string;
@@ -30,6 +31,15 @@ type TwsePriceRow = {
   HighestPrice?: string;
   LowestPrice?: string;
   ClosingPrice?: string;
+};
+
+type TwseTaiexHistoryResponse = {
+  stat?: string;
+  date?: string;
+  title?: string;
+  fields?: string[];
+  data?: string[][];
+  total?: number;
 };
 
 const twseSource: ResearchSource = {
@@ -73,6 +83,10 @@ export function parseTwsePublishedAt(dateValue: string | undefined, timeValue?: 
 function parsePositiveNumber(value: string | undefined) {
   const parsed = Number((value ?? "").replace(/,/g, ""));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function twseTaiexHistoryUrl(date: string) {
+  return `${TWSE_TAIEX_HIST_URL}?date=${date.replaceAll("-", "")}&response=json`;
 }
 
 function classifyAction(title: string, summary: string): CompanyAction["actionType"] {
@@ -164,22 +178,73 @@ export async function fetchTwseDailyPrices() {
   });
 }
 
+export function parseTwseTaiexIndexPrices(
+  payload: TwseTaiexHistoryResponse,
+  sourceUrl: string,
+  fetchedAt: string,
+) {
+  if (payload.stat !== "OK" || !Array.isArray(payload.data)) return [];
+
+  return payload.data.flatMap((row) => {
+    const priceDate = parseRocDate(row[0]);
+    const open = parsePositiveNumber(row[1]);
+    const high = parsePositiveNumber(row[2]);
+    const low = parsePositiveNumber(row[3]);
+    const close = parsePositiveNumber(row[4]);
+    if (!priceDate || !close) return [];
+
+    return [{
+      symbol: "^TWII",
+      market: "TW",
+      price_date: priceDate,
+      open,
+      high,
+      low,
+      close,
+      adj_close: close,
+      volume: null,
+      provider: twseSource.id,
+      source_url: sourceUrl,
+      fetched_at: fetchedAt,
+      quality_status: "verified",
+      verified_at: fetchedAt,
+      verification_provider: twseSource.id,
+      updated_at: fetchedAt,
+    }];
+  });
+}
+
+export async function fetchTwseTaiexIndexPrices(options?: {
+  date?: string;
+}) {
+  const fetchedAt = new Date().toISOString();
+  const date = options?.date ?? fetchedAt.slice(0, 10);
+  const url = twseTaiexHistoryUrl(date);
+  const payload = await fetchJson<TwseTaiexHistoryResponse>(url);
+  return parseTwseTaiexIndexPrices(payload, url, fetchedAt);
+}
+
 export async function syncTwseResearchData(options?: {
   dryRun?: boolean;
   includeActions?: boolean;
   includePrices?: boolean;
+  includeIndices?: boolean;
+  indexDate?: string;
 }) {
   const dryRun = options?.dryRun ?? true;
   const includeActions = options?.includeActions ?? true;
   const includePrices = options?.includePrices ?? true;
-  const [actions, prices] = await Promise.all([
+  const includeIndices = options?.includeIndices ?? true;
+  const [actions, prices, indexPrices] = await Promise.all([
     includeActions ? fetchTwseCompanyActions() : Promise.resolve([]),
     includePrices ? fetchTwseDailyPrices() : Promise.resolve([]),
+    includeIndices ? fetchTwseTaiexIndexPrices({ date: options?.indexDate }) : Promise.resolve([]),
   ]);
+  const allPrices = [...prices, ...indexPrices];
 
   const dates = [...new Set([
     ...actions.map((item) => item.publishedAt.slice(0, 10)),
-    ...prices.map((item) => item.price_date),
+    ...allPrices.map((item) => item.price_date),
   ])].sort();
 
   if (dryRun) {
@@ -188,10 +253,12 @@ export async function syncTwseResearchData(options?: {
       dryRun: true,
       source: twseSource.name,
       actionCount: actions.length,
-      priceCount: prices.length,
+      priceCount: allPrices.length,
+      equityPriceCount: prices.length,
+      indexPriceCount: indexPrices.length,
       dates,
       actionSamples: actions.slice(0, 3),
-      priceSamples: prices.slice(0, 3),
+      priceSamples: allPrices.slice(0, 3),
     };
   }
 
@@ -200,7 +267,7 @@ export async function syncTwseResearchData(options?: {
   const supabase = getSupabaseAdmin();
   const { error: priceError } = await supabase
     .from("stock_prices")
-    .upsert(prices, { onConflict: "symbol,market,price_date" });
+    .upsert(allPrices, { onConflict: "symbol,market,price_date" });
   if (priceError) throw priceError;
 
   return {
@@ -208,7 +275,9 @@ export async function syncTwseResearchData(options?: {
     dryRun: false,
     source: twseSource.name,
     actionCount: actionResult.count,
-    priceCount: prices.length,
+    priceCount: allPrices.length,
+    equityPriceCount: prices.length,
+    indexPriceCount: indexPrices.length,
     dates,
   };
 }

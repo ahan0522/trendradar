@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { parseGoogleNewsHistoricalRss } from "../lib/historical-news/google-news";
-import { parseTwsePublishedAt } from "../lib/research-data/twse";
+import {
+  parseTwsePublishedAt,
+  parseTwseTaiexIndexPrices,
+} from "../lib/research-data/twse";
 import {
   FRED_DEFAULT_SERIES,
   parseFredObservationValue,
@@ -44,6 +47,25 @@ function testTwseTimeParsing() {
     () => parseTwsePublishedAt("1150626", "246000"),
     /Invalid TWSE time/,
   );
+}
+
+function testTwseTaiexIndexParsing() {
+  const prices = parseTwseTaiexIndexPrices({
+    stat: "OK",
+    date: "20260701",
+    fields: ["日期", "開盤指數", "最高指數", "最低指數", "收盤指數"],
+    data: [
+      ["115/07/01", "46,234.70", "47,293.10", "46,234.70", "47,018.99"],
+    ],
+  }, "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST?date=20260701&response=json", "2026-07-11T00:00:00.000Z");
+
+  assert.equal(prices.length, 1);
+  assert.equal(prices[0].symbol, "^TWII");
+  assert.equal(prices[0].market, "TW");
+  assert.equal(prices[0].price_date, "2026-07-01");
+  assert.equal(prices[0].close, 47018.99);
+  assert.equal(prices[0].quality_status, "verified");
+  assert.equal(prices[0].verification_provider, "twse-openapi");
 }
 
 function testFredMissingValues() {
@@ -295,6 +317,7 @@ function testHistoricalNewsParsing() {
 }
 
 testTwseTimeParsing();
+testTwseTaiexIndexParsing();
 testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();

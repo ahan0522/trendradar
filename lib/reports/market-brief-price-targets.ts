@@ -14,9 +14,9 @@ export const MARKET_BRIEF_INDEX_PRICE_TARGETS: MarketBriefPriceTarget[] = [
     label: "加權指數",
     market: "TW",
     assetType: "index",
-    automationStatus: "needs_connector",
-    preferredSource: "TWSE official market index endpoint",
-    reason: "既有 fetch-prices 主要支援個股，不能把 ^TWII 當股票代號送進 TWSE STOCK_DAY。",
+    automationStatus: "ready",
+    preferredSource: "TWSE official TAIEX history endpoint",
+    reason: "已由 TWSE MI_5MINS_HIST 官方端點寫入 ^TWII；不可改用個股 STOCK_DAY 抓取。",
   },
   {
     symbol: "^TWOII",

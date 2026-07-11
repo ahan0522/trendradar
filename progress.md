@@ -42,7 +42,8 @@ The external reporting layer starts from the live dataset and remains separate f
 - Taiwan placeholders explicitly cover index moves, industry winners/losers, top stocks, and institutional flows.
 - US placeholders explicitly cover Dow, Nasdaq, S&P 500, Philadelphia Semiconductor, industry movers, and top stocks.
 - Missing market data is reported as `pending`; the system must not fabricate institutional flow, sector ranking, streak, or index numbers.
-- Next data tasks are official/authorized Taiwan institutional flows, Taiwan industry constituents, US sector/constituent performance, and verified index price series.
+- TWSE official TAIEX history is now connected for `^TWII` and can populate verified weighted index prices.
+- Next data tasks are TPEx index prices, official/authorized Taiwan institutional flows, Taiwan industry constituents, US sector/constituent performance, and independently verified US index price series.
 
 ## 2. Current Architecture
 

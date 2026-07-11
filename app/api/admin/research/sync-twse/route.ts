@@ -6,6 +6,8 @@ type RequestBody = {
   dryRun?: boolean;
   includeActions?: boolean;
   includePrices?: boolean;
+  includeIndices?: boolean;
+  indexDate?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -18,6 +20,8 @@ export async function POST(request: NextRequest) {
       dryRun: body.dryRun ?? true,
       includeActions: body.includeActions ?? true,
       includePrices: body.includePrices ?? true,
+      includeIndices: body.includeIndices ?? true,
+      indexDate: body.indexDate,
     });
     return NextResponse.json(result);
   } catch (error) {
