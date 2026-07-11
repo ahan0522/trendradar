@@ -9,6 +9,7 @@ import type { CompanyAction, ResearchSource } from "@/types/research-data";
 const TWSE_ACTIONS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap04_L";
 const TWSE_PRICES_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
 const TWSE_TAIEX_HIST_URL = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST";
+const TWSE_FOREIGN_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/TWT38U";
 
 type TwseActionRow = {
   出表日期?: string;
@@ -40,6 +41,39 @@ type TwseTaiexHistoryResponse = {
   fields?: string[];
   data?: string[][];
   total?: number;
+};
+
+type TwseForeignTradingResponse = {
+  stat?: string;
+  date?: string;
+  title?: string;
+  fields?: string[];
+  data?: string[][];
+  notes?: string[];
+  groups?: Array<{ start: number; span: number; title: string }>;
+  hints?: string;
+  total?: number;
+};
+
+export type TwseForeignInvestorTradingSummary = {
+  tradeDate: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  netShares: number;
+  buyShares: number;
+  sellShares: number;
+  topBuys: Array<{
+    symbol: string;
+    companyName: string;
+    netShares: number;
+  }>;
+  topSells: Array<{
+    symbol: string;
+    companyName: string;
+    netShares: number;
+  }>;
+  qualityStatus: "verified" | "no_data";
+  reason?: string;
 };
 
 const twseSource: ResearchSource = {
@@ -85,8 +119,27 @@ function parsePositiveNumber(value: string | undefined) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseSignedNumber(value: string | undefined) {
+  const parsed = Number((value ?? "").replace(/,/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseTwseCalendarDate(value: string | undefined) {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (digits.length !== 8) throw new Error(`Invalid TWSE calendar date: ${value ?? "missing"}`);
+  const year = Number(digits.slice(0, 4));
+  const month = digits.slice(4, 6);
+  const day = digits.slice(6, 8);
+  if (!Number.isFinite(year) || year < 1900) throw new Error(`Invalid TWSE calendar date: ${value ?? "missing"}`);
+  return `${year}-${month}-${day}`;
+}
+
 function twseTaiexHistoryUrl(date: string) {
   return `${TWSE_TAIEX_HIST_URL}?date=${date.replaceAll("-", "")}&response=json`;
+}
+
+function twseForeignTradingUrl(date: string) {
+  return `${TWSE_FOREIGN_TRADING_URL}?date=${date.replaceAll("-", "")}&response=json`;
 }
 
 function classifyAction(title: string, summary: string): CompanyAction["actionType"] {
@@ -224,6 +277,63 @@ export async function fetchTwseTaiexIndexPrices(options?: {
   return parseTwseTaiexIndexPrices(payload, url, fetchedAt);
 }
 
+export function parseTwseForeignInvestorTrading(
+  payload: TwseForeignTradingResponse,
+  sourceUrl: string,
+  fetchedAt: string,
+): TwseForeignInvestorTradingSummary | null {
+  if (payload.stat !== "OK" || !Array.isArray(payload.data) || payload.data.length === 0) {
+    return null;
+  }
+
+  const tradeDate = parseTwseCalendarDate(payload.date);
+  const rows = payload.data.flatMap((row) => {
+    const symbol = row[1]?.trim();
+    const companyName = row[2]?.trim();
+    const buyShares = parseSignedNumber(row[9]);
+    const sellShares = parseSignedNumber(row[10]);
+    const netShares = parseSignedNumber(row[11]);
+    if (!symbol || !companyName || buyShares === null || sellShares === null || netShares === null) return [];
+    return [{ symbol: `${symbol}.TW`, companyName, buyShares, sellShares, netShares }];
+  });
+
+  if (rows.length === 0) return null;
+  const buyShares = rows.reduce((sum, row) => sum + row.buyShares, 0);
+  const sellShares = rows.reduce((sum, row) => sum + row.sellShares, 0);
+  const netShares = rows.reduce((sum, row) => sum + row.netShares, 0);
+  const byNet = rows.slice().sort((a, b) => b.netShares - a.netShares);
+
+  return {
+    tradeDate,
+    sourceUrl,
+    fetchedAt,
+    netShares,
+    buyShares,
+    sellShares,
+    topBuys: byNet.filter((row) => row.netShares > 0).slice(0, 5).map(({ symbol, companyName, netShares }) => ({
+      symbol,
+      companyName,
+      netShares,
+    })),
+    topSells: byNet.filter((row) => row.netShares < 0).slice(-5).reverse().map(({ symbol, companyName, netShares }) => ({
+      symbol,
+      companyName,
+      netShares,
+    })),
+    qualityStatus: "verified",
+  };
+}
+
+export async function fetchTwseForeignInvestorTrading(options?: {
+  date?: string;
+}) {
+  const fetchedAt = new Date().toISOString();
+  const date = options?.date ?? fetchedAt.slice(0, 10);
+  const url = twseForeignTradingUrl(date);
+  const payload = await fetchJson<TwseForeignTradingResponse>(url);
+  return parseTwseForeignInvestorTrading(payload, url, fetchedAt);
+}
+
 export async function syncTwseResearchData(options?: {
   dryRun?: boolean;
   includeActions?: boolean;
@@ -281,3 +391,8 @@ export async function syncTwseResearchData(options?: {
     dates,
   };
 }
+
+
+
+
+

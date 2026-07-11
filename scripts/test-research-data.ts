@@ -3,6 +3,7 @@ import { parseGoogleNewsHistoricalRss } from "../lib/historical-news/google-news
 import {
   parseTwsePublishedAt,
   parseTwseTaiexIndexPrices,
+  parseTwseForeignInvestorTrading,
 } from "../lib/research-data/twse";
 import {
   FRED_DEFAULT_SERIES,
@@ -66,6 +67,30 @@ function testTwseTaiexIndexParsing() {
   assert.equal(prices[0].close, 47018.99);
   assert.equal(prices[0].quality_status, "verified");
   assert.equal(prices[0].verification_provider, "twse-openapi");
+}
+
+function testTwseForeignInvestorTradingParsing() {
+  const flow = parseTwseForeignInvestorTrading({
+    stat: "OK",
+    date: "20250630",
+    fields: ["", "證券代號", "證券名稱"],
+    data: [
+      [" ", "2408  ", "南亞科          ", "29,703,886", "18,960,097", "10,743,789", "0", "0", "0", "29,703,886", "18,960,097", "10,743,789"],
+      [" ", "2330  ", "台積電          ", "1,000", "2,500", "-1,500", "0", "0", "0", "1,000", "2,500", "-1,500"],
+      [" ", "bad", "缺欄位", "1"],
+    ],
+    total: 2,
+  }, "https://www.twse.com.tw/rwd/zh/fund/TWT38U?date=20250630&response=json", "2026-07-11T00:00:00.000Z");
+
+  assert.ok(flow);
+  assert.equal(flow.tradeDate, "2025-06-30");
+  assert.equal(flow.buyShares, 29704886);
+  assert.equal(flow.sellShares, 18962597);
+  assert.equal(flow.netShares, 10742289);
+  assert.equal(flow.topBuys[0].symbol, "2408.TW");
+  assert.equal(flow.topSells[0].symbol, "2330.TW");
+  assert.equal(flow.qualityStatus, "verified");
+  assert.equal(parseTwseForeignInvestorTrading({ stat: "很抱歉，沒有符合條件的資料!", total: 0 }, "url", "now"), null);
 }
 
 function testFredMissingValues() {
@@ -318,6 +343,7 @@ function testHistoricalNewsParsing() {
 
 testTwseTimeParsing();
 testTwseTaiexIndexParsing();
+testTwseForeignInvestorTradingParsing();
 testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
@@ -404,3 +430,7 @@ assert.equal(roboticsCoverage.totalRequiredCount, 2);
 assert.equal(roboticsCoverage.satisfiedRequiredCount, 1);
 assert.equal(roboticsCoverage.missingRequired[0].key, "robotics_orders_adoption");
 console.log("Research data invariants: PASS");
+
+
+
+

@@ -33,6 +33,14 @@ export type InstitutionalFlowSummary = {
   cumulativeAmount: number | null;
   consecutiveDays: number | null;
   direction: "buy" | "sell" | "flat" | "pending";
+  unit?: "shares" | "twd";
+  sourceUrl?: string;
+  topStocks?: Array<{
+    symbol: string;
+    companyName: string;
+    netAmount: number;
+    unit: "shares" | "twd";
+  }>;
   status: MarketBriefStatus;
   reason?: string;
 };
@@ -123,6 +131,7 @@ export type MarketBrief = {
   priceTargets: MarketBriefPriceTarget[];
   dataGaps: string[];
 };
+
 
 
 

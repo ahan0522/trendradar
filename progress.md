@@ -850,3 +850,11 @@ The next milestone is complete when:
 - Global macro and RSS inputs are now represented as auxiliary evidence requirements rather than Taiwan or US market-number fields.
 - The report contract continues to show missing numerical sections as `pending`; no institutional, futures, sector, macro, or sentiment number is emitted before an official or authorized connector exists.
 - Next connector priority: official TW institutional flows, TPEx OTC index, and Taiwan sector/constituent movers for the July daily/weekly reports.
+
+## 30. TWSE Foreign Investor Flow Connector (2026-07-11)
+
+- Added a server-side parser and fetcher for the official TWSE `TWT38U` endpoint behind the user-supplied foreign trading page.
+- The connector parses foreign and mainland investor daily buy, sell, and net-share data by listed security from `https://www.twse.com.tw/rwd/zh/fund/TWT38U?date=YYYYMMDD&response=json`.
+- Daily market brief now uses the official TWSE foreign-investor summary when available. The output is marked `partial`, uses unit `shares`, retains the source URL, and exposes the top net-buy or net-sell stocks.
+- The system still does not claim full three-institution coverage: investment trust, dealer, cumulative flow, and consecutive buy/sell days remain pending until their official sources are connected.
+- Dates with no TWSE data safely return pending instead of breaking the report or fabricating flows.
