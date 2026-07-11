@@ -465,6 +465,33 @@ export async function fetchTwseInstitutionalTrading(options?: {
   return parseTwseInstitutionalTrading(payload, url, fetchedAt);
 }
 
+
+function eachCalendarDate(startDate: string, endDate: string) {
+  const dates: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime()) || cursor > end) return dates;
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+export async function fetchTwseInstitutionalTradingRange(options: {
+  startDate: string;
+  endDate: string;
+}) {
+  const dates = eachCalendarDate(options.startDate, options.endDate);
+  const daily = await Promise.all(dates.map(async (date) => {
+    try {
+      return await fetchTwseInstitutionalTrading({ date });
+    } catch {
+      return [];
+    }
+  }));
+  return daily.flat().sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
+}
 export async function syncTwseResearchData(options?: {
   dryRun?: boolean;
   includeActions?: boolean;
@@ -522,6 +549,7 @@ export async function syncTwseResearchData(options?: {
     dates,
   };
 }
+
 
 
 

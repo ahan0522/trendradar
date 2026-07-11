@@ -875,3 +875,11 @@ The next milestone is complete when:
 - `syncTpexResearchData` can now sync OTC equity prices and OTC index prices together, or selectively via `includePrices`, `includeIndices`, and `indexDate`.
 - The July live dry-run produced 7 official `^TWOII` rows from 2026-07-01 through 2026-07-09. The endpoint is treated as live/monthly evidence, not as a guaranteed complete historical archive.
 - Market brief data requirements now mark Taiwan index connectors as ready, while still requiring actual database synchronization and complete trading-day coverage before daily/weekly/monthly report numbers can be emitted.
+
+## 33. TWSE Institutional Flow Sequences for July Briefs (2026-07-11)
+
+- Market brief generation now fetches the TWSE `T86` institutional flow sequence for the report window instead of only the requested `asOfDate`.
+- Taiwan institutional flow cards can now show the latest verified single-day net shares, period cumulative net shares, consecutive buy/sell days, direction, source URL, and top net-buy or net-sell stocks.
+- Weekends and unpublished dates remain empty rather than being treated as zero. The report uses the latest verified trading day available within the window.
+- The July live dry-run for 2026-07-01 through 2026-07-11 returned 16 verified rows across four labels, with the latest available official trading date at 2026-07-07 in this environment.
+- Taiwan institutional-flow requirements are now marked partial: TWSE listed-market flows are available, while TPEx institutional flows, value-based totals, sector movers, and constituent movers remain open gaps.

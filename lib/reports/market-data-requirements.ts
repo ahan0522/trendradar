@@ -43,7 +43,7 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "台股三大法人買賣超",
     market: "TW",
     priority: "critical",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly", "monthly"],
     suggestedSources: [
       "TWSE official institutional trading: https://www.twse.com.tw/zh/trading/foreign/twt38u.html",
@@ -51,7 +51,7 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
       "verified licensed data provider fallback",
     ],
     blocksReportNumbers: true,
-    reason: "缺少外資、投信、自營商單日與累積資料時，不能輸出法人作多作空、連續買賣超與資金方向判讀。",
+    reason: "TWSE T86 已可提供上市外資、投信、自營商與三大法人單日、期間累積與連續買賣；櫃買法人與金額制資料仍待補齊。",
   },
   {
     id: "tw-sector-movers",
@@ -168,6 +168,8 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
 export function marketDataRequirementsForReport() {
   return MARKET_DATA_REQUIREMENTS.map((item) => ({ ...item }));
 }
+
+
 
 
 

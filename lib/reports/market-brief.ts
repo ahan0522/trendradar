@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { marketDataRequirementsForReport } from "@/lib/reports/market-data-requirements";
 import { marketBriefIndexPriceTargets } from "@/lib/reports/market-brief-price-targets";
-import { fetchTwseInstitutionalTrading, type TwseInstitutionalTradingSummary } from "@/lib/research-data/twse";
+import { fetchTwseInstitutionalTradingRange, type TwseInstitutionalTradingSummary } from "@/lib/research-data/twse";
 import {
   LIVE_SIGNAL_LEDGER_START_DATE,
   signalDataModeForDate,
@@ -125,28 +125,53 @@ function pendingInstitution(label: InstitutionalFlowSummary["label"]): Instituti
   };
 }
 
+function institutionDirection(netShares: number): InstitutionalFlowSummary["direction"] {
+  if (netShares > 0) return "buy";
+  if (netShares < 0) return "sell";
+  return "flat";
+}
+
+function consecutiveInstitutionDays(flows: TwseInstitutionalTradingSummary[]) {
+  const sorted = flows.slice().sort((a, b) => b.tradeDate.localeCompare(a.tradeDate));
+  const latest = sorted[0];
+  if (!latest) return null;
+  const direction = institutionDirection(latest.netShares);
+  if (direction === "flat") return 1;
+  let count = 0;
+  for (const flow of sorted) {
+    if (institutionDirection(flow.netShares) !== direction) break;
+    count += 1;
+  }
+  return count;
+}
+
 function institutionFromTwse(
   label: InstitutionalFlowSummary["label"],
-  flow: TwseInstitutionalTradingSummary | null | undefined,
+  flows: TwseInstitutionalTradingSummary[] | null | undefined,
 ): InstitutionalFlowSummary {
-  if (!flow) return pendingInstitution(label);
-  const direction = flow.netShares > 0 ? "buy" : flow.netShares < 0 ? "sell" : "flat";
+  const labelFlows = (flows ?? [])
+    .filter((item) => item.label === label)
+    .sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
+  const latest = labelFlows.at(-1);
+  if (!latest) return pendingInstitution(label);
+  const direction = institutionDirection(latest.netShares);
+  const cumulativeAmount = labelFlows.reduce((sum, item) => sum + item.netShares, 0);
   return {
     label,
-    singleDayAmount: flow.netShares,
-    cumulativeAmount: null,
-    consecutiveDays: null,
+    singleDayAmount: latest.netShares,
+    cumulativeAmount,
+    consecutiveDays: consecutiveInstitutionDays(labelFlows),
     direction,
     unit: "shares",
-    sourceUrl: flow.sourceUrl,
-    topStocks: (flow.netShares >= 0 ? flow.topBuys : flow.topSells).slice(0, 5).map((item) => ({
+    sourceUrl: latest.sourceUrl,
+    topStocks: (latest.netShares >= 0 ? latest.topBuys : latest.topSells).slice(0, 5).map((item) => ({
       symbol: item.symbol,
       companyName: item.companyName,
       netAmount: item.netShares,
       unit: "shares",
     })),
     status: "partial",
-    reason: "已接入 TWSE T86 三大法人逐檔買賣超，單位為股；累積與連續買賣天數仍待歷史序列補齊。",
+    reason: "已接入 TWSE T86 上市三大法人日序列，單位為股；櫃買法人與金額制資料仍待補齊。",
   };
 }
 
@@ -268,7 +293,7 @@ export function buildMarketBrief(input: {
       pendingSector("下跌產業", "尚未接入可信產業分類與成分股日漲跌資料。"),
     ],
     institutionalFlows: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
-      institutionFromTwse(label, input.twInstitutionalFlows?.find((item) => item.label === label))),
+      institutionFromTwse(label, input.twInstitutionalFlows)),
   };
   const us: MarketBriefSection = {
     market: "US",
@@ -281,6 +306,7 @@ export function buildMarketBrief(input: {
       pendingSector("下跌產業", "尚未接入可信 S&P / Nasdaq sector 與成分股日漲跌資料。"),
     ],
   };
+  const taiwanInstitutionCoverage = taiwan.institutionalFlows?.some((item) => item.status !== "pending") ?? false;
   const tomorrowWatch: TomorrowWatchItem[] = signals.length > 0
     ? signals.slice(0, 3).map((signal) => ({
         title: signal.topic,
@@ -299,9 +325,11 @@ export function buildMarketBrief(input: {
     indexCoverageQuality("美股指數價格", us.indices),
     {
       label: "台股法人與產業排行",
-      status: "pending",
-      coverage: "0/2",
-      reason: "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
+      status: taiwanInstitutionCoverage ? "partial" : "pending",
+      coverage: `${taiwanInstitutionCoverage ? 1 : 0}/2`,
+      reason: taiwanInstitutionCoverage
+        ? "TWSE 上市三大法人單日、期間累積與連續買賣已可用；櫃買法人與產業成分股漲跌仍待補齊。"
+        : "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
     },
     {
       label: "美股產業與成分股排行",
@@ -372,7 +400,7 @@ export async function getMarketBrief(options?: {
       .order("price_date", { ascending: false })
       .limit(80)
       .returns<PriceRow[]>(),
-    fetchTwseInstitutionalTrading({ date: asOfDate }).catch(() => []),
+    fetchTwseInstitutionalTradingRange({ startDate, endDate: asOfDate }).catch(() => []),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -399,6 +427,9 @@ export async function getMarketBrief(options?: {
     signals: briefSignals,
   });
 }
+
+
+
 
 
 

@@ -300,6 +300,30 @@ function testMarketBriefContract() {
         qualityStatus: "verified",
       },
       {
+        label: "外資",
+        tradeDate: "2026-07-09",
+        sourceUrl: "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260709&selectType=ALL&response=json",
+        fetchedAt: "2026-07-11T00:00:00.000Z",
+        netShares: 3000,
+        buyShares: 6000,
+        sellShares: 3000,
+        topBuys: [{ symbol: "2308.TW", companyName: "台達電", netShares: 3000 }],
+        topSells: [],
+        qualityStatus: "verified",
+      },
+      {
+        label: "投信",
+        tradeDate: "2026-07-09",
+        sourceUrl: "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260709&selectType=ALL&response=json",
+        fetchedAt: "2026-07-11T00:00:00.000Z",
+        netShares: -1000,
+        buyShares: 500,
+        sellShares: 1500,
+        topBuys: [],
+        topSells: [{ symbol: "2330.TW", companyName: "台積電", netShares: -1000 }],
+        qualityStatus: "verified",
+      },
+      {
         label: "投信",
         tradeDate: "2026-07-10",
         sourceUrl: "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260710&selectType=ALL&response=json",
@@ -316,9 +340,13 @@ function testMarketBriefContract() {
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].status, "partial");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].unit, "shares");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].topStocks?.[0].symbol, "2408.TW");
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].cumulativeAmount, 4234);
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].consecutiveDays, 2);
   assert.ok(foreignFlowReport.taiwan.institutionalFlows?.[0].sourceUrl?.includes("T86"));
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].status, "partial");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].topStocks?.[0].symbol, "2382.TW");
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].cumulativeAmount, 1000);
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].consecutiveDays, 1);
   assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
   assert.ok(report.dataQuality.some((item) => item.label === "美股產業與成分股排行" && item.coverage === "0/2"));
   assert.ok(report.dataRequirements.some((item) =>
@@ -1710,6 +1738,7 @@ function main() {
 }
 
 main();
+
 
 
 
