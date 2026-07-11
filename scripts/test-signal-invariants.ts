@@ -287,7 +287,20 @@ function testMarketBriefContract() {
   assert.ok(report.dataRequirements.some((item) =>
     item.id === "tw-institutional-flows" &&
     item.priority === "critical" &&
-    item.blocksReportNumbers));
+    item.blocksReportNumbers &&
+    item.suggestedSources.some((source) => source.includes("twt38u.html"))));
+  assert.ok(report.dataRequirements.some((item) =>
+    item.id === "tw-futures-positioning" &&
+    item.status === "pending" &&
+    item.suggestedSources.some((source) => source.includes("TAIFEX"))));
+  assert.ok(report.dataRequirements.some((item) =>
+    item.id === "global-macro-cross-assets" &&
+    item.market === "GLOBAL" &&
+    item.blocksReportNumbers === false));
+  assert.ok(report.dataRequirements.some((item) =>
+    item.id === "market-news-rss" &&
+    item.status === "partial" &&
+    item.reason.includes("新聞熱度不得取代")));
   assert.ok(report.dataRequirements.some((item) =>
     item.id === "us-sector-movers" &&
     item.suggestedSources.some((source) => source.includes("sector"))));
@@ -1652,3 +1665,4 @@ function main() {
 }
 
 main();
+

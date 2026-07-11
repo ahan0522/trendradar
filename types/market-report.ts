@@ -78,7 +78,7 @@ export type MarketBriefDataQualityItem = {
 export type MarketBriefDataRequirement = {
   id: string;
   label: string;
-  market: "TW" | "US";
+  market: "TW" | "US" | "GLOBAL";
   priority: "critical" | "high" | "medium";
   status: MarketBriefStatus;
   requiredFor: MarketBriefPeriod[];
@@ -123,3 +123,6 @@ export type MarketBrief = {
   priceTargets: MarketBriefPriceTarget[];
   dataGaps: string[];
 };
+
+
+

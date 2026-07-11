@@ -841,3 +841,12 @@ The next milestone is complete when:
 - Fifteen US or SPY requests remained blocked because `ALPHA_VANTAGE_API_KEY` is not configured. They remain pending and are not replaced with zero returns or single-source Yahoo data.
 - Existing unmapped CPO, robotics, geopolitical, and optical-network Signals remain explicitly unmapped. The system does not invent beneficiary baskets merely to increase sample size.
 - A mixed-market outcome will remain pending until every member of its immutable current basket and its benchmark pass the strict price gate.
+
+## 29. Daily and Weekly Market Brief Data Map (2026-07-11)
+
+- Expanded the market brief data-requirement contract for the July live reporting workflow.
+- Added the official TWSE institutional trading page supplied by the user as the primary source candidate for TWSE foreign/institutional flow work: `https://www.twse.com.tw/zh/trading/foreign/twt38u.html`.
+- Added explicit pending requirements for TAIFEX futures positioning, options PCR, TW margin/short data, TWD FX, US VIX/risk sentiment, cross-asset macro inputs, and market-news RSS.
+- Global macro and RSS inputs are now represented as auxiliary evidence requirements rather than Taiwan or US market-number fields.
+- The report contract continues to show missing numerical sections as `pending`; no institutional, futures, sector, macro, or sentiment number is emitted before an official or authorized connector exists.
+- Next connector priority: official TW institutional flows, TPEx OTC index, and Taiwan sector/constituent movers for the July daily/weekly reports.
