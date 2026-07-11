@@ -858,3 +858,12 @@ The next milestone is complete when:
 - Daily market brief now uses the official TWSE foreign-investor summary when available. The output is marked `partial`, uses unit `shares`, retains the source URL, and exposes the top net-buy or net-sell stocks.
 - The system still does not claim full three-institution coverage: investment trust, dealer, cumulative flow, and consecutive buy/sell days remain pending until their official sources are connected.
 - Dates with no TWSE data safely return pending instead of breaking the report or fabricating flows.
+
+## 31. TWSE Three-Institution Flow Connector (2026-07-11)
+
+- Added a parser and fetcher for the official TWSE `T86` endpoint: `https://www.twse.com.tw/rwd/zh/fund/T86?date=YYYYMMDD&selectType=ALL&response=json`.
+- The connector now produces four daily institution summaries from listed-security rows: foreign investors, investment trust, dealers, and total three institutions.
+- Each summary retains the official source URL, unit `shares`, daily buy/sell/net-share totals, and top net-buy or net-sell stocks.
+- Market brief now prefers `T86` for Taiwan institutional-flow output instead of the foreign-only `TWT38U` feed.
+- Dates where TWSE has not published data still return pending; the system does not infer July figures from missing or future official data.
+- Cumulative flow and consecutive buy/sell streaks remain open until historical sequences are connected and verified.

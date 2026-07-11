@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { marketDataRequirementsForReport } from "@/lib/reports/market-data-requirements";
 import { marketBriefIndexPriceTargets } from "@/lib/reports/market-brief-price-targets";
-import { fetchTwseForeignInvestorTrading, type TwseForeignInvestorTradingSummary } from "@/lib/research-data/twse";
+import { fetchTwseInstitutionalTrading, type TwseInstitutionalTradingSummary } from "@/lib/research-data/twse";
 import {
   LIVE_SIGNAL_LEDGER_START_DATE,
   signalDataModeForDate,
@@ -125,13 +125,14 @@ function pendingInstitution(label: InstitutionalFlowSummary["label"]): Instituti
   };
 }
 
-function foreignInstitutionFromTwse(
-  flow: TwseForeignInvestorTradingSummary | null | undefined,
+function institutionFromTwse(
+  label: InstitutionalFlowSummary["label"],
+  flow: TwseInstitutionalTradingSummary | null | undefined,
 ): InstitutionalFlowSummary {
-  if (!flow) return pendingInstitution("外資");
+  if (!flow) return pendingInstitution(label);
   const direction = flow.netShares > 0 ? "buy" : flow.netShares < 0 ? "sell" : "flat";
   return {
-    label: "外資",
+    label,
     singleDayAmount: flow.netShares,
     cumulativeAmount: null,
     consecutiveDays: null,
@@ -145,7 +146,7 @@ function foreignInstitutionFromTwse(
       unit: "shares",
     })),
     status: "partial",
-    reason: "已接入 TWSE TWT38U 外資及陸資逐檔買賣超，單位為股；投信、自營商、累積與連續天數仍待官方資料源補齊。",
+    reason: "已接入 TWSE T86 三大法人逐檔買賣超，單位為股；累積與連續買賣天數仍待歷史序列補齊。",
   };
 }
 
@@ -244,7 +245,7 @@ export function buildMarketBrief(input: {
   generatedAt?: string;
   taiwanIndices?: MarketIndexMove[];
   usIndices?: MarketIndexMove[];
-  twForeignInvestorFlow?: TwseForeignInvestorTradingSummary | null;
+  twInstitutionalFlows?: TwseInstitutionalTradingSummary[];
   signals?: MarketBriefSignal[];
   dataGaps?: string[];
 }): MarketBrief {
@@ -266,12 +267,8 @@ export function buildMarketBrief(input: {
       pendingSector("上漲產業", "尚未接入可信產業分類與成分股日漲跌資料。"),
       pendingSector("下跌產業", "尚未接入可信產業分類與成分股日漲跌資料。"),
     ],
-    institutionalFlows: [
-      foreignInstitutionFromTwse(input.twForeignInvestorFlow),
-      pendingInstitution("投信"),
-      pendingInstitution("自營商"),
-      pendingInstitution("三大法人"),
-    ],
+    institutionalFlows: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
+      institutionFromTwse(label, input.twInstitutionalFlows?.find((item) => item.label === label))),
   };
   const us: MarketBriefSection = {
     market: "US",
@@ -357,7 +354,7 @@ export async function getMarketBrief(options?: {
   const supabase = getSupabaseAdmin();
   const startDate = liveClampedReportStartDate(period, asOfDate);
 
-  const [{ data: signals }, { data: prices }, twForeignInvestorFlow] = await Promise.all([
+  const [{ data: signals }, { data: prices }, twInstitutionalFlows] = await Promise.all([
     supabase
       .from("signal_events")
       .select("id, as_of_date, topic, signal_strength, confidence_score, model_version")
@@ -375,7 +372,7 @@ export async function getMarketBrief(options?: {
       .order("price_date", { ascending: false })
       .limit(80)
       .returns<PriceRow[]>(),
-    fetchTwseForeignInvestorTrading({ date: asOfDate }).catch(() => null),
+    fetchTwseInstitutionalTrading({ date: asOfDate }).catch(() => []),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -398,10 +395,13 @@ export async function getMarketBrief(options?: {
     startDate,
     taiwanIndices,
     usIndices,
-    twForeignInvestorFlow,
+    twInstitutionalFlows,
     signals: briefSignals,
   });
 }
+
+
+
 
 
 

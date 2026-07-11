@@ -286,22 +286,39 @@ function testMarketBriefContract() {
     period: "daily",
     asOfDate: "2026-07-11",
     generatedAt: "2026-07-11T00:00:00.000Z",
-    twForeignInvestorFlow: {
-      tradeDate: "2026-07-10",
-      sourceUrl: "https://www.twse.com.tw/rwd/zh/fund/TWT38U?date=20260710&response=json",
-      fetchedAt: "2026-07-11T00:00:00.000Z",
-      netShares: 1234,
-      buyShares: 5000,
-      sellShares: 3766,
-      topBuys: [{ symbol: "2408.TW", companyName: "南亞科", netShares: 1000 }],
-      topSells: [{ symbol: "2330.TW", companyName: "台積電", netShares: -500 }],
-      qualityStatus: "verified",
-    },
+    twInstitutionalFlows: [
+      {
+        label: "外資",
+        tradeDate: "2026-07-10",
+        sourceUrl: "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260710&selectType=ALL&response=json",
+        fetchedAt: "2026-07-11T00:00:00.000Z",
+        netShares: 1234,
+        buyShares: 5000,
+        sellShares: 3766,
+        topBuys: [{ symbol: "2408.TW", companyName: "南亞科", netShares: 1000 }],
+        topSells: [{ symbol: "2330.TW", companyName: "台積電", netShares: -500 }],
+        qualityStatus: "verified",
+      },
+      {
+        label: "投信",
+        tradeDate: "2026-07-10",
+        sourceUrl: "https://www.twse.com.tw/rwd/zh/fund/T86?date=20260710&selectType=ALL&response=json",
+        fetchedAt: "2026-07-11T00:00:00.000Z",
+        netShares: 2000,
+        buyShares: 2500,
+        sellShares: 500,
+        topBuys: [{ symbol: "2382.TW", companyName: "廣達", netShares: 2000 }],
+        topSells: [],
+        qualityStatus: "verified",
+      },
+    ],
   });
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].status, "partial");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].unit, "shares");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].topStocks?.[0].symbol, "2408.TW");
-  assert.ok(foreignFlowReport.taiwan.institutionalFlows?.[0].sourceUrl?.includes("TWT38U"));
+  assert.ok(foreignFlowReport.taiwan.institutionalFlows?.[0].sourceUrl?.includes("T86"));
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].status, "partial");
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].topStocks?.[0].symbol, "2382.TW");
   assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
   assert.ok(report.dataQuality.some((item) => item.label === "美股產業與成分股排行" && item.coverage === "0/2"));
   assert.ok(report.dataRequirements.some((item) =>
@@ -1685,5 +1702,6 @@ function main() {
 }
 
 main();
+
 
 

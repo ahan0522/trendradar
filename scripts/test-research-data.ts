@@ -4,6 +4,7 @@ import {
   parseTwsePublishedAt,
   parseTwseTaiexIndexPrices,
   parseTwseForeignInvestorTrading,
+  parseTwseInstitutionalTrading,
 } from "../lib/research-data/twse";
 import {
   FRED_DEFAULT_SERIES,
@@ -91,6 +92,32 @@ function testTwseForeignInvestorTradingParsing() {
   assert.equal(flow.topSells[0].symbol, "2330.TW");
   assert.equal(flow.qualityStatus, "verified");
   assert.equal(parseTwseForeignInvestorTrading({ stat: "很抱歉，沒有符合條件的資料!", total: 0 }, "url", "now"), null);
+}
+
+function testTwseInstitutionalTradingParsing() {
+  const flows = parseTwseInstitutionalTrading({
+    stat: "OK",
+    date: "20250630",
+    fields: ["證券代號", "證券名稱"],
+    data: [
+      ["2881", "富邦金          ", "17,855,782", "56,716,500", "-38,860,718", "0", "0", "0", "77,242,597", "215,094", "77,027,503", "845,074", "539,142", "715,349", "-176,207", "3,665,292", "2,644,011", "1,021,281", "39,011,859"],
+      ["2892", "第一金          ", "23,034,427", "16,742,812", "6,291,615", "0", "0", "0", "14,920,677", "50,636", "14,870,041", "-376,980", "129,732", "410,000", "-280,268", "5,288", "102,000", "-96,712", "20,784,676"],
+    ],
+    total: 2,
+  }, "https://www.twse.com.tw/rwd/zh/fund/T86?date=20250630&selectType=ALL&response=json", "2026-07-11T00:00:00.000Z");
+
+  assert.equal(flows.length, 4);
+  const foreign = flows.find((item) => item.label === "外資");
+  const trust = flows.find((item) => item.label === "投信");
+  const dealer = flows.find((item) => item.label === "自營商");
+  const total = flows.find((item) => item.label === "三大法人");
+  assert.equal(foreign?.netShares, -32569103);
+  assert.equal(trust?.netShares, 91897544);
+  assert.equal(dealer?.netShares, 468094);
+  assert.equal(total?.netShares, 59796535);
+  assert.equal(trust?.topBuys[0].symbol, "2881.TW");
+  assert.equal(foreign?.topSells[0].symbol, "2881.TW");
+  assert.equal(parseTwseInstitutionalTrading({ stat: "很抱歉，沒有符合條件的資料!", total: 0 }, "url", "now").length, 0);
 }
 
 function testFredMissingValues() {
@@ -344,6 +371,7 @@ function testHistoricalNewsParsing() {
 testTwseTimeParsing();
 testTwseTaiexIndexParsing();
 testTwseForeignInvestorTradingParsing();
+testTwseInstitutionalTradingParsing();
 testFredMissingValues();
 testTpexDateParsing();
 testHistoricalNewsParsing();
@@ -430,6 +458,7 @@ assert.equal(roboticsCoverage.totalRequiredCount, 2);
 assert.equal(roboticsCoverage.satisfiedRequiredCount, 1);
 assert.equal(roboticsCoverage.missingRequired[0].key, "robotics_orders_adoption");
 console.log("Research data invariants: PASS");
+
 
 
 

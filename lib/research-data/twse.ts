@@ -10,6 +10,7 @@ const TWSE_ACTIONS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap04_L";
 const TWSE_PRICES_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
 const TWSE_TAIEX_HIST_URL = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST";
 const TWSE_FOREIGN_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/TWT38U";
+const TWSE_INSTITUTIONAL_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/T86";
 
 type TwseActionRow = {
   出表日期?: string;
@@ -55,7 +56,10 @@ type TwseForeignTradingResponse = {
   total?: number;
 };
 
-export type TwseForeignInvestorTradingSummary = {
+export type TwseInstitutionalInvestorLabel = "外資" | "投信" | "自營商" | "三大法人";
+
+export type TwseInstitutionalTradingSummary = {
+  label: TwseInstitutionalInvestorLabel;
   tradeDate: string;
   sourceUrl: string;
   fetchedAt: string;
@@ -75,6 +79,8 @@ export type TwseForeignInvestorTradingSummary = {
   qualityStatus: "verified" | "no_data";
   reason?: string;
 };
+
+export type TwseForeignInvestorTradingSummary = Omit<TwseInstitutionalTradingSummary, "label">;
 
 const twseSource: ResearchSource = {
   id: "twse-openapi",
@@ -140,6 +146,10 @@ function twseTaiexHistoryUrl(date: string) {
 
 function twseForeignTradingUrl(date: string) {
   return `${TWSE_FOREIGN_TRADING_URL}?date=${date.replaceAll("-", "")}&response=json`;
+}
+
+function twseInstitutionalTradingUrl(date: string) {
+  return `${TWSE_INSTITUTIONAL_TRADING_URL}?date=${date.replaceAll("-", "")}&selectType=ALL&response=json`;
 }
 
 function classifyAction(title: string, summary: string): CompanyAction["actionType"] {
@@ -334,6 +344,127 @@ export async function fetchTwseForeignInvestorTrading(options?: {
   return parseTwseForeignInvestorTrading(payload, url, fetchedAt);
 }
 
+type ParsedInstitutionalRow = {
+  symbol: string;
+  companyName: string;
+  foreignBuy: number;
+  foreignSell: number;
+  foreignNet: number;
+  trustBuy: number;
+  trustSell: number;
+  trustNet: number;
+  dealerBuy: number;
+  dealerSell: number;
+  dealerNet: number;
+  totalBuy: number;
+  totalSell: number;
+  totalNet: number;
+};
+
+function buildInstitutionalSummary(
+  label: TwseInstitutionalInvestorLabel,
+  tradeDate: string,
+  sourceUrl: string,
+  fetchedAt: string,
+  rows: ParsedInstitutionalRow[],
+): TwseInstitutionalTradingSummary {
+  const valueFor = (row: ParsedInstitutionalRow) => {
+    if (label === "外資") return { buy: row.foreignBuy, sell: row.foreignSell, net: row.foreignNet };
+    if (label === "投信") return { buy: row.trustBuy, sell: row.trustSell, net: row.trustNet };
+    if (label === "自營商") return { buy: row.dealerBuy, sell: row.dealerSell, net: row.dealerNet };
+    return { buy: row.totalBuy, sell: row.totalSell, net: row.totalNet };
+  };
+  const mapped = rows.map((row) => ({ ...row, ...valueFor(row) }));
+  const buyShares = mapped.reduce((sum, row) => sum + row.buy, 0);
+  const sellShares = mapped.reduce((sum, row) => sum + row.sell, 0);
+  const netShares = mapped.reduce((sum, row) => sum + row.net, 0);
+  const byNet = mapped.slice().sort((a, b) => b.net - a.net);
+
+  return {
+    label,
+    tradeDate,
+    sourceUrl,
+    fetchedAt,
+    netShares,
+    buyShares,
+    sellShares,
+    topBuys: byNet.filter((row) => row.net > 0).slice(0, 5).map((row) => ({
+      symbol: row.symbol,
+      companyName: row.companyName,
+      netShares: row.net,
+    })),
+    topSells: byNet.filter((row) => row.net < 0).slice(-5).reverse().map((row) => ({
+      symbol: row.symbol,
+      companyName: row.companyName,
+      netShares: row.net,
+    })),
+    qualityStatus: "verified",
+  };
+}
+
+export function parseTwseInstitutionalTrading(
+  payload: TwseForeignTradingResponse,
+  sourceUrl: string,
+  fetchedAt: string,
+): TwseInstitutionalTradingSummary[] {
+  if (payload.stat !== "OK" || !Array.isArray(payload.data) || payload.data.length === 0) {
+    return [];
+  }
+
+  const tradeDate = parseTwseCalendarDate(payload.date);
+  const rows = payload.data.flatMap((row): ParsedInstitutionalRow[] => {
+    const symbol = row[0]?.trim();
+    const companyName = row[1]?.trim();
+    const foreignBuy = (parseSignedNumber(row[2]) ?? 0) + (parseSignedNumber(row[5]) ?? 0);
+    const foreignSell = (parseSignedNumber(row[3]) ?? 0) + (parseSignedNumber(row[6]) ?? 0);
+    const foreignNet = (parseSignedNumber(row[4]) ?? 0) + (parseSignedNumber(row[7]) ?? 0);
+    const trustBuy = parseSignedNumber(row[8]);
+    const trustSell = parseSignedNumber(row[9]);
+    const trustNet = parseSignedNumber(row[10]);
+    const dealerNet = parseSignedNumber(row[11]);
+    const dealerSelfBuy = parseSignedNumber(row[12]) ?? 0;
+    const dealerSelfSell = parseSignedNumber(row[13]) ?? 0;
+    const dealerHedgeBuy = parseSignedNumber(row[15]) ?? 0;
+    const dealerHedgeSell = parseSignedNumber(row[16]) ?? 0;
+    const totalNet = parseSignedNumber(row[18]);
+    if (!symbol || !companyName || trustBuy === null || trustSell === null || trustNet === null || dealerNet === null || totalNet === null) {
+      return [];
+    }
+    const dealerBuy = dealerSelfBuy + dealerHedgeBuy;
+    const dealerSell = dealerSelfSell + dealerHedgeSell;
+    return [{
+      symbol: `${symbol}.TW`,
+      companyName,
+      foreignBuy,
+      foreignSell,
+      foreignNet,
+      trustBuy,
+      trustSell,
+      trustNet,
+      dealerBuy,
+      dealerSell,
+      dealerNet,
+      totalBuy: foreignBuy + trustBuy + dealerBuy,
+      totalSell: foreignSell + trustSell + dealerSell,
+      totalNet,
+    }];
+  });
+
+  if (rows.length === 0) return [];
+  return (["外資", "投信", "自營商", "三大法人"] as const)
+    .map((label) => buildInstitutionalSummary(label, tradeDate, sourceUrl, fetchedAt, rows));
+}
+
+export async function fetchTwseInstitutionalTrading(options?: {
+  date?: string;
+}) {
+  const fetchedAt = new Date().toISOString();
+  const date = options?.date ?? fetchedAt.slice(0, 10);
+  const url = twseInstitutionalTradingUrl(date);
+  const payload = await fetchJson<TwseForeignTradingResponse>(url);
+  return parseTwseInstitutionalTrading(payload, url, fetchedAt);
+}
+
 export async function syncTwseResearchData(options?: {
   dryRun?: boolean;
   includeActions?: boolean;
@@ -391,6 +522,10 @@ export async function syncTwseResearchData(options?: {
     dates,
   };
 }
+
+
+
+
 
 
 
