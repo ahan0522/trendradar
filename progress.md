@@ -891,3 +891,11 @@ The next milestone is complete when:
 - The output is explicitly marked `partial` and described as a TrendRadar maintained theme basket, not an official TWSE/TPEx industry index.
 - Each available theme mover can expose the strongest or weakest 3-5 constituent stocks with change percentage and a reason string.
 - Taiwan report data quality can now reach `2/2` only when both TWSE institutional flows and theme movers are available; official industry indices, TPEx institutional flows, and complete constituents remain open gaps.
+
+## 35. US Sector ETF Proxy Movers for July Briefs (2026-07-11)
+
+- Added maintained US sector ETF proxy groups for July daily/weekly/monthly briefs, including XLK, SMH, XLC, XLY, XLF, XLI, XLE, XLV, XLP, XLU, XLB, and XLRE.
+- Market brief now fetches those ETF symbols with index and Taiwan theme rows, then computes US sector up/down moves only from `verified` US prices.
+- The output is explicitly marked `partial`: ETF proxies can describe sector direction, but they are not complete constituent rankings or individual top-stock movers.
+- Market brief data requirements now mark US sector movers as partial while keeping constituent rankings, individual top 3-5 stocks, and independent-source verification as open gaps.
+- Price target metadata now includes the US sector ETFs as `sector_etf` targets that still require an independent close provider before becoming fully ready.

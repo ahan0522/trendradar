@@ -99,7 +99,7 @@ export type MarketBriefPriceTarget = {
   symbol: string;
   label: string;
   market: "TW" | "US";
-  assetType: "index";
+  assetType: "index" | "sector_etf";
   automationStatus: "ready" | "needs_connector" | "needs_independent_source";
   preferredSource: string;
   reason: string;
@@ -131,6 +131,7 @@ export type MarketBrief = {
   priceTargets: MarketBriefPriceTarget[];
   dataGaps: string[];
 };
+
 
 
 

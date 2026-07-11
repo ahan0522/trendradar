@@ -124,11 +124,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "美股產業與成分股排行",
     market: "US",
     priority: "high",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly", "monthly"],
     suggestedSources: ["S&P sector ETF proxies", "Nasdaq/S&P constituent map", "verified US stock prices", "Yahoo Finance rankings if license permits"],
     blocksReportNumbers: true,
-    reason: "缺少可信 sector/constituent performance 時，不能輸出上漲/下跌產業與前 3-5 個股。",
+    reason: "已可用 verified sector ETF 價格產出產業方向 proxy；完整成分股排行、個股前 3-5 名與雙來源驗證仍待補齊。",
   },
   {
     id: "us-volatility-macro",
@@ -168,6 +168,8 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
 export function marketDataRequirementsForReport() {
   return MARKET_DATA_REQUIREMENTS.map((item) => ({ ...item }));
 }
+
+
 
 
 

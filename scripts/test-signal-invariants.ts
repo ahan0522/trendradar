@@ -103,6 +103,7 @@ import {
   buildIndexMoveFromPrices,
   buildMarketBrief,
   buildTaiwanThemeMovesFromPrices,
+    buildUsSectorEtfMovesFromPrices,
   reportStartDateForPeriod,
 } from "../lib/reports/market-brief";
 import {
@@ -381,6 +382,44 @@ function testMarketBriefContract() {
     item.id === "tw-sector-movers" &&
     item.status === "partial" &&
     item.reason.includes("verified 台股價格")));
+  const usSectorMoves = buildUsSectorEtfMovesFromPrices([
+    { symbol: "XLK", market: "US", price_date: "2026-07-10", close: 110, adj_close: null, quality_status: "verified" },
+    { symbol: "XLK", market: "US", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
+    { symbol: "SMH", market: "US", price_date: "2026-07-10", close: 210, adj_close: null, quality_status: "verified" },
+    { symbol: "SMH", market: "US", price_date: "2026-07-09", close: 200, adj_close: null, quality_status: "verified" },
+    { symbol: "XLE", market: "US", price_date: "2026-07-10", close: 90, adj_close: null, quality_status: "verified" },
+    { symbol: "XLE", market: "US", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
+    { symbol: "XLF", market: "US", price_date: "2026-07-10", close: 95, adj_close: null, quality_status: "verified" },
+    { symbol: "XLF", market: "US", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
+    { symbol: "XLU", market: "US", price_date: "2026-07-10", close: 130, adj_close: null, quality_status: "unverified" },
+    { symbol: "XLU", market: "US", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "unverified" },
+  ], "2026-07-10", "2026-07-10");
+  assert.equal(usSectorMoves[0].label, "科技 ETF");
+  assert.equal(usSectorMoves[0].direction, "up");
+  assert.equal(usSectorMoves[0].topStocks[0].symbol, "XLK");
+  assert.ok(usSectorMoves[0].topStocks[0].reason?.includes("Sector ETF proxy"));
+  assert.equal(usSectorMoves[1].label, "能源 ETF");
+  assert.equal(usSectorMoves[1].direction, "down");
+  assert.equal(usSectorMoves.some((item) => item.topStocks.some((stock) => stock.symbol === "XLU")), false);
+  const usSectorReport = buildMarketBrief({
+    period: "daily",
+    asOfDate: "2026-07-11",
+    generatedAt: "2026-07-11T00:00:00.000Z",
+    usSectors: usSectorMoves,
+  });
+  assert.ok(usSectorReport.dataQuality.some((item) =>
+    item.label === "美股產業與成分股排行" &&
+    item.status === "partial" &&
+    item.coverage === "1/2" &&
+    item.reason?.includes("sector ETF proxy") === true));
+  assert.ok(usSectorReport.dataRequirements.some((item) =>
+    item.id === "us-sector-movers" &&
+    item.status === "partial" &&
+    item.reason.includes("sector ETF")));
+  assert.ok(usSectorReport.priceTargets.some((item) =>
+    item.symbol === "XLK" &&
+    item.assetType === "sector_etf" &&
+    item.automationStatus === "needs_independent_source"));
   assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
   assert.ok(report.dataQuality.some((item) => item.label === "美股產業與成分股排行" && item.coverage === "0/2"));
   assert.ok(report.dataRequirements.some((item) =>
@@ -1772,6 +1811,9 @@ function main() {
 }
 
 main();
+
+
+
 
 
 
