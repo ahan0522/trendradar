@@ -87,6 +87,16 @@ export type MarketBriefDataRequirement = {
   reason: string;
 };
 
+export type MarketBriefPriceTarget = {
+  symbol: string;
+  label: string;
+  market: "TW" | "US";
+  assetType: "index";
+  automationStatus: "ready" | "needs_connector" | "needs_independent_source";
+  preferredSource: string;
+  reason: string;
+};
+
 export type MarketBrief = {
   ok: boolean;
   period: MarketBriefPeriod;
@@ -106,5 +116,6 @@ export type MarketBrief = {
   weeklyOrMonthlyNotes: string[];
   dataQuality: MarketBriefDataQualityItem[];
   dataRequirements: MarketBriefDataRequirement[];
+  priceTargets: MarketBriefPriceTarget[];
   dataGaps: string[];
 };

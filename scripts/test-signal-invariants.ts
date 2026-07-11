@@ -286,6 +286,12 @@ function testMarketBriefContract() {
   assert.ok(report.dataRequirements.some((item) =>
     item.id === "us-sector-movers" &&
     item.suggestedSources.some((source) => source.includes("sector"))));
+  assert.ok(report.priceTargets.some((item) =>
+    item.symbol === "^TWII" &&
+    item.automationStatus === "needs_connector"));
+  assert.ok(report.priceTargets.some((item) =>
+    item.symbol === "^GSPC" &&
+    item.automationStatus === "needs_independent_source"));
   assert.ok(report.dataGaps.some((item) => item.includes("法人買賣超")));
   assert.ok(report.tomorrowWatch[0].dataNeeded.includes("產業硬資料"));
 
