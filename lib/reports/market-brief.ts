@@ -64,6 +64,30 @@ function currentTaipeiDate() {
   }).format(new Date());
 }
 
+function addUtcDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+export function reportStartDateForPeriod(period: MarketBriefPeriod, asOfDate: string) {
+  if (period === "daily") return asOfDate;
+  if (period === "monthly") return `${asOfDate.slice(0, 7)}-01`;
+
+  const value = new Date(`${asOfDate}T00:00:00.000Z`);
+  const day = value.getUTCDay();
+  const daysSinceMonday = day === 0 ? 6 : day - 1;
+  return addUtcDays(asOfDate, -daysSinceMonday);
+}
+
+function liveClampedReportStartDate(period: MarketBriefPeriod, asOfDate: string) {
+  const startDate = reportStartDateForPeriod(period, asOfDate);
+  if (signalDataModeForDate(asOfDate) === "live-ledger" && startDate < LIVE_SIGNAL_LEDGER_START_DATE) {
+    return LIVE_SIGNAL_LEDGER_START_DATE;
+  }
+  return startDate;
+}
+
 function pendingIndex(label: string, symbol: string, market: "TW" | "US"): MarketIndexMove {
   return {
     label,
@@ -191,6 +215,7 @@ function briefSignalRows(signals: SignalRow[], watchlists: WatchlistRow[]): Mark
 export function buildMarketBrief(input: {
   period: MarketBriefPeriod;
   asOfDate: string;
+  startDate?: string;
   generatedAt?: string;
   taiwanIndices?: MarketIndexMove[];
   usIndices?: MarketIndexMove[];
@@ -198,6 +223,7 @@ export function buildMarketBrief(input: {
   dataGaps?: string[];
 }): MarketBrief {
   const mode = signalDataModeForDate(input.asOfDate);
+  const startDate = input.startDate ?? liveClampedReportStartDate(input.period, input.asOfDate);
   const signals = input.signals ?? [];
   const dataGaps = [
     ...(input.dataGaps ?? []),
@@ -267,6 +293,10 @@ export function buildMarketBrief(input: {
     period: input.period,
     asOfDate: input.asOfDate,
     generatedAt: input.generatedAt ?? new Date().toISOString(),
+    reportWindow: {
+      startDate,
+      endDate: input.asOfDate,
+    },
     dataPolicy: {
       liveStartDate: LIVE_SIGNAL_LEDGER_START_DATE,
       mode,
@@ -299,13 +329,13 @@ export async function getMarketBrief(options?: {
   const period = options?.period ?? "daily";
   const asOfDate = options?.asOfDate ?? currentTaipeiDate();
   const supabase = getSupabaseAdmin();
-  const monthStart = `${asOfDate.slice(0, 7)}-01`;
+  const startDate = liveClampedReportStartDate(period, asOfDate);
 
   const [{ data: signals }, { data: prices }] = await Promise.all([
     supabase
       .from("signal_events")
       .select("id, as_of_date, topic, signal_strength, confidence_score, model_version")
-      .gte("as_of_date", monthStart)
+      .gte("as_of_date", startDate)
       .lte("as_of_date", asOfDate)
       .in("model_version", ["monthly-full-market-v3", "rule-v2"])
       .order("signal_strength", { ascending: false })
@@ -338,6 +368,7 @@ export async function getMarketBrief(options?: {
   return buildMarketBrief({
     period,
     asOfDate,
+    startDate,
     taiwanIndices,
     usIndices,
     signals: briefSignals,

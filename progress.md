@@ -25,6 +25,8 @@ TrendRadar is not a news summary website, investment advisory service, or automa
 TrendRadar now treats `2026-07-01` onward as the formal live Signal Ledger start date.
 
 - July 2026 and later data is the primary product dataset.
+- July daily and weekly market briefs are the current execution priority.
+- June and May report reconstruction should only begin after July daily/weekly collection and analysis are stable.
 - Historical 2025 and early 2026 backfills remain audit/sample material unless independently time-verified.
 - Large historical backfill expansion is intentionally deprioritized to reduce token, compute, and review cost.
 - Paid/public research should be built from live-collected Signals first; historical cases can demonstrate methodology but should not be marketed as strict live discoveries unless verified.
@@ -35,6 +37,7 @@ The external reporting layer starts from the live dataset and remains separate f
 
 - Added `/api/reports/market-brief`.
 - Supported periods: `daily`, `weekly`, `monthly`.
+- Report windows are period-aware: daily uses the report date, weekly uses the current week, and monthly uses month-to-date. Live July weekly windows are clamped to `2026-07-01` so June data is not mixed into the first July weekly report.
 - Daily brief contract now includes Taiwan market, US market, internal Signals, tomorrow watch items, and data gaps.
 - Taiwan placeholders explicitly cover index moves, industry winners/losers, top stocks, and institutional flows.
 - US placeholders explicitly cover Dow, Nasdaq, S&P 500, Philadelphia Semiconductor, industry movers, and top stocks.

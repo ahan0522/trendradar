@@ -102,6 +102,10 @@ export type MarketBrief = {
   period: MarketBriefPeriod;
   asOfDate: string;
   generatedAt: string;
+  reportWindow: {
+    startDate: string;
+    endDate: string;
+  };
   dataPolicy: {
     liveStartDate: string;
     mode: "live-ledger" | "historical-audit";

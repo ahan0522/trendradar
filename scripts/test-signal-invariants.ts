@@ -102,6 +102,7 @@ import {
 import {
   buildIndexMoveFromPrices,
   buildMarketBrief,
+  reportStartDateForPeriod,
 } from "../lib/reports/market-brief";
 import {
   dedupeArticlesByEvent,
@@ -275,6 +276,10 @@ function testMarketBriefContract() {
   });
   assert.equal(report.dataPolicy.mode, "live-ledger");
   assert.equal(report.period, "daily");
+  assert.deepEqual(report.reportWindow, {
+    startDate: "2026-07-11",
+    endDate: "2026-07-11",
+  });
   assert.equal(report.signals.length, 1);
   assert.equal(report.taiwan.institutionalFlows?.[0].status, "pending");
   assert.ok(report.dataQuality.some((item) => item.label === "台股指數價格" && item.status === "pending"));
@@ -303,6 +308,16 @@ function testMarketBriefContract() {
   assert.equal(historical.dataPolicy.mode, "historical-audit");
   assert.equal(historical.signals.length, 0);
   assert.equal(historical.tomorrowWatch[0].status, "pending");
+  assert.deepEqual(buildMarketBrief({
+    period: "weekly",
+    asOfDate: "2026-07-03",
+    generatedAt: "2026-07-03T00:00:00.000Z",
+  }).reportWindow, {
+    startDate: "2026-07-01",
+    endDate: "2026-07-03",
+  });
+  assert.equal(reportStartDateForPeriod("weekly", "2026-07-11"), "2026-07-06");
+  assert.equal(reportStartDateForPeriod("monthly", "2026-07-11"), "2026-07-01");
 
   const index = buildIndexMoveFromPrices("S&P 500", "^GSPC", "US", [
     { symbol: "^GSPC", market: "US", price_date: "2026-07-10", close: 5100, adj_close: null, quality_status: "verified" },
