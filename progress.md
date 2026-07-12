@@ -915,3 +915,11 @@ The next milestone is complete when:
 - Unverified index prices are now excluded from index moves and outlook evidence rather than being displayed as internal directional observations.
 - Daily research automation generates the daily market brief after ingestion and Signal refresh. On weekends it additionally generates the weekly brief from the same verified data policy.
 - Report persistence remains intentionally deferred until a dedicated snapshot migration is approved; Signal publication reviews are not reused as a generic market-report store.
+## 38. Human-Readable Daily and Weekly Report Page (2026-07-12)
+
+- Added `/reports/market-brief` as the readable Taiwan and US market report surface, backed by the versioned market-brief API.
+- Users can switch daily, weekly, and monthly periods, select an `asOfDate`, and review the exact report window.
+- The report leads with market bias, confidence, supporting evidence, counter-evidence, and next-session focus, then expands into indices, institutional flow, sector/theme movers, Signal watchlists, and data-quality gaps.
+- Pending data remains visible and is never rendered as zero or neutral evidence.
+- Added the report to global navigation and footer. Mobile navigation remains horizontally scrollable while hiding the native scrollbar.
+- Desktop and 390px responsive browser verification confirmed no page-level horizontal overflow and correct weekly period selection.

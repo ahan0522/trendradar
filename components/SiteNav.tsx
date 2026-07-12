@@ -10,6 +10,7 @@ const navItems = [
   { href: "/signals", label: "市場訊號", icon: Activity },
   { href: "/signals/monthly", label: "月度訊號", icon: CalendarClock },
   { href: "/market-map", label: "市場地圖", icon: Map },
+  { href: "/reports/market-brief", label: "每日週報", icon: FileText },
   { href: "/reports/signal-validation", label: "驗證報告", icon: FileText },
   { href: "/failed-signals", label: "失敗紀錄", icon: TriangleAlert },
 ];
@@ -34,7 +35,7 @@ export function SiteNav() {
           </span>
         </Link>
 
-        <div className="flex gap-1 overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-1">
+        <div className="flex gap-1 overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-950 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(pathname, item.href);

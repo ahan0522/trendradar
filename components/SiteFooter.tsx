@@ -18,6 +18,7 @@ export function SiteFooter() {
           <Link href="/signals" className="hover:text-white">市場訊號</Link>
           <Link href="/signals/monthly" className="hover:text-white">月度訊號</Link>
           <Link href="/market-map" className="hover:text-white">市場地圖</Link>
+          <Link href="/reports/market-brief" className="hover:text-white">每日週報</Link>
           <Link href="/reports/signal-validation" className="hover:text-white">驗證報告</Link>
           <Link href="/failed-signals" className="hover:text-white">失敗紀錄</Link>
         </div>
