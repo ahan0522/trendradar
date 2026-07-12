@@ -1,8 +1,10 @@
+import { US_SECTOR_ETF_CONSTITUENTS } from "@/data/us-sector-constituents";
+
 export type MarketBriefPriceTarget = {
   symbol: string;
   label: string;
   market: "TW" | "US";
-  assetType: "index" | "sector_etf";
+  assetType: "index" | "sector_etf" | "constituent_stock";
   automationStatus: "ready" | "needs_connector" | "needs_independent_source";
   preferredSource: string;
   reason: string;
@@ -171,6 +173,17 @@ export const MARKET_BRIEF_INDEX_PRICE_TARGETS: MarketBriefPriceTarget[] = [
     preferredSource: "Yahoo chart plus independent ETF close provider",
     reason: "可作美股不動產產業方向 proxy；完整成分股排行與雙來源驗證仍待補齊。",
   },
+  ...[...new Set(Object.values(US_SECTOR_ETF_CONSTITUENTS).flat().map((item) => item.symbol))].map(
+    (symbol): MarketBriefPriceTarget => ({
+      symbol,
+      label: Object.values(US_SECTOR_ETF_CONSTITUENTS).flat().find((item) => item.symbol === symbol)!.companyName,
+      market: "US",
+      assetType: "constituent_stock",
+      automationStatus: "needs_independent_source",
+      preferredSource: "Yahoo chart plus independent close provider",
+      reason: "維護的 sector ETF 代表成分股，用於產出產業前 3-5 名個股漲跌；完整官方成分股排行仍待補齊。",
+    }),
+  ),
 ];
 
 export function marketBriefIndexPriceTargets() {

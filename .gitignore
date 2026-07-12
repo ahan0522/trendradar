@@ -7,3 +7,4 @@ dist/
 build/
 *.log
 app.7z
+*.tsbuildinfo

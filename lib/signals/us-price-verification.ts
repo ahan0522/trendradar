@@ -85,7 +85,13 @@ export async function fetchAlphaVantageDailySeries(
   const publicParams = new URLSearchParams({
     function: "TIME_SERIES_DAILY",
     symbol: normalizedSymbol,
-    outputsize: "full",
+    // "full" is a premium-only parameter value on Alpha Vantage's current
+    // free tier and gets rejected outright. "compact" (last ~100 daily
+    // points) works on the free tier and covers all current recent-date
+    // verification needs (market brief, live signal backtests); dates
+    // older than ~100 trading days back simply won't be found in the
+    // series, same end result as today's outright premium block.
+    outputsize: "compact",
   });
   const requestParams = new URLSearchParams(publicParams);
   requestParams.set("apikey", apiKey);

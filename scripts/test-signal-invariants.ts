@@ -275,7 +275,7 @@ function testMarketBriefContract() {
   );
   assert.throws(() => marketBriefPriceSyncDates("2026-07-03", "2026-07-01"));
   const usPriceRequests = marketBriefUsPriceRequests("2026-07-10", "2026-07-10");
-  assert.equal(usPriceRequests.length, 16);
+  assert.equal(usPriceRequests.length, 74); // 4 indices + 12 sector ETFs + 58 unique maintained sector constituents
   assert.ok(usPriceRequests.some((item) => item.symbol === "^GSPC" && item.market === "US"));
   assert.ok(usPriceRequests.some((item) => item.symbol === "XLK" && item.market === "US"));
   const mergedFlows = mergeInstitutionalTradingSummaries(

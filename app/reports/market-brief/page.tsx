@@ -282,7 +282,9 @@ function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
           <div key={flow.label} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
             <div className="flex items-center justify-between gap-2"><strong className="text-sm">{flow.label}</strong><StatusBadge status={flow.status} /></div>
             <p className={`mt-3 font-mono text-lg font-black ${flow.direction === "buy" ? "text-emerald-300" : flow.direction === "sell" ? "text-rose-300" : "text-zinc-600"}`}>{compactAmount(flow.singleDayAmount, flow.unit)}</p>
+            <p className="mt-1 text-[11px] text-zinc-600">買 {compactAmount(flow.singleDayBuyAmount, flow.unit)} ／ 賣 {compactAmount(flow.singleDaySellAmount, flow.unit)}</p>
             <p className="mt-2 text-xs text-zinc-500">區間累積 {compactAmount(flow.cumulativeAmount, flow.unit)}</p>
+            <p className="mt-1 text-[11px] text-zinc-600">累積買 {compactAmount(flow.cumulativeBuyAmount, flow.unit)} ／ 累積賣 {compactAmount(flow.cumulativeSellAmount, flow.unit)}</p>
             <p className="mt-1 text-xs text-zinc-600">連續 {flow.consecutiveDays ?? "—"} 日</p>
             {flow.topStocks?.length ? (
               <div className="mt-3 border-t border-zinc-800 pt-3">

@@ -3,6 +3,8 @@ import { marketDataRequirementsForReport } from "@/lib/reports/market-data-requi
 import { marketBriefIndexPriceTargets } from "@/lib/reports/market-brief-price-targets";
 import { fetchTwseInstitutionalTradingRange, type TwseInstitutionalTradingSummary } from "@/lib/research-data/twse";
 import { fetchTpexInstitutionalTradingRange } from "@/lib/research-data/tpex";
+import { computeStreak, type StreakDirection } from "@/lib/streak";
+import { US_SECTOR_ETF_CONSTITUENTS } from "@/data/us-sector-constituents";
 import {
   LIVE_SIGNAL_LEDGER_START_DATE,
   signalDataModeForDate,
@@ -60,7 +62,12 @@ const US_INDEX_SYMBOLS = [
 
 type MarketThemeGroup = {
   label: string;
+  // Constituent stocks used to compute topStocks (and, when proxySymbol is
+  // absent, the group's own headline changePct via a simple average).
   symbols: Array<{ symbol: string; companyName: string }>;
+  // When set, the group's headline changePct/dataTier comes from this single
+  // symbol's own move (e.g. a sector ETF) instead of averaging `symbols`.
+  proxySymbol?: { symbol: string; companyName: string };
 };
 
 const TW_THEME_GROUPS: MarketThemeGroup[] = [
@@ -114,23 +121,32 @@ const TW_THEME_GROUPS: MarketThemeGroup[] = [
   },
 ];
 
+function usSectorGroup(label: string, proxySymbol: string, proxyCompanyName: string): MarketThemeGroup {
+  return {
+    label,
+    proxySymbol: { symbol: proxySymbol, companyName: proxyCompanyName },
+    symbols: US_SECTOR_ETF_CONSTITUENTS[proxySymbol] ?? [],
+  };
+}
+
 const US_SECTOR_ETF_GROUPS: MarketThemeGroup[] = [
-  { label: "科技 ETF", symbols: [{ symbol: "XLK", companyName: "Technology Select Sector SPDR" }] },
-  { label: "半導體 ETF", symbols: [{ symbol: "SMH", companyName: "VanEck Semiconductor ETF" }] },
-  { label: "通訊服務 ETF", symbols: [{ symbol: "XLC", companyName: "Communication Services Select Sector SPDR" }] },
-  { label: "非必需消費 ETF", symbols: [{ symbol: "XLY", companyName: "Consumer Discretionary Select Sector SPDR" }] },
-  { label: "金融 ETF", symbols: [{ symbol: "XLF", companyName: "Financial Select Sector SPDR" }] },
-  { label: "工業 ETF", symbols: [{ symbol: "XLI", companyName: "Industrial Select Sector SPDR" }] },
-  { label: "能源 ETF", symbols: [{ symbol: "XLE", companyName: "Energy Select Sector SPDR" }] },
-  { label: "醫療保健 ETF", symbols: [{ symbol: "XLV", companyName: "Health Care Select Sector SPDR" }] },
-  { label: "必需消費 ETF", symbols: [{ symbol: "XLP", companyName: "Consumer Staples Select Sector SPDR" }] },
-  { label: "公用事業 ETF", symbols: [{ symbol: "XLU", companyName: "Utilities Select Sector SPDR" }] },
-  { label: "原物料 ETF", symbols: [{ symbol: "XLB", companyName: "Materials Select Sector SPDR" }] },
-  { label: "不動產 ETF", symbols: [{ symbol: "XLRE", companyName: "Real Estate Select Sector SPDR" }] },
+  usSectorGroup("科技 ETF", "XLK", "Technology Select Sector SPDR"),
+  usSectorGroup("半導體 ETF", "SMH", "VanEck Semiconductor ETF"),
+  usSectorGroup("通訊服務 ETF", "XLC", "Communication Services Select Sector SPDR"),
+  usSectorGroup("非必需消費 ETF", "XLY", "Consumer Discretionary Select Sector SPDR"),
+  usSectorGroup("金融 ETF", "XLF", "Financial Select Sector SPDR"),
+  usSectorGroup("工業 ETF", "XLI", "Industrial Select Sector SPDR"),
+  usSectorGroup("能源 ETF", "XLE", "Energy Select Sector SPDR"),
+  usSectorGroup("醫療保健 ETF", "XLV", "Health Care Select Sector SPDR"),
+  usSectorGroup("必需消費 ETF", "XLP", "Consumer Staples Select Sector SPDR"),
+  usSectorGroup("公用事業 ETF", "XLU", "Utilities Select Sector SPDR"),
+  usSectorGroup("原物料 ETF", "XLB", "Materials Select Sector SPDR"),
+  usSectorGroup("不動產 ETF", "XLRE", "Real Estate Select Sector SPDR"),
 ];
 
 const TW_THEME_SYMBOLS = [...new Set(TW_THEME_GROUPS.flatMap((group) => group.symbols.map((item) => item.symbol)))];
-const US_SECTOR_ETF_SYMBOLS = [...new Set(US_SECTOR_ETF_GROUPS.flatMap((group) => group.symbols.map((item) => item.symbol)))];
+const US_SECTOR_ETF_SYMBOLS = [...new Set(US_SECTOR_ETF_GROUPS.flatMap((group) =>
+  [...group.symbols.map((item) => item.symbol), ...(group.proxySymbol ? [group.proxySymbol.symbol] : [])]))];
 
 type ThemeGroupMove = {
   label: string;
@@ -205,7 +221,11 @@ function pendingInstitution(label: InstitutionalFlowSummary["label"]): Instituti
   return {
     label,
     singleDayAmount: null,
+    singleDayBuyAmount: null,
+    singleDaySellAmount: null,
     cumulativeAmount: null,
+    cumulativeBuyAmount: null,
+    cumulativeSellAmount: null,
     consecutiveDays: null,
     direction: "pending",
     status: "pending",
@@ -262,34 +282,37 @@ function institutionDirection(netShares: number): InstitutionalFlowSummary["dire
 
 function consecutiveInstitutionDays(flows: TwseInstitutionalTradingSummary[]) {
   const sorted = flows.slice().sort((a, b) => b.tradeDate.localeCompare(a.tradeDate));
-  const latest = sorted[0];
-  if (!latest) return null;
-  const direction = institutionDirection(latest.netShares);
-  if (direction === "flat") return 1;
-  let count = 0;
-  for (const flow of sorted) {
-    if (institutionDirection(flow.netShares) !== direction) break;
-    count += 1;
-  }
-  return count;
+  if (sorted.length === 0) return null;
+  const directions: StreakDirection[] = sorted.map((flow) => {
+    const direction = institutionDirection(flow.netShares);
+    return direction === "buy" ? "up" : direction === "sell" ? "down" : "flat";
+  });
+  const streak = computeStreak(directions);
+  return streak.status === "insufficient_data" ? null : streak.days;
 }
 
 function institutionFromTwse(
   label: InstitutionalFlowSummary["label"],
   flows: TwseInstitutionalTradingSummary[] | null | undefined,
 ): InstitutionalFlowSummary {
-  const labelFlows = (flows ?? [])
+  const allLabelFlows = (flows ?? [])
     .filter((item) => item.label === label)
     .sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
-  const latest = labelFlows.at(-1);
+  const latest = allLabelFlows.at(-1);
   if (!latest) return pendingInstitution(label);
   const direction = institutionDirection(latest.netShares);
-  const cumulativeAmount = labelFlows.reduce((sum, item) => sum + item.netShares, 0);
+  const cumulativeAmount = allLabelFlows.reduce((sum, item) => sum + item.netShares, 0);
+  const cumulativeBuyAmount = allLabelFlows.reduce((sum, item) => sum + item.buyShares, 0);
+  const cumulativeSellAmount = allLabelFlows.reduce((sum, item) => sum + item.sellShares, 0);
   return {
     label,
     singleDayAmount: latest.netShares,
+    singleDayBuyAmount: latest.buyShares,
+    singleDaySellAmount: latest.sellShares,
     cumulativeAmount,
-    consecutiveDays: consecutiveInstitutionDays(labelFlows),
+    cumulativeBuyAmount,
+    cumulativeSellAmount,
+    consecutiveDays: consecutiveInstitutionDays(allLabelFlows),
     direction,
     unit: "shares",
     sourceUrl: latest.sourceUrl,
@@ -335,6 +358,32 @@ function indexCoverageQuality(
   };
 }
 
+function indexStreakDirection(value: StreakDirection) {
+  if (value === "up") return "上漲";
+  if (value === "down") return "下跌";
+  return "持平";
+}
+
+function indexStreakLabel(rows: PriceRow[]): string {
+  const closeSeries = rows
+    .map((row) => Number(row.adj_close ?? row.close))
+    .filter((value) => Number.isFinite(value));
+  if (closeSeries.length < 2) return "資料不足，僅 1 筆可用；連續天數待累積。";
+
+  const directions: StreakDirection[] = [];
+  for (let i = 0; i < closeSeries.length - 1; i += 1) {
+    const cur = closeSeries[i];
+    const prev = closeSeries[i + 1];
+    if (cur > prev) directions.push("up");
+    else if (cur < prev) directions.push("down");
+    else directions.push("flat");
+  }
+
+  const streak = computeStreak(directions);
+  if (streak.status === "insufficient_data") return "資料不足，僅 1 筆可用；連續天數待累積。";
+  return `${indexStreakDirection(streak.direction)} ${streak.days} 日`;
+}
+
 export function buildIndexMoveFromPrices(
   label: string,
   symbol: string,
@@ -357,7 +406,6 @@ export function buildIndexMoveFromPrices(
     return pendingIndex(label, symbol, market);
   }
   const changePct = ((latestClose - previousClose) / previousClose) * 100;
-  const direction = changePct > 0 ? "上漲" : changePct < 0 ? "下跌" : "持平";
   const dataTier = latest.quality_status === "verified" && previous.quality_status === "verified"
     ? "verified"
     : "provisional";
@@ -367,11 +415,11 @@ export function buildIndexMoveFromPrices(
     market,
     close: latestClose,
     changePct: Number(changePct.toFixed(2)),
-    streakLabel: `${direction} 1 日；連續天數待完整價格序列確認`,
+    streakLabel: indexStreakLabel(rows),
     status: "partial",
     dataTier,
     reason: dataTier === "verified"
-      ? "已有最近兩筆雙來源驗證價格，但連續漲跌仍需更長序列。"
+      ? "已有雙來源驗證價格序列。"
       : "Yahoo 單一來源暫定行情；僅供日／週報顯示，不進入回測、Alpha 或成功率。",
   };
 }
@@ -400,6 +448,29 @@ function comparisonVerifiedPrice(rows: PriceRow[], startDate: string, latestDate
   return rows.find((item) => item.price_date < latestDate) ?? null;
 }
 
+function singleSymbolMove(
+  prices: PriceRow[],
+  symbol: string,
+  market: "TW" | "US",
+  startDate: string,
+  asOfDate: string,
+): { changePct: number; dataTier: "verified" | "provisional" } | null {
+  const rows = reportRowsForSymbol(prices, symbol, market);
+  const latest = latestVerifiedOnOrBefore(rows, asOfDate);
+  if (!latest) return null;
+  const base = comparisonVerifiedPrice(rows, startDate, latest.price_date);
+  if (!base) return null;
+  const latestClose = priceValue(latest);
+  const baseClose = priceValue(base);
+  if (!Number.isFinite(latestClose) || !Number.isFinite(baseClose) || baseClose <= 0) return null;
+  return {
+    changePct: Number((((latestClose - baseClose) / baseClose) * 100).toFixed(2)),
+    dataTier: latest.quality_status === "verified" && base.quality_status === "verified"
+      ? "verified"
+      : "provisional",
+  };
+}
+
 function buildThemeGroupMoves(
   prices: PriceRow[],
   startDate: string,
@@ -409,23 +480,41 @@ function buildThemeGroupMoves(
 ): ThemeGroupMove[] {
   return groups.flatMap((group) => {
     const stockMoves = group.symbols.flatMap((stock) => {
-      const rows = reportRowsForSymbol(prices, stock.symbol, market);
-      const latest = latestVerifiedOnOrBefore(rows, asOfDate);
-      if (!latest) return [];
-      const base = comparisonVerifiedPrice(rows, startDate, latest.price_date);
-      if (!base) return [];
-      const latestClose = priceValue(latest);
-      const baseClose = priceValue(base);
-      if (!Number.isFinite(latestClose) || !Number.isFinite(baseClose) || baseClose <= 0) return [];
+      const move = singleSymbolMove(prices, stock.symbol, market, startDate, asOfDate);
+      if (!move) return [];
       return [{
         symbol: stock.symbol,
         companyName: stock.companyName,
-        changePct: Number((((latestClose - baseClose) / baseClose) * 100).toFixed(2)),
-        dataTier: latest.quality_status === "verified" && base.quality_status === "verified"
-          ? "verified" as const
-          : "provisional" as const,
+        changePct: move.changePct,
+        dataTier: move.dataTier,
       }];
     });
+
+    if (group.proxySymbol) {
+      // Headline changePct/dataTier comes from the proxy (e.g. the sector
+      // ETF's own price move), which is more accurate than averaging a
+      // small hand-picked constituent sample. Constituents populate
+      // stockMoves/topStocks when their price data is available; until
+      // then, gracefully fall back to the proxy itself as the sole mover
+      // (e.g. before the constituent backfill has run) rather than
+      // dropping the whole sector.
+      const proxyMove = singleSymbolMove(prices, group.proxySymbol.symbol, market, startDate, asOfDate);
+      if (!proxyMove) return [];
+      const effectiveStockMoves = stockMoves.length > 0
+        ? stockMoves
+        : [{
+            symbol: group.proxySymbol.symbol,
+            companyName: group.proxySymbol.companyName,
+            changePct: proxyMove.changePct,
+            dataTier: proxyMove.dataTier,
+          }];
+      return [{
+        label: group.label,
+        changePct: proxyMove.changePct,
+        dataTier: proxyMove.dataTier,
+        stockMoves: effectiveStockMoves,
+      }];
+    }
 
     if (stockMoves.length < Math.min(2, group.symbols.length)) return [];
     const changePct = stockMoves.reduce((sum, item) => sum + item.changePct, 0) / stockMoves.length;
@@ -517,7 +606,7 @@ export function buildTaiwanThemeMovesFromPrices(
     sectorReason: "以 TrendRadar 維護的直接受惠台股主題籃子計算族群強弱；官方產業指數與完整成分股仍需補齊。",
     provisionalStockReason: "台股主題籃子不接受單一來源暫定價格。",
     provisionalSectorReason: "台股主題籃子不接受單一來源暫定價格。",
-  });
+  }, TW_THEME_GROUPS.length);
 }
 
 export function buildUsSectorEtfMovesFromPrices(
@@ -526,15 +615,15 @@ export function buildUsSectorEtfMovesFromPrices(
   asOfDate: string,
 ): MarketSectorMove[] {
   return buildMarketThemeMovesFromPrices(prices, startDate, asOfDate, US_SECTOR_ETF_GROUPS, "US", {
-    up: "上漲 ETF 產業",
-    down: "下跌 ETF 產業",
+    up: "上漲產業",
+    down: "下跌產業",
     pendingUp: "美股 sector ETF 尚未有足夠行情可計算上漲產業。",
     pendingDown: "美股 sector ETF 尚未有足夠行情可計算下跌產業。",
-    stockReason: "Sector ETF proxy；僅用 verified 美股價格計算，非完整成分股排行。",
-    sectorReason: "以 SPDR / semiconductor sector ETF 作為產業方向 proxy；完整成分股排行與雙來源驗證仍需補齊。",
-    provisionalStockReason: "Yahoo 單一來源 sector ETF 暫定行情；僅供報告顯示，不進入回測。",
+    stockReason: "TrendRadar 維護的 sector ETF 代表成分股；非官方完整成分股排行。",
+    sectorReason: "產業方向以 SPDR / semiconductor sector ETF 自身漲跌計算，個股為該 ETF 維護的代表成分股；完整官方成分股排行與雙來源驗證仍需補齊。",
+    provisionalStockReason: "Yahoo 單一來源暫定行情；僅供報告顯示，不進入回測。",
     provisionalSectorReason: "以單一來源 sector ETF 作為暫定產業方向 proxy；雙來源驗證完成後才可進入績效統計。",
-  }, 3);
+  }, US_SECTOR_ETF_GROUPS.length);
 }
 function briefSignalRows(signals: SignalRow[], watchlists: WatchlistRow[]): MarketBriefSignal[] {
   const watchlistsBySignal = new Map<string, WatchlistRow[]>();
@@ -669,9 +758,9 @@ export function buildMarketBrief(input: {
   const dataGaps = [
     ...(input.dataGaps ?? []),
     hasCombinedInstitutionMarkets
-      ? "台股官方產業指數、法人金額制資料與完整成分股漲跌仍需接入官方或授權資料源。"
-      : "台股官方產業指數、櫃買法人與完整成分股漲跌仍需接入官方或授權資料源。",
-    "美股產業漲跌與成分股排行仍需接入可信 sector/constituent 資料源。",
+      ? "台股官方產業指數、法人金額制資料與完整官方成分股漲跌排行仍需接入官方或授權資料源。"
+      : "台股官方產業指數、櫃買法人與完整官方成分股漲跌排行仍需接入官方或授權資料源。",
+    "美股產業漲跌目前以 sector ETF 自身漲跌與維護的代表成分股呈現；完整官方成分股排行與雙來源驗證仍需接入可信資料源。",
   ];
   const taiwan: MarketBriefSection = {
     market: "TW",
@@ -783,6 +872,9 @@ export function buildMarketBrief(input: {
   };
 }
 
+const PRICE_LOOKBACK_DAYS = 30;
+const INSTITUTION_STREAK_LOOKBACK_DAYS = 14;
+
 export async function getMarketBrief(options?: {
   period?: MarketBriefPeriod;
   asOfDate?: string;
@@ -791,6 +883,15 @@ export async function getMarketBrief(options?: {
   const asOfDate = options?.asOfDate ?? currentTaipeiDate();
   const supabase = getSupabaseAdmin();
   const startDate = liveClampedReportStartDate(period, asOfDate);
+  const priceLookbackStart = addUtcDays(asOfDate, -PRICE_LOOKBACK_DAYS);
+  const institutionStreakLookbackStart = addUtcDays(asOfDate, -INSTITUTION_STREAK_LOOKBACK_DAYS);
+  // Fetch far enough back to cover BOTH the streak-detection lookback and the
+  // report's own period (weekly/monthly windows can exceed the streak
+  // lookback), so cumulative amounts stay period-correct while streaks still
+  // have enough history.
+  const institutionLookbackStart = institutionStreakLookbackStart < startDate
+    ? institutionStreakLookbackStart
+    : startDate;
 
   const [{ data: signals }, { data: prices }, twseInstitutionalFlows, tpexInstitutionalFlows] = await Promise.all([
     supabase
@@ -806,12 +907,13 @@ export async function getMarketBrief(options?: {
       .from("stock_prices")
       .select("symbol, market, price_date, close, adj_close, quality_status")
       .in("symbol", [...TW_INDEX_SYMBOLS, ...US_INDEX_SYMBOLS].map((item) => item.symbol).concat(TW_THEME_SYMBOLS, US_SECTOR_ETF_SYMBOLS))
+      .gte("price_date", priceLookbackStart)
       .lte("price_date", asOfDate)
       .order("price_date", { ascending: false })
-      .limit(500)
+      .limit(2000)
       .returns<PriceRow[]>(),
-    fetchTwseInstitutionalTradingRange({ startDate, endDate: asOfDate }).catch(() => []),
-    fetchTpexInstitutionalTradingRange({ startDate, endDate: asOfDate }).catch(() => []),
+    fetchTwseInstitutionalTradingRange({ startDate: institutionLookbackStart, endDate: asOfDate }).catch(() => []),
+    fetchTpexInstitutionalTradingRange({ startDate: institutionLookbackStart, endDate: asOfDate }).catch(() => []),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0

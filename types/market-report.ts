@@ -32,7 +32,11 @@ export type MarketSectorMove = {
 export type InstitutionalFlowSummary = {
   label: "外資" | "投信" | "自營商" | "三大法人";
   singleDayAmount: number | null;
+  singleDayBuyAmount: number | null;
+  singleDaySellAmount: number | null;
   cumulativeAmount: number | null;
+  cumulativeBuyAmount: number | null;
+  cumulativeSellAmount: number | null;
   consecutiveDays: number | null;
   direction: "buy" | "sell" | "flat" | "pending";
   unit?: "shares" | "twd";
@@ -113,7 +117,7 @@ export type MarketBriefPriceTarget = {
   symbol: string;
   label: string;
   market: "TW" | "US";
-  assetType: "index" | "sector_etf";
+  assetType: "index" | "sector_etf" | "constituent_stock";
   automationStatus: "ready" | "needs_connector" | "needs_independent_source";
   preferredSource: string;
   reason: string;
