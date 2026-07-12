@@ -1,9 +1,9 @@
 # TrendRadar Development Progress
 
-Last updated: 2026-07-11
+Last updated: 2026-07-12
 Production: https://trendradar-prod.vercel.app
-Latest verified code commit: pending current changes
-Latest documentation commit: pending current changes
+Latest verified code commit: `44ee70c`
+Latest documentation commit: pending current documentation update
 
 ## 1. Product Positioning
 
@@ -914,7 +914,7 @@ The next milestone is complete when:
 - Each market outlook separates positive evidence, negative evidence, unresolved data, confidence, and next-session focus. Bias is descriptive (`constructive`, `cautious`, `mixed`, or `pending`) and is explicitly not a return probability or trading recommendation.
 - Unverified index prices are now excluded from index moves and outlook evidence rather than being displayed as internal directional observations.
 - Daily research automation generates the daily market brief after ingestion and Signal refresh. On weekends it additionally generates the weekly brief from the same verified data policy.
-- Report persistence remains intentionally deferred until a dedicated snapshot migration is approved; Signal publication reviews are not reused as a generic market-report store.
+- Report persistence now uses the dedicated append-only market brief snapshot store; Signal publication reviews are not reused as a generic market-report store.
 ## 38. Human-Readable Daily and Weekly Report Page (2026-07-12)
 
 - Added `/reports/market-brief` as the readable Taiwan and US market report surface, backed by the versioned market-brief API.
@@ -938,4 +938,8 @@ The next milestone is complete when:
 - Daily research automation now persists the daily report after ingestion and persists the weekly report on weekends.
 - The report API and readable page prefer the latest stored revision and visibly label it as `固定快照 rN`; before migration or before the first snapshot they safely use `即時預覽`.
 - Added `npm run reports:snapshot -- --date=YYYY-MM-DD --period=daily,weekly` for controlled first-write and recovery runs.
-- All Signal, research, lint, and production build checks passed. The migration is not yet applied because both the Supabase browser session and CLI authorization have expired; production fallback remains operational until authentication is restored.
+- All Signal, research, lint, and production build checks passed.
+- Applied `20260712010000_market_brief_snapshots.sql` to production Supabase on 2026-07-12.
+- Generated the first 2026-07-11 daily snapshot (`2026-07-11`, revision 1) and weekly snapshot (`2026-W28`, revision 1). Both are intentionally `partial` because unverified US market data remains pending.
+- Production API verification returns `reportSource: snapshot` for both periods, and the readable daily and weekly pages display `固定快照 r1`.
+- Vercel runs `/api/cron/research-data` every day at `10:00 UTC` (`18:00 Asia/Taipei`). The job persists a daily snapshot on every run and a weekly snapshot on Saturday and Sunday, preserving changed content as later revisions.
