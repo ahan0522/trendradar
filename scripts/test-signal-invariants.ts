@@ -103,6 +103,7 @@ import {
   buildIndexMoveFromPrices,
   buildMarketBrief,
   buildMarketOutlook,
+  mergeInstitutionalTradingSummaries,
   buildTaiwanThemeMovesFromPrices,
   buildUsSectorEtfMovesFromPrices,
   reportStartDateForPeriod,
@@ -272,6 +273,40 @@ function testMarketBriefContract() {
   assert.equal(usPriceRequests.length, 16);
   assert.ok(usPriceRequests.some((item) => item.symbol === "^GSPC" && item.market === "US"));
   assert.ok(usPriceRequests.some((item) => item.symbol === "XLK" && item.market === "US"));
+  const mergedFlows = mergeInstitutionalTradingSummaries(
+    [{
+      label: "外資",
+      tradeDate: "2026-07-10",
+      sourceUrl: "https://www.twse.com.tw/t86",
+      sourceUrls: ["https://www.twse.com.tw/t86"],
+      fetchedAt: "2026-07-11T00:00:00.000Z",
+      netShares: 100,
+      buyShares: 300,
+      sellShares: 200,
+      topBuys: [{ symbol: "2330.TW", companyName: "台積電", netShares: 100 }],
+      topSells: [],
+      qualityStatus: "verified",
+      market: "TWSE",
+    }],
+    [{
+      label: "外資",
+      tradeDate: "2026-07-10",
+      sourceUrl: "https://www.tpex.org.tw/dailyTrade",
+      sourceUrls: ["https://www.tpex.org.tw/dailyTrade"],
+      fetchedAt: "2026-07-11T00:01:00.000Z",
+      netShares: -40,
+      buyShares: 60,
+      sellShares: 100,
+      topBuys: [],
+      topSells: [{ symbol: "8299.TW", companyName: "群聯", netShares: -40 }],
+      qualityStatus: "verified",
+      market: "TPEX",
+    }],
+  );
+  assert.equal(mergedFlows.length, 1);
+  assert.equal(mergedFlows[0].netShares, 60);
+  assert.equal(mergedFlows[0].sourceUrls?.length, 2);
+  assert.equal(mergedFlows[0].topSells[0].symbol, "8299.TW");
   const report = buildMarketBrief({
     period: "daily",
     asOfDate: "2026-07-11",

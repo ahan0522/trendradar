@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { marketDataRequirementsForReport } from "@/lib/reports/market-data-requirements";
 import { marketBriefIndexPriceTargets } from "@/lib/reports/market-brief-price-targets";
 import { fetchTwseInstitutionalTradingRange, type TwseInstitutionalTradingSummary } from "@/lib/research-data/twse";
+import { fetchTpexInstitutionalTradingRange } from "@/lib/research-data/tpex";
 import {
   LIVE_SIGNAL_LEDGER_START_DATE,
   signalDataModeForDate,
@@ -202,8 +203,49 @@ function pendingInstitution(label: InstitutionalFlowSummary["label"]): Instituti
     consecutiveDays: null,
     direction: "pending",
     status: "pending",
-    reason: "尚未接入 TWSE/TPEx 三大法人與投信外資連續買賣超資料表。",
+    reason: "尚未取得報告區間內 TWSE/TPEx 官方三大法人交易資料。",
   };
+}
+
+export function mergeInstitutionalTradingSummaries(
+  ...groups: TwseInstitutionalTradingSummary[][]
+) {
+  const merged = new Map<string, TwseInstitutionalTradingSummary>();
+  for (const item of groups.flat()) {
+    if (item.qualityStatus !== "verified") continue;
+    const key = `${item.tradeDate}|${item.label}`;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, {
+        ...item,
+        sourceUrls: [...new Set(item.sourceUrls ?? [item.sourceUrl])],
+      });
+      continue;
+    }
+    const sourceUrls = [...new Set([
+      ...(existing.sourceUrls ?? [existing.sourceUrl]),
+      ...(item.sourceUrls ?? [item.sourceUrl]),
+    ])];
+    const topBuys = [...existing.topBuys, ...item.topBuys]
+      .sort((a, b) => b.netShares - a.netShares)
+      .slice(0, 5);
+    const topSells = [...existing.topSells, ...item.topSells]
+      .sort((a, b) => a.netShares - b.netShares)
+      .slice(0, 5);
+    merged.set(key, {
+      ...existing,
+      fetchedAt: existing.fetchedAt > item.fetchedAt ? existing.fetchedAt : item.fetchedAt,
+      netShares: existing.netShares + item.netShares,
+      buyShares: existing.buyShares + item.buyShares,
+      sellShares: existing.sellShares + item.sellShares,
+      topBuys,
+      topSells,
+      sourceUrls,
+      market: undefined,
+    });
+  }
+  return [...merged.values()].sort((a, b) =>
+    a.tradeDate.localeCompare(b.tradeDate) || a.label.localeCompare(b.label));
 }
 
 function institutionDirection(netShares: number): InstitutionalFlowSummary["direction"] {
@@ -245,6 +287,7 @@ function institutionFromTwse(
     direction,
     unit: "shares",
     sourceUrl: latest.sourceUrl,
+    sourceUrls: latest.sourceUrls ?? [latest.sourceUrl],
     topStocks: (latest.netShares >= 0 ? latest.topBuys : latest.topSells).slice(0, 5).map((item) => ({
       symbol: item.symbol,
       companyName: item.companyName,
@@ -252,7 +295,9 @@ function institutionFromTwse(
       unit: "shares",
     })),
     status: "partial",
-    reason: "已接入 TWSE T86 上市三大法人日序列，單位為股；櫃買法人與金額制資料仍待補齊。",
+    reason: (latest.sourceUrls?.length ?? 1) > 1
+      ? "已合併 TWSE T86 與 TPEx 官方上櫃三大法人日序列，單位為股；金額制資料仍待補齊。"
+      : "目前僅有單一市場的官方三大法人日序列，另一市場與金額制資料仍待補齊。",
   };
 }
 
@@ -568,9 +613,13 @@ export function buildMarketBrief(input: {
   const mode = signalDataModeForDate(input.asOfDate);
   const startDate = input.startDate ?? liveClampedReportStartDate(input.period, input.asOfDate);
   const signals = input.signals ?? [];
+  const hasCombinedInstitutionMarkets = input.twInstitutionalFlows?.some((item) =>
+    (item.sourceUrls?.length ?? 1) > 1) ?? false;
   const dataGaps = [
     ...(input.dataGaps ?? []),
-    "台股官方產業指數、櫃買法人與完整成分股漲跌仍需接入官方或授權資料源。",
+    hasCombinedInstitutionMarkets
+      ? "台股官方產業指數、法人金額制資料與完整成分股漲跌仍需接入官方或授權資料源。"
+      : "台股官方產業指數、櫃買法人與完整成分股漲跌仍需接入官方或授權資料源。",
     "美股產業漲跌與成分股排行仍需接入可信 sector/constituent 資料源。",
   ];
   const taiwan: MarketBriefSection = {
@@ -621,9 +670,13 @@ export function buildMarketBrief(input: {
       status: taiwanInstitutionCoverage || taiwanSectorCoverage ? "partial" : "pending",
       coverage: `${(taiwanInstitutionCoverage ? 1 : 0) + (taiwanSectorCoverage ? 1 : 0)}/2`,
       reason: taiwanInstitutionCoverage && taiwanSectorCoverage
-        ? "TWSE 上市三大法人與維護主題籃子 movers 已部分可用；櫃買法人、官方產業指數與完整成分股仍待補齊。"
+        ? hasCombinedInstitutionMarkets
+          ? "TWSE 與 TPEx 三大法人及維護主題籃子 movers 已可用；法人金額制、官方產業指數與完整成分股仍待補齊。"
+          : "單一市場法人與維護主題籃子 movers 已部分可用；另一市場、官方產業指數與完整成分股仍待補齊。"
         : taiwanInstitutionCoverage
-          ? "TWSE 上市三大法人單日、期間累積與連續買賣已可用；主題籃子、櫃買法人與官方產業指數仍待補齊。"
+          ? hasCombinedInstitutionMarkets
+            ? "TWSE 與 TPEx 三大法人單日、期間累積與連續買賣已可用；主題籃子與官方產業指數仍待補齊。"
+            : "單一市場法人單日、期間累積與連續買賣已可用；另一市場、主題籃子與官方產業指數仍待補齊。"
           : taiwanSectorCoverage
             ? "維護主題籃子 movers 已可用；TWSE/TPEx 法人、官方產業指數與完整成分股仍待補齊。"
             : "三大法人買賣超與產業成分股漲跌尚未接入官方或授權資料源。",
@@ -688,7 +741,7 @@ export async function getMarketBrief(options?: {
   const supabase = getSupabaseAdmin();
   const startDate = liveClampedReportStartDate(period, asOfDate);
 
-  const [{ data: signals }, { data: prices }, twInstitutionalFlows] = await Promise.all([
+  const [{ data: signals }, { data: prices }, twseInstitutionalFlows, tpexInstitutionalFlows] = await Promise.all([
     supabase
       .from("signal_events")
       .select("id, as_of_date, topic, signal_strength, confidence_score, model_version")
@@ -707,6 +760,7 @@ export async function getMarketBrief(options?: {
       .limit(500)
       .returns<PriceRow[]>(),
     fetchTwseInstitutionalTradingRange({ startDate, endDate: asOfDate }).catch(() => []),
+    fetchTpexInstitutionalTradingRange({ startDate, endDate: asOfDate }).catch(() => []),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -724,6 +778,10 @@ export async function getMarketBrief(options?: {
   const taiwanSectors = buildTaiwanThemeMovesFromPrices(priceRows, startDate, asOfDate);
   const usSectors = buildUsSectorEtfMovesFromPrices(priceRows, startDate, asOfDate);
   const briefSignals = briefSignalRows(signals ?? [], watchlists ?? []);
+  const twInstitutionalFlows = mergeInstitutionalTradingSummaries(
+    twseInstitutionalFlows,
+    tpexInstitutionalFlows,
+  );
 
   return buildMarketBrief({
     period,

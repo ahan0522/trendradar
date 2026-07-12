@@ -62,6 +62,7 @@ export type TwseInstitutionalTradingSummary = {
   label: TwseInstitutionalInvestorLabel;
   tradeDate: string;
   sourceUrl: string;
+  sourceUrls?: string[];
   fetchedAt: string;
   netShares: number;
   buyShares: number;
@@ -77,6 +78,7 @@ export type TwseInstitutionalTradingSummary = {
     netShares: number;
   }>;
   qualityStatus: "verified" | "no_data";
+  market?: "TWSE" | "TPEX";
   reason?: string;
 };
 
@@ -316,6 +318,7 @@ export function parseTwseForeignInvestorTrading(
   return {
     tradeDate,
     sourceUrl,
+    sourceUrls: [sourceUrl],
     fetchedAt,
     netShares,
     buyShares,
@@ -331,6 +334,7 @@ export function parseTwseForeignInvestorTrading(
       netShares,
     })),
     qualityStatus: "verified",
+    market: "TWSE",
   };
 }
 
@@ -384,6 +388,7 @@ function buildInstitutionalSummary(
     label,
     tradeDate,
     sourceUrl,
+    sourceUrls: [sourceUrl],
     fetchedAt,
     netShares,
     buyShares,
@@ -399,6 +404,7 @@ function buildInstitutionalSummary(
       netShares: row.net,
     })),
     qualityStatus: "verified",
+    market: "TWSE",
   };
 }
 

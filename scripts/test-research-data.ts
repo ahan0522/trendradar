@@ -13,7 +13,11 @@ import {
 import { parseEiaGridDemand } from "../lib/research-data/eia-grid-demand";
 import { parseMicronInvestorRelease } from "../lib/research-data/micron-investor";
 import { parseNvidiaSecRelease } from "../lib/research-data/nvidia-sec";
-import { parseTpexOtcIndexPrices, parseTpexRocDate } from "../lib/research-data/tpex";
+import {
+  parseTpexInstitutionalTrading,
+  parseTpexOtcIndexPrices,
+  parseTpexRocDate,
+} from "../lib/research-data/tpex";
 import {
   EVIDENCE_MATERIALIZATION_VERSION,
   companyActionResearchRelevance,
@@ -114,6 +118,38 @@ function testTwseForeignInvestorTradingParsing() {
   assert.equal(flow.topSells[0].symbol, "2330.TW");
   assert.equal(flow.qualityStatus, "verified");
   assert.equal(parseTwseForeignInvestorTrading({ stat: "很抱歉，沒有符合條件的資料!", total: 0 }, "url", "now"), null);
+}
+
+function testTpexInstitutionalTradingParsing() {
+  const rows = parseTpexInstitutionalTrading({
+    stat: "ok",
+    date: "20260709",
+    tables: [{
+      title: "三大法人買賣明細資訊",
+      fields: Array.from({ length: 24 }, (_, index) => String(index)),
+      data: [[
+        "8299", "群聯",
+        "1,000", "500", "500",
+        "0", "0", "0",
+        "1,000", "500", "500",
+        "2,000", "1,000", "1,000",
+        "0", "0", "0",
+        "0", "0", "0",
+        "3,000", "500", "2,500",
+        "4,000",
+      ]],
+    }],
+  }, "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade?date=2026%2F07%2F09&type=Daily&sect=EW", "2026-07-10T00:00:00.000Z");
+
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].tradeDate, "2026-07-09");
+  assert.equal(rows[0].market, "TPEX");
+  assert.equal(rows[0].netShares, 500);
+  assert.equal(rows[0].topBuys[0].symbol, "8299.TW");
+  assert.equal(rows[1].netShares, 1000);
+  assert.equal(rows[2].netShares, 2500);
+  assert.equal(rows[3].netShares, 4000);
+  assert.deepEqual(parseTpexInstitutionalTrading({ stat: "ok", date: "20260709", tables: [] }, "url", "now"), []);
 }
 
 function testTwseInstitutionalTradingParsing() {
@@ -393,6 +429,7 @@ function testHistoricalNewsParsing() {
 testTwseTimeParsing();
 testTwseTaiexIndexParsing();
 testTpexOtcIndexParsing();
+testTpexInstitutionalTradingParsing();
 testTwseForeignInvestorTradingParsing();
 testTwseInstitutionalTradingParsing();
 testFredMissingValues();

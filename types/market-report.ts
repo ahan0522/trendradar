@@ -35,6 +35,7 @@ export type InstitutionalFlowSummary = {
   direction: "buy" | "sell" | "flat" | "pending";
   unit?: "shares" | "twd";
   sourceUrl?: string;
+  sourceUrls?: string[];
   topStocks?: Array<{
     symbol: string;
     companyName: string;

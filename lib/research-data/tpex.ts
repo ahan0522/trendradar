@@ -1,10 +1,15 @@
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { upsertResearchSources } from "@/lib/research-data/repository";
 import type { ResearchSource } from "@/types/research-data";
+import type {
+  TwseInstitutionalInvestorLabel,
+  TwseInstitutionalTradingSummary,
+} from "@/lib/research-data/twse";
 
 const TPEX_PRICES_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes";
 const TPEX_OTC_INDEX_URL = "https://www.tpex.org.tw/www/zh-tw/indexInfo/inx";
 const TPEX_OTC_INDEX_SYMBOL = "^TWOII";
+const TPEX_INSTITUTIONAL_TRADING_URL = "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade";
 
 type TpexPriceRow = {
   Date?: string;
@@ -19,6 +24,16 @@ type TpexPriceRow = {
 
 type TpexIndexResponse = {
   stat?: string;
+  tables?: Array<{
+    title?: string;
+    fields?: string[];
+    data?: string[][];
+  }>;
+};
+
+type TpexInstitutionalResponse = {
+  stat?: string;
+  date?: string;
   tables?: Array<{
     title?: string;
     fields?: string[];
@@ -63,6 +78,24 @@ function parsePositiveNumber(value: string | undefined) {
   if (!normalized || normalized === "---") return null;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseSignedNumber(value: string | undefined) {
+  const normalized = value?.trim().replace(/,/g, "");
+  if (!normalized || normalized === "---") return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseTpexCalendarDate(value: string | undefined) {
+  const digits = (value ?? "").replace(/\D/g, "");
+  if (digits.length !== 8) throw new Error(`Invalid TPEx calendar date: ${value ?? "missing"}`);
+  const result = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  const parsed = new Date(`${result}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== result) {
+    throw new Error(`Invalid TPEx calendar date: ${value ?? "missing"}`);
+  }
+  return result;
 }
 
 async function fetchTpexJson<T>(url: string) {
@@ -180,6 +213,128 @@ export async function fetchTpexOtcIndexPrices(options?: { date?: string }) {
     response: "json",
   });
   return parseTpexOtcIndexPrices(response, sourceUrl, new Date().toISOString());
+}
+
+type ParsedInstitutionalRow = {
+  symbol: string;
+  companyName: string;
+  foreignBuy: number;
+  foreignSell: number;
+  foreignNet: number;
+  trustBuy: number;
+  trustSell: number;
+  trustNet: number;
+  dealerBuy: number;
+  dealerSell: number;
+  dealerNet: number;
+  totalBuy: number;
+  totalSell: number;
+  totalNet: number;
+};
+
+function tpexInstitutionalTradingUrl(date: string) {
+  const slashDate = date.replaceAll("-", "/");
+  return `${TPEX_INSTITUTIONAL_TRADING_URL}?date=${encodeURIComponent(slashDate)}&type=Daily&sect=EW`;
+}
+
+function buildInstitutionalSummary(
+  label: TwseInstitutionalInvestorLabel,
+  tradeDate: string,
+  sourceUrl: string,
+  fetchedAt: string,
+  rows: ParsedInstitutionalRow[],
+): TwseInstitutionalTradingSummary {
+  const valueFor = (row: ParsedInstitutionalRow) => {
+    if (label === "外資") return { buy: row.foreignBuy, sell: row.foreignSell, net: row.foreignNet };
+    if (label === "投信") return { buy: row.trustBuy, sell: row.trustSell, net: row.trustNet };
+    if (label === "自營商") return { buy: row.dealerBuy, sell: row.dealerSell, net: row.dealerNet };
+    return { buy: row.totalBuy, sell: row.totalSell, net: row.totalNet };
+  };
+  const mapped = rows.map((row) => ({ ...row, ...valueFor(row) }));
+  const byNet = mapped.slice().sort((a, b) => b.net - a.net);
+  return {
+    label,
+    tradeDate,
+    sourceUrl,
+    sourceUrls: [sourceUrl],
+    fetchedAt,
+    netShares: mapped.reduce((sum, row) => sum + row.net, 0),
+    buyShares: mapped.reduce((sum, row) => sum + row.buy, 0),
+    sellShares: mapped.reduce((sum, row) => sum + row.sell, 0),
+    topBuys: byNet.filter((row) => row.net > 0).slice(0, 5).map((row) => ({
+      symbol: `${row.symbol}.TW`, companyName: row.companyName, netShares: row.net,
+    })),
+    topSells: byNet.filter((row) => row.net < 0).slice(-5).reverse().map((row) => ({
+      symbol: `${row.symbol}.TW`, companyName: row.companyName, netShares: row.net,
+    })),
+    qualityStatus: "verified",
+    market: "TPEX",
+  };
+}
+
+export function parseTpexInstitutionalTrading(
+  response: TpexInstitutionalResponse,
+  sourceUrl: string,
+  fetchedAt: string,
+): TwseInstitutionalTradingSummary[] {
+  const table = response.tables?.find((item) => item.title?.includes("三大法人")) ?? response.tables?.[0];
+  if (response.stat !== "ok" || !response.date || !table?.data?.length) return [];
+  const rows = table.data.flatMap((row): ParsedInstitutionalRow[] => {
+    const symbol = row[0]?.trim();
+    const companyName = row[1]?.trim();
+    const values = [8, 9, 10, 11, 12, 13, 20, 21, 22, 23].map((index) => parseSignedNumber(row[index]));
+    if (!symbol || !companyName || values.some((value) => value === null)) return [];
+    const [foreignBuy, foreignSell, foreignNet, trustBuy, trustSell, trustNet, dealerBuy, dealerSell, dealerNet, totalNet] = values as number[];
+    return [{
+      symbol,
+      companyName,
+      foreignBuy,
+      foreignSell,
+      foreignNet,
+      trustBuy,
+      trustSell,
+      trustNet,
+      dealerBuy,
+      dealerSell,
+      dealerNet,
+      totalBuy: foreignBuy + trustBuy + dealerBuy,
+      totalSell: foreignSell + trustSell + dealerSell,
+      totalNet,
+    }];
+  });
+  if (rows.length === 0) return [];
+  const tradeDate = parseTpexCalendarDate(response.date);
+  return (["外資", "投信", "自營商", "三大法人"] as const)
+    .map((label) => buildInstitutionalSummary(label, tradeDate, sourceUrl, fetchedAt, rows));
+}
+
+export async function fetchTpexInstitutionalTrading(options: { date: string }) {
+  const sourceUrl = tpexInstitutionalTradingUrl(options.date);
+  const response = await fetchTpexJson<TpexInstitutionalResponse>(sourceUrl);
+  return parseTpexInstitutionalTrading(response, sourceUrl, new Date().toISOString());
+}
+
+function eachCalendarDate(startDate: string, endDate: string) {
+  const dates: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime()) || cursor > end) return dates;
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+export async function fetchTpexInstitutionalTradingRange(options: { startDate: string; endDate: string }) {
+  const daily = await Promise.all(eachCalendarDate(options.startDate, options.endDate).map(async (date) => {
+    try {
+      return await fetchTpexInstitutionalTrading({ date });
+    } catch {
+      return [];
+    }
+  }));
+  return daily.flat().sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
 }
 
 export async function syncTpexResearchData(options?: {

@@ -923,3 +923,11 @@ The next milestone is complete when:
 - Pending data remains visible and is never rendered as zero or neutral evidence.
 - Added the report to global navigation and footer. Mobile navigation remains horizontally scrollable while hiding the native scrollbar.
 - Desktop and 390px responsive browser verification confirmed no page-level horizontal overflow and correct weekly period selection.
+## 39. Combined TWSE and TPEx Institutional Flows (2026-07-12)
+
+- Added the official TPEx `insti/dailyTrade` connector with an explicit date range for July daily and weekly reports.
+- The parser materializes foreign investor, investment trust, dealer, and total-three-institution summaries from documented TPEx fields, preserving official source URLs and retrieval timestamps.
+- Market briefs now merge TWSE and TPEx by trade date and institution label before calculating latest-day net shares, period cumulative net shares, consecutive direction days, and top buy/sell stocks.
+- The report exposes both source URLs and shows the top three institutional buy/sell stocks per institution card.
+- A July 6-11 live dry-run returned four verified TPEx trading dates and all four institution labels. Local weekly report verification confirmed two official sources per flow card and combined totals.
+- Legal/quality caveat remains: share-based totals are available; value-based institutional totals, official industry indices, and full constituents remain separate gaps.

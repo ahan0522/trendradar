@@ -270,6 +270,21 @@ function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
             <p className={`mt-3 font-mono text-lg font-black ${flow.direction === "buy" ? "text-emerald-300" : flow.direction === "sell" ? "text-rose-300" : "text-zinc-600"}`}>{compactAmount(flow.singleDayAmount, flow.unit)}</p>
             <p className="mt-2 text-xs text-zinc-500">區間累積 {compactAmount(flow.cumulativeAmount, flow.unit)}</p>
             <p className="mt-1 text-xs text-zinc-600">連續 {flow.consecutiveDays ?? "—"} 日</p>
+            {flow.topStocks?.length ? (
+              <div className="mt-3 border-t border-zinc-800 pt-3">
+                <p className="text-[11px] font-black text-zinc-600">當日主要買賣超</p>
+                <div className="mt-2 space-y-1.5">
+                  {flow.topStocks.slice(0, 3).map((stock) => (
+                    <div key={`${flow.label}-${stock.symbol}`} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-zinc-500">{stock.companyName}</span>
+                      <span className={stock.netAmount >= 0 ? "font-mono text-emerald-300" : "font-mono text-rose-300"}>
+                        {compactAmount(stock.netAmount, stock.unit)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         ))}
       </div>
