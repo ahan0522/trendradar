@@ -114,11 +114,34 @@ export function parseStockPriceCsv(csvText: string): StockPrice[] {
   });
 }
 
-export async function upsertStockPrices(prices: StockPrice[]) {
+export async function upsertStockPrices(
+  prices: StockPrice[],
+  options: { preserveVerified?: boolean } = {},
+) {
   if (prices.length === 0) return { count: 0 };
 
   const supabase = getSupabaseAdmin();
-  const rows = prices.map((price) => {
+  let writablePrices = prices;
+  if (options.preserveVerified && prices.some((price) => price.qualityStatus !== "verified")) {
+    const dates = prices.map((price) => price.priceDate).sort();
+    const { data, error } = await supabase
+      .from("stock_prices")
+      .select("symbol, market, price_date, quality_status")
+      .in("symbol", [...new Set(prices.map((price) => price.symbol))])
+      .in("market", [...new Set(prices.map((price) => price.market))])
+      .gte("price_date", dates[0])
+      .lte("price_date", dates.at(-1) ?? dates[0])
+      .eq("quality_status", "verified")
+      .returns<StockPriceRow[]>();
+    if (error) throw error;
+    const verifiedKeys = new Set((data ?? []).map((row) => `${row.symbol}|${row.market}|${row.price_date}`));
+    writablePrices = prices.filter((price) =>
+      price.qualityStatus === "verified" ||
+      !verifiedKeys.has(`${price.symbol}|${price.market}|${price.priceDate}`));
+  }
+
+  if (writablePrices.length === 0) return { count: 0 };
+  const rows = writablePrices.map((price) => {
     if (price.qualityStatus === "verified" && (!price.provider || !price.sourceUrl)) {
       throw new Error(`Verified price ${price.symbol} ${price.priceDate} requires provider and source_url`);
     }

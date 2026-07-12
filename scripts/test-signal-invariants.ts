@@ -472,13 +472,14 @@ function testMarketBriefContract() {
     { symbol: "XLU", market: "US", price_date: "2026-07-10", close: 130, adj_close: null, quality_status: "unverified" },
     { symbol: "XLU", market: "US", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "unverified" },
   ], "2026-07-10", "2026-07-10");
-  assert.equal(usSectorMoves[0].label, "科技 ETF");
+  assert.equal(usSectorMoves[0].label, "公用事業 ETF");
   assert.equal(usSectorMoves[0].direction, "up");
-  assert.equal(usSectorMoves[0].topStocks[0].symbol, "XLK");
-  assert.ok(usSectorMoves[0].topStocks[0].reason?.includes("Sector ETF proxy"));
-  assert.equal(usSectorMoves[1].label, "能源 ETF");
-  assert.equal(usSectorMoves[1].direction, "down");
-  assert.equal(usSectorMoves.some((item) => item.topStocks.some((stock) => stock.symbol === "XLU")), false);
+  assert.equal(usSectorMoves[0].dataTier, "provisional");
+  assert.equal(usSectorMoves[0].topStocks[0].symbol, "XLU");
+  assert.ok(usSectorMoves[0].topStocks[0].reason?.includes("單一來源"));
+  assert.ok(usSectorMoves.some((item) => item.label === "科技 ETF" && item.direction === "up"));
+  assert.ok(usSectorMoves.some((item) => item.label === "能源 ETF" && item.direction === "down"));
+  assert.equal(usSectorMoves.length, 5);
   const usSectorReport = buildMarketBrief({
     period: "daily",
     asOfDate: "2026-07-11",
@@ -563,10 +564,14 @@ function testMarketBriefContract() {
   assert.equal(index.status, "partial");
   assert.equal(index.changePct, 2);
   assert.match(index.streakLabel, /上漲/);
-  assert.equal(buildIndexMoveFromPrices("S&P 500", "^GSPC", "US", [
+  const provisionalIndex = buildIndexMoveFromPrices("S&P 500", "^GSPC", "US", [
     { symbol: "^GSPC", market: "US", price_date: "2026-07-10", close: 5100, adj_close: null, quality_status: "unverified" },
     { symbol: "^GSPC", market: "US", price_date: "2026-07-09", close: 5000, adj_close: null, quality_status: "unverified" },
-  ]).status, "pending");
+  ]);
+  assert.equal(provisionalIndex.status, "partial");
+  assert.equal(provisionalIndex.dataTier, "provisional");
+  assert.equal(provisionalIndex.changePct, 2);
+  assert.match(provisionalIndex.reason ?? "", /不進入回測/);
   const pricedReport = buildMarketBrief({
     period: "daily",
     asOfDate: "2026-07-11",

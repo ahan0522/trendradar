@@ -227,7 +227,13 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
           return (
             <article key={index.symbol} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
               <div className="flex items-start justify-between gap-3">
-                <div><p className="text-sm font-bold text-zinc-400">{index.label}</p><p className="mt-2 font-mono text-xl font-black">{index.close?.toLocaleString("zh-TW") ?? "—"}</p></div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-bold text-zinc-400">{index.label}</p>
+                    {index.dataTier === "provisional" ? <span className="rounded border border-amber-300/30 px-1.5 py-0.5 text-[10px] font-black text-amber-200">單一來源</span> : null}
+                  </div>
+                  <p className="mt-2 font-mono text-xl font-black">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
+                </div>
                 {positive ? <ArrowUpRight className="h-5 w-5 text-emerald-300" /> : negative ? <ArrowDownRight className="h-5 w-5 text-rose-300" /> : <Minus className="h-5 w-5 text-zinc-600" />}
               </div>
               <p className={`mt-3 font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-rose-300" : "text-zinc-600"}`}>{signedPercent(index.changePct)}</p>
@@ -241,7 +247,13 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
         {section.sectors.map((sector) => (
           <article key={`${section.market}-${sector.label}`} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-5">
             <div className="flex items-center justify-between gap-3">
-              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-600">Sector / Theme</p><h3 className="mt-2 text-lg font-black">{sector.label}</h3></div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-600">Sector / Theme</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <h3 className="text-lg font-black">{sector.label}</h3>
+                  {sector.dataTier === "provisional" ? <span className="rounded border border-amber-300/30 px-1.5 py-0.5 text-[10px] font-black text-amber-200">單一來源</span> : null}
+                </div>
+              </div>
               <span className={`font-mono text-lg font-black ${sector.direction === "up" ? "text-emerald-300" : sector.direction === "down" ? "text-rose-300" : "text-zinc-600"}`}>{signedPercent(sector.changePct)}</span>
             </div>
             {sector.topStocks.length > 0 ? (

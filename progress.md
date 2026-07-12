@@ -943,3 +943,13 @@ The next milestone is complete when:
 - Generated the first 2026-07-11 daily snapshot (`2026-07-11`, revision 1) and weekly snapshot (`2026-W28`, revision 1). Both are intentionally `partial` because unverified US market data remains pending.
 - Production API verification returns `reportSource: snapshot` for both periods, and the readable daily and weekly pages display `固定快照 r1`.
 - Vercel runs `/api/cron/research-data` every day at `10:00 UTC` (`18:00 Asia/Taipei`). The job persists a daily snapshot on every run and a weekly snapshot on Saturday and Sunday, preserving changed content as later revisions.
+
+## 41. Provisional US Market Display Tier (2026-07-12)
+
+- Separated report display quality from backtest quality. Yahoo single-source US closes are stored as `unverified` and may appear in daily/weekly market briefs with a visible `單一來源` label.
+- Backtests, Alpha, success-rate statistics, and Signal outcomes continue to require `verified` prices; provisional report rows cannot enter those calculations.
+- If a verified row already exists for the same symbol, market, and date, the provisional sync preserves it and never downgrades the row.
+- Without `ALPHA_VANTAGE_API_KEY`, the daily US report sync now continues in provisional mode instead of skipping the entire US section. With the key configured, the existing Yahoo plus Alpha Vantage verification path remains unchanged.
+- US sector reporting now ranks up to the three strongest and three weakest sector ETF proxies instead of returning only one winner and one loser.
+- Backfilled 2026-07-01 through 2026-07-11: 16 report targets, 112 unique provisional price rows, zero fetch errors.
+- Generated daily and weekly revision 2 snapshots for 2026-07-11. Both contain all four US indices and sector ETF movers while remaining `partial` until independent verification is available.

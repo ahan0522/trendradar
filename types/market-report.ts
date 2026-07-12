@@ -10,6 +10,7 @@ export type MarketIndexMove = {
   changePct: number | null;
   streakLabel: string;
   status: MarketBriefStatus;
+  dataTier?: "verified" | "provisional";
   reason?: string;
 };
 
@@ -24,6 +25,7 @@ export type MarketSectorMove = {
     reason?: string;
   }>;
   status: MarketBriefStatus;
+  dataTier?: "verified" | "provisional";
   reason?: string;
 };
 

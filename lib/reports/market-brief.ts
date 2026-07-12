@@ -135,7 +135,13 @@ const US_SECTOR_ETF_SYMBOLS = [...new Set(US_SECTOR_ETF_GROUPS.flatMap((group) =
 type ThemeGroupMove = {
   label: string;
   changePct: number;
-  stockMoves: Array<{ symbol: string; companyName: string; changePct: number }>;
+  dataTier: "verified" | "provisional";
+  stockMoves: Array<{
+    symbol: string;
+    companyName: string;
+    changePct: number;
+    dataTier: "verified" | "provisional";
+  }>;
 };
 
 function currentTaipeiDate() {
@@ -307,6 +313,7 @@ function indexCoverageQuality(
 ): MarketBriefDataQualityItem {
   const readyCount = indices.filter((item) => item.status === "ready").length;
   const partialCount = indices.filter((item) => item.status === "partial").length;
+  const provisionalCount = indices.filter((item) => item.dataTier === "provisional").length;
   const usableCount = readyCount + partialCount;
   if (usableCount === 0) {
     return {
@@ -320,7 +327,9 @@ function indexCoverageQuality(
     label,
     status: readyCount === indices.length ? "ready" : "partial",
     coverage: `${usableCount}/${indices.length}`,
-    reason: readyCount === indices.length
+    reason: provisionalCount > 0
+      ? `${provisionalCount} 個指數使用單一來源暫定行情；可供報告閱讀，但排除於回測與績效統計。`
+      : readyCount === indices.length
       ? "指數價格已具備可信日資料。"
       : "部分指數已有可用價格，但仍需補齊 verified 品質與更長序列。",
   };
@@ -336,7 +345,8 @@ export function buildIndexMoveFromPrices(
     .filter((item) =>
       item.symbol === symbol &&
       item.market === market &&
-      item.quality_status === "verified")
+      (item.quality_status === "verified" ||
+        (market === "US" && item.quality_status === "unverified")))
     .sort((a, b) => b.price_date.localeCompare(a.price_date));
   const latest = rows[0];
   const previous = rows[1];
@@ -348,6 +358,9 @@ export function buildIndexMoveFromPrices(
   }
   const changePct = ((latestClose - previousClose) / previousClose) * 100;
   const direction = changePct > 0 ? "上漲" : changePct < 0 ? "下跌" : "持平";
+  const dataTier = latest.quality_status === "verified" && previous.quality_status === "verified"
+    ? "verified"
+    : "provisional";
   return {
     label,
     symbol,
@@ -356,7 +369,10 @@ export function buildIndexMoveFromPrices(
     changePct: Number(changePct.toFixed(2)),
     streakLabel: `${direction} 1 日；連續天數待完整價格序列確認`,
     status: "partial",
-    reason: "已有最近兩筆可信價格，但連續漲跌仍需更長序列。",
+    dataTier,
+    reason: dataTier === "verified"
+      ? "已有最近兩筆雙來源驗證價格，但連續漲跌仍需更長序列。"
+      : "Yahoo 單一來源暫定行情；僅供日／週報顯示，不進入回測、Alpha 或成功率。",
   };
 }
 
@@ -364,9 +380,13 @@ function priceValue(row: PriceRow) {
   return Number(row.adj_close ?? row.close);
 }
 
-function verifiedRowsForSymbol(prices: PriceRow[], symbol: string, market: "TW" | "US") {
+function reportRowsForSymbol(prices: PriceRow[], symbol: string, market: "TW" | "US") {
   return prices
-    .filter((item) => item.symbol === symbol && item.market === market && item.quality_status === "verified")
+    .filter((item) =>
+      item.symbol === symbol &&
+      item.market === market &&
+      (item.quality_status === "verified" ||
+        (market === "US" && item.quality_status === "unverified")))
     .sort((a, b) => b.price_date.localeCompare(a.price_date));
 }
 
@@ -389,7 +409,7 @@ function buildThemeGroupMoves(
 ): ThemeGroupMove[] {
   return groups.flatMap((group) => {
     const stockMoves = group.symbols.flatMap((stock) => {
-      const rows = verifiedRowsForSymbol(prices, stock.symbol, market);
+      const rows = reportRowsForSymbol(prices, stock.symbol, market);
       const latest = latestVerifiedOnOrBefore(rows, asOfDate);
       if (!latest) return [];
       const base = comparisonVerifiedPrice(rows, startDate, latest.price_date);
@@ -401,6 +421,9 @@ function buildThemeGroupMoves(
         symbol: stock.symbol,
         companyName: stock.companyName,
         changePct: Number((((latestClose - baseClose) / baseClose) * 100).toFixed(2)),
+        dataTier: latest.quality_status === "verified" && base.quality_status === "verified"
+          ? "verified" as const
+          : "provisional" as const,
       }];
     });
 
@@ -409,6 +432,7 @@ function buildThemeGroupMoves(
     return [{
       label: group.label,
       changePct: Number(changePct.toFixed(2)),
+      dataTier: stockMoves.every((item) => item.dataTier === "verified") ? "verified" : "provisional",
       stockMoves,
     }];
   });
@@ -417,7 +441,7 @@ function buildThemeGroupMoves(
 function themeMoveToSector(
   group: ThemeGroupMove,
   direction: "up" | "down",
-  reasons: { stock: string; sector: string },
+  reasons: { stock: string; sector: string; provisionalStock: string; provisionalSector: string },
 ): MarketSectorMove {
   const sortedStocks = group.stockMoves
     .slice()
@@ -431,10 +455,11 @@ function themeMoveToSector(
       symbol: item.symbol,
       companyName: item.companyName,
       changePct: item.changePct,
-      reason: reasons.stock,
+      reason: item.dataTier === "verified" ? reasons.stock : reasons.provisionalStock,
     })),
     status: "partial",
-    reason: reasons.sector,
+    dataTier: group.dataTier,
+    reason: group.dataTier === "verified" ? reasons.sector : reasons.provisionalSector,
   };
 }
 
@@ -444,18 +469,38 @@ function buildMarketThemeMovesFromPrices(
   asOfDate: string,
   groups: MarketThemeGroup[],
   market: "TW" | "US",
-  labels: { up: string; down: string; pendingUp: string; pendingDown: string; stockReason: string; sectorReason: string },
+  labels: {
+    up: string;
+    down: string;
+    pendingUp: string;
+    pendingDown: string;
+    stockReason: string;
+    sectorReason: string;
+    provisionalStockReason: string;
+    provisionalSectorReason: string;
+  },
+  limitPerDirection = 1,
 ): MarketSectorMove[] {
   const groupMoves = buildThemeGroupMoves(prices, startDate, asOfDate, groups, market);
-  const strongest = groupMoves.filter((item) => item.changePct > 0).sort((a, b) => b.changePct - a.changePct)[0];
-  const weakest = groupMoves.filter((item) => item.changePct < 0).sort((a, b) => a.changePct - b.changePct)[0];
+  const reasons = {
+    stock: labels.stockReason,
+    sector: labels.sectorReason,
+    provisionalStock: labels.provisionalStockReason,
+    provisionalSector: labels.provisionalSectorReason,
+  };
+  const strongest = groupMoves
+    .filter((item) => item.changePct > 0)
+    .sort((a, b) => b.changePct - a.changePct)
+    .slice(0, limitPerDirection)
+    .map((item) => themeMoveToSector(item, "up", reasons));
+  const weakest = groupMoves
+    .filter((item) => item.changePct < 0)
+    .sort((a, b) => a.changePct - b.changePct)
+    .slice(0, limitPerDirection)
+    .map((item) => themeMoveToSector(item, "down", reasons));
   return [
-    strongest
-      ? themeMoveToSector(strongest, "up", { stock: labels.stockReason, sector: labels.sectorReason })
-      : pendingSector(labels.up, labels.pendingUp),
-    weakest
-      ? themeMoveToSector(weakest, "down", { stock: labels.stockReason, sector: labels.sectorReason })
-      : pendingSector(labels.down, labels.pendingDown),
+    ...(strongest.length > 0 ? strongest : [pendingSector(labels.up, labels.pendingUp)]),
+    ...(weakest.length > 0 ? weakest : [pendingSector(labels.down, labels.pendingDown)]),
   ];
 }
 export function buildTaiwanThemeMovesFromPrices(
@@ -470,6 +515,8 @@ export function buildTaiwanThemeMovesFromPrices(
     pendingDown: "維護主題籃子尚未有足夠 verified 價格可計算下跌族群。",
     stockReason: "維護主題籃子；僅用 verified 台股價格計算，非官方產業指數。",
     sectorReason: "以 TrendRadar 維護的直接受惠台股主題籃子計算族群強弱；官方產業指數與完整成分股仍需補齊。",
+    provisionalStockReason: "台股主題籃子不接受單一來源暫定價格。",
+    provisionalSectorReason: "台股主題籃子不接受單一來源暫定價格。",
   });
 }
 
@@ -481,11 +528,13 @@ export function buildUsSectorEtfMovesFromPrices(
   return buildMarketThemeMovesFromPrices(prices, startDate, asOfDate, US_SECTOR_ETF_GROUPS, "US", {
     up: "上漲 ETF 產業",
     down: "下跌 ETF 產業",
-    pendingUp: "美股 sector ETF 尚未有足夠 verified 價格可計算上漲產業。",
-    pendingDown: "美股 sector ETF 尚未有足夠 verified 價格可計算下跌產業。",
+    pendingUp: "美股 sector ETF 尚未有足夠行情可計算上漲產業。",
+    pendingDown: "美股 sector ETF 尚未有足夠行情可計算下跌產業。",
     stockReason: "Sector ETF proxy；僅用 verified 美股價格計算，非完整成分股排行。",
     sectorReason: "以 SPDR / semiconductor sector ETF 作為產業方向 proxy；完整成分股排行與雙來源驗證仍需補齊。",
-  });
+    provisionalStockReason: "Yahoo 單一來源 sector ETF 暫定行情；僅供報告顯示，不進入回測。",
+    provisionalSectorReason: "以單一來源 sector ETF 作為暫定產業方向 proxy；雙來源驗證完成後才可進入績效統計。",
+  }, 3);
 }
 function briefSignalRows(signals: SignalRow[], watchlists: WatchlistRow[]): MarketBriefSignal[] {
   const watchlistsBySignal = new Map<string, WatchlistRow[]>();
@@ -555,6 +604,8 @@ export function buildMarketOutlook(section: MarketBriefSection): MarketBriefOutl
   }
 
   const evidenceCount = positiveEvidence.length + negativeEvidence.length;
+  const hasProvisional = section.indices.some((item) => item.dataTier === "provisional") ||
+    section.sectors.some((item) => item.dataTier === "provisional");
   const balance = positiveEvidence.length - negativeEvidence.length;
   const bias = evidenceCount === 0
     ? "pending"
@@ -565,7 +616,7 @@ export function buildMarketOutlook(section: MarketBriefSection): MarketBriefOutl
         : "mixed";
   const confidence = evidenceCount === 0
     ? "pending"
-    : evidenceCount >= 4 && unresolvedData.length <= evidenceCount
+    : !hasProvisional && evidenceCount >= 4 && unresolvedData.length <= evidenceCount
       ? "medium"
       : "low";
   const biasText = bias === "constructive"
@@ -589,7 +640,7 @@ export function buildMarketOutlook(section: MarketBriefSection): MarketBriefOutl
     confidence,
     summary: evidenceCount === 0
       ? `${section.title}尚無足夠已驗證市場資料，暫不判定方向。`
-      : `${section.title}目前為${biasText}；依 ${evidenceCount} 項已驗證觀察整理，非漲跌預測。`,
+      : `${section.title}目前為${biasText}；依 ${evidenceCount} 項市場觀察整理${hasProvisional ? "，其中包含單一來源暫定行情" : ""}，非漲跌預測。`,
     positiveEvidence,
     negativeEvidence,
     unresolvedData: [...new Set(unresolvedData)],
@@ -639,7 +690,7 @@ export function buildMarketBrief(input: {
     market: "US",
     title: "美股盤勢",
     status: input.usIndices?.some((item) => item.status !== "pending") ? "partial" : "pending",
-    summary: "美股日報骨架已建立；指數與產業資料需通過可信價格與成分股來源後才輸出數字。",
+    summary: "美股指數與 sector ETF 可先顯示單一來源暫定行情；只有雙來源驗證價格能進入回測與績效統計。",
     indices: input.usIndices ?? US_INDEX_SYMBOLS.map((item) => pendingIndex(item.label, item.symbol, "US")),
     sectors: input.usSectors ?? [
       pendingSector("上漲產業", "尚未接入可信 S&P / Nasdaq sector ETF 與成分股日漲跌資料。"),
@@ -686,7 +737,7 @@ export function buildMarketBrief(input: {
       status: usSectorCoverage ? "partial" : "pending",
       coverage: `${usSectorCoverage ? 1 : 0}/2`,
       reason: usSectorCoverage
-        ? "美股 sector ETF proxy 已部分可用；完整產業成分股排行與雙來源驗證仍待補齊。"
+        ? "美股 sector ETF proxy 已可顯示；單一來源行情僅供報告閱讀，完整成分股排行與雙來源驗證仍待補齊。"
         : "美股 sector 與 constituent performance 尚未接入可信資料源。",
     },
   ] satisfies MarketBriefDataQualityItem[];
@@ -705,7 +756,7 @@ export function buildMarketBrief(input: {
       liveStartDate: LIVE_SIGNAL_LEDGER_START_DATE,
       mode,
       caveat: mode === "live-ledger"
-        ? "此報告使用 live-first 資料期；缺資料項目以 pending 表示。"
+        ? "此報告使用 live-first 資料期；單一來源美股行情會標示為暫定且不進回測，缺資料項目以 pending 表示。"
         : "此日期屬 historical-audit，不應包裝為正式 live 發現。",
     },
     title: `${input.asOfDate} ${input.period === "daily" ? "每日" : input.period === "weekly" ? "每週" : "每月"}市場觀察`,
@@ -716,7 +767,7 @@ export function buildMarketBrief(input: {
     us,
     outlook: {
       methodVersion: "market-outlook-v1",
-      caveat: "方向標籤只整理已驗證的指數、族群與資金流，不是報酬機率或買賣建議。",
+      caveat: "方向標籤整理已驗證資料與清楚標示的暫定行情；暫定行情不進績效統計，也不是報酬機率或買賣建議。",
       taiwan: buildMarketOutlook(taiwan),
       us: buildMarketOutlook(us),
     },

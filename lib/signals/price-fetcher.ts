@@ -346,6 +346,41 @@ async function fetchYahooPrice(
   };
 }
 
+export async function fetchProvisionalUsPriceOnOrBefore(
+  request: StockPriceFetchRequest,
+  lookbackDays = 10,
+): Promise<StockPriceFetchResult> {
+  const symbol = normalizeSymbol(request.symbol);
+  const date = request.date.trim();
+  if (request.market !== "US" || !isIsoDate(date)) {
+    return {
+      symbol,
+      market: request.market,
+      requestedDate: date,
+      provider: "manual_required",
+      status: "error",
+      price: null,
+      warnings: [],
+      errors: ["Provisional Yahoo report prices require a US symbol and YYYY-MM-DD date."],
+    };
+  }
+
+  const result = await fetchYahooPrice(symbol, "US", date, "before", lookbackDays, symbol, true);
+  if (!result.price) return result;
+  return {
+    ...result,
+    price: {
+      ...result.price,
+      qualityStatus: "unverified",
+      verificationProvider: "yahoo-chart-single-source-report-v1",
+    },
+    warnings: [
+      ...result.warnings,
+      "Single-source Yahoo close is for market-brief display only and is excluded from backtests.",
+    ],
+  };
+}
+
 const alphaVantageSeriesCache = new Map<
   string,
   ReturnType<typeof fetchAlphaVantageDailySeries>
