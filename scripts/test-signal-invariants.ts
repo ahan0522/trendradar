@@ -102,6 +102,7 @@ import {
 import {
   buildIndexMoveFromPrices,
   buildMarketBrief,
+  buildMarketOutlook,
   buildTaiwanThemeMovesFromPrices,
   buildUsSectorEtfMovesFromPrices,
   reportStartDateForPeriod,
@@ -290,6 +291,9 @@ function testMarketBriefContract() {
     }],
   });
   assert.equal(report.dataPolicy.mode, "live-ledger");
+  assert.equal(report.reportVersion, "market-brief-v1");
+  assert.equal(report.outlook.methodVersion, "market-outlook-v1");
+  assert.equal(report.outlook.taiwan.bias, "pending");
   assert.equal(report.period, "daily");
   assert.deepEqual(report.reportWindow, {
     startDate: "2026-07-11",
@@ -362,6 +366,19 @@ function testMarketBriefContract() {
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].topStocks?.[0].symbol, "2382.TW");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].cumulativeAmount, 1000);
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].consecutiveDays, 1);
+  assert.ok(foreignFlowReport.outlook.taiwan.positiveEvidence.some((item) => item.includes("外資")));
+  assert.ok(foreignFlowReport.outlook.taiwan.positiveEvidence.some((item) => item.includes("投信")));
+  assert.equal(buildMarketOutlook({
+    market: "US",
+    title: "美股盤勢",
+    status: "partial",
+    summary: "test",
+    indices: [
+      { label: "S&P 500", symbol: "^GSPC", market: "US", close: 5100, changePct: 1, streakLabel: "上漲", status: "partial" },
+      { label: "Nasdaq", symbol: "^IXIC", market: "US", close: 18000, changePct: 2, streakLabel: "上漲", status: "partial" },
+    ],
+    sectors: [],
+  }).bias, "constructive");
   const taiwanThemeMoves = buildTaiwanThemeMovesFromPrices([
     { symbol: "2408.TW", market: "TW", price_date: "2026-07-10", close: 120, adj_close: null, quality_status: "verified" },
     { symbol: "2408.TW", market: "TW", price_date: "2026-07-09", close: 100, adj_close: null, quality_status: "verified" },
@@ -498,6 +515,10 @@ function testMarketBriefContract() {
   assert.equal(index.status, "partial");
   assert.equal(index.changePct, 2);
   assert.match(index.streakLabel, /上漲/);
+  assert.equal(buildIndexMoveFromPrices("S&P 500", "^GSPC", "US", [
+    { symbol: "^GSPC", market: "US", price_date: "2026-07-10", close: 5100, adj_close: null, quality_status: "unverified" },
+    { symbol: "^GSPC", market: "US", price_date: "2026-07-09", close: 5000, adj_close: null, quality_status: "unverified" },
+  ]).status, "pending");
   const pricedReport = buildMarketBrief({
     period: "daily",
     asOfDate: "2026-07-11",

@@ -11,6 +11,7 @@ import type {
   MarketBrief,
   MarketBriefDataQualityItem,
   MarketBriefPeriod,
+  MarketBriefOutlook,
   MarketBriefSection,
   MarketBriefSignal,
   MarketIndexMove,
@@ -287,7 +288,10 @@ export function buildIndexMoveFromPrices(
   prices: PriceRow[],
 ): MarketIndexMove {
   const rows = prices
-    .filter((item) => item.symbol === symbol && item.market === market)
+    .filter((item) =>
+      item.symbol === symbol &&
+      item.market === market &&
+      item.quality_status === "verified")
     .sort((a, b) => b.price_date.localeCompare(a.price_date));
   const latest = rows[0];
   const previous = rows[1];
@@ -307,9 +311,7 @@ export function buildIndexMoveFromPrices(
     changePct: Number(changePct.toFixed(2)),
     streakLabel: `${direction} 1 日；連續天數待完整價格序列確認`,
     status: "partial",
-    reason: latest.quality_status === "verified"
-      ? "已有最近兩筆可信價格，但連續漲跌仍需更長序列。"
-      : "價格未達 verified，僅供內部觀察。",
+    reason: "已有最近兩筆可信價格，但連續漲跌仍需更長序列。",
   };
 }
 
@@ -470,6 +472,86 @@ function briefSignalRows(signals: SignalRow[], watchlists: WatchlistRow[]): Mark
     }));
 }
 
+function signedPercent(value: number) {
+  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+export function buildMarketOutlook(section: MarketBriefSection): MarketBriefOutlook {
+  const positiveEvidence: string[] = [];
+  const negativeEvidence: string[] = [];
+  const unresolvedData: string[] = [];
+
+  for (const index of section.indices) {
+    if (index.changePct === null || index.status === "pending") {
+      unresolvedData.push(`${index.label} 漲跌與連續天數待補`);
+    } else if (index.changePct > 0) {
+      positiveEvidence.push(`${index.label} ${signedPercent(index.changePct)}`);
+    } else if (index.changePct < 0) {
+      negativeEvidence.push(`${index.label} ${signedPercent(index.changePct)}`);
+    }
+  }
+  for (const sector of section.sectors) {
+    if (sector.changePct === null || sector.status === "pending") {
+      unresolvedData.push(`${sector.label} 待補可信價格`);
+    } else if (sector.direction === "up") {
+      positiveEvidence.push(`${sector.label} ${signedPercent(sector.changePct)}`);
+    } else if (sector.direction === "down") {
+      negativeEvidence.push(`${sector.label} ${signedPercent(sector.changePct)}`);
+    }
+  }
+  for (const flow of section.institutionalFlows ?? []) {
+    if (flow.direction === "pending" || flow.singleDayAmount === null) {
+      unresolvedData.push(`${flow.label} 資金流待補`);
+    } else if (flow.direction === "buy") {
+      positiveEvidence.push(`${flow.label} 單日淨買超`);
+    } else if (flow.direction === "sell") {
+      negativeEvidence.push(`${flow.label} 單日淨賣超`);
+    }
+  }
+
+  const evidenceCount = positiveEvidence.length + negativeEvidence.length;
+  const balance = positiveEvidence.length - negativeEvidence.length;
+  const bias = evidenceCount === 0
+    ? "pending"
+    : balance >= 2
+      ? "constructive"
+      : balance <= -2
+        ? "cautious"
+        : "mixed";
+  const confidence = evidenceCount === 0
+    ? "pending"
+    : evidenceCount >= 4 && unresolvedData.length <= evidenceCount
+      ? "medium"
+      : "low";
+  const biasText = bias === "constructive"
+    ? "偏多觀察"
+    : bias === "cautious"
+      ? "偏空觀察"
+      : bias === "mixed"
+        ? "多空交錯"
+        : "資料不足";
+  const nextSessionFocus = [
+    ...section.sectors
+      .filter((item) => item.status !== "pending")
+      .slice(0, 2)
+      .map((item) => `${item.label}是否延續`),
+    ...(section.market === "TW" ? ["外資與投信是否延續同方向"] : ["四大指數與 sector ETF 是否同向"]),
+  ];
+
+  return {
+    market: section.market,
+    bias,
+    confidence,
+    summary: evidenceCount === 0
+      ? `${section.title}尚無足夠已驗證市場資料，暫不判定方向。`
+      : `${section.title}目前為${biasText}；依 ${evidenceCount} 項已驗證觀察整理，非漲跌預測。`,
+    positiveEvidence,
+    negativeEvidence,
+    unresolvedData: [...new Set(unresolvedData)],
+    nextSessionFocus: [...new Set(nextSessionFocus)],
+  };
+}
+
 export function buildMarketBrief(input: {
   period: MarketBriefPeriod;
   asOfDate: string;
@@ -558,6 +640,7 @@ export function buildMarketBrief(input: {
 
   return {
     ok: true,
+    reportVersion: "market-brief-v1",
     period: input.period,
     asOfDate: input.asOfDate,
     generatedAt: input.generatedAt ?? new Date().toISOString(),
@@ -578,6 +661,12 @@ export function buildMarketBrief(input: {
       : "目前資料仍在累積中，尚未形成足夠強的正式市場訊號。",
     taiwan,
     us,
+    outlook: {
+      methodVersion: "market-outlook-v1",
+      caveat: "方向標籤只整理已驗證的指數、族群與資金流，不是報酬機率或買賣建議。",
+      taiwan: buildMarketOutlook(taiwan),
+      us: buildMarketOutlook(us),
+    },
     signals,
     tomorrowWatch,
     weeklyOrMonthlyNotes: input.period === "daily"

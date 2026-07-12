@@ -83,6 +83,17 @@ export type MarketBriefDataQualityItem = {
   reason?: string;
 };
 
+export type MarketBriefOutlook = {
+  market: "TW" | "US";
+  bias: "constructive" | "cautious" | "mixed" | "pending";
+  confidence: "medium" | "low" | "pending";
+  summary: string;
+  positiveEvidence: string[];
+  negativeEvidence: string[];
+  unresolvedData: string[];
+  nextSessionFocus: string[];
+};
+
 export type MarketBriefDataRequirement = {
   id: string;
   label: string;
@@ -107,6 +118,7 @@ export type MarketBriefPriceTarget = {
 
 export type MarketBrief = {
   ok: boolean;
+  reportVersion: "market-brief-v1";
   period: MarketBriefPeriod;
   asOfDate: string;
   generatedAt: string;
@@ -123,6 +135,12 @@ export type MarketBrief = {
   executiveSummary: string;
   taiwan: MarketBriefSection;
   us: MarketBriefSection;
+  outlook: {
+    methodVersion: "market-outlook-v1";
+    caveat: string;
+    taiwan: MarketBriefOutlook;
+    us: MarketBriefOutlook;
+  };
   signals: MarketBriefSignal[];
   tomorrowWatch: TomorrowWatchItem[];
   weeklyOrMonthlyNotes: string[];

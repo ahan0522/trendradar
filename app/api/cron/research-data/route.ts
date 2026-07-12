@@ -22,6 +22,7 @@ import { materializeCurrentModelResearchEvidence } from "@/lib/signals/evidence-
 import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
 import { LIVE_COLLECTION_POLICY, signalDataModeForDate } from "@/lib/signals/live-collection-policy";
 import { syncMarketBriefUsPrices } from "@/lib/reports/market-brief-price-sync";
+import { getMarketBrief } from "@/lib/reports/market-brief";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,13 @@ function currentTaipeiDate() {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+  }).format(new Date());
+}
+
+function currentTaipeiWeekday() {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Taipei",
+    weekday: "short",
   }).format(new Date());
 }
 
@@ -162,6 +170,13 @@ export async function GET(request: NextRequest) {
     }));
     const backtests = await runSync(() => runDailyBacktestUpdate(5));
     const publicationDrafts = await runSync(() => createMissingPublicationDrafts(5));
+    const dailyMarketBrief = await runSync(() => getMarketBrief({
+      period: "daily",
+      asOfDate: today,
+    }));
+    const weeklyMarketBrief = ["Sat", "Sun"].includes(currentTaipeiWeekday())
+      ? await runSync(() => getMarketBrief({ period: "weekly", asOfDate: today }))
+      : { status: "skipped" as const, reason: "Weekly market brief is generated on weekends." };
     const replayValidation = {
       status: "skipped" as const,
       reason: "Historical replay runs through the dedicated admin endpoint, outside the daily ingestion budget.",
@@ -196,6 +211,8 @@ export async function GET(request: NextRequest) {
       verifiedPriceBackfill,
       backtests,
       publicationDrafts,
+      dailyMarketBrief,
+      weeklyMarketBrief,
       replayValidation,
       finalizedMonth,
     });

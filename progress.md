@@ -908,3 +908,10 @@ The next milestone is complete when:
 - Added `npm run prices:market-brief-us -- --start=YYYY-MM-DD --end=YYYY-MM-DD [--dry-run]` for bounded July backfills and operational audits.
 - The July 1-11 dry-run produced 16 unique targets and 176 date-target requests. It safely skipped all writes because the independent-source API key is not configured in the current environment.
 - Production report values must remain pending until the key is configured and the first verified sync writes enough dates for index streaks and ETF-period returns.
+## 37. Versioned Daily and Weekly Market Analysis (2026-07-12)
+
+- Market brief responses now carry `market-brief-v1` and a deterministic `market-outlook-v1` analysis block for Taiwan and the US.
+- Each market outlook separates positive evidence, negative evidence, unresolved data, confidence, and next-session focus. Bias is descriptive (`constructive`, `cautious`, `mixed`, or `pending`) and is explicitly not a return probability or trading recommendation.
+- Unverified index prices are now excluded from index moves and outlook evidence rather than being displayed as internal directional observations.
+- Daily research automation generates the daily market brief after ingestion and Signal refresh. On weekends it additionally generates the weekly brief from the same verified data policy.
+- Report persistence remains intentionally deferred until a dedicated snapshot migration is approved; Signal publication reviews are not reused as a generic market-report store.
