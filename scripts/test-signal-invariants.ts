@@ -113,6 +113,11 @@ import {
   marketBriefUsPriceRequests,
 } from "../lib/reports/market-brief-price-sync";
 import {
+  marketBriefContentHash,
+  marketBriefPeriodKey,
+  marketBriefQualityStatus,
+} from "../lib/reports/market-brief-snapshots";
+import {
   dedupeArticlesByEvent,
   dedupeArticlesByEventWindow,
   dedupeArticlesByFingerprintWindow,
@@ -329,6 +334,14 @@ function testMarketBriefContract() {
   assert.equal(report.reportVersion, "market-brief-v1");
   assert.equal(report.outlook.methodVersion, "market-outlook-v1");
   assert.equal(report.outlook.taiwan.bias, "pending");
+  assert.equal(marketBriefPeriodKey("daily", "2026-07-11"), "2026-07-11");
+  assert.equal(marketBriefPeriodKey("weekly", "2026-07-11"), "2026-W28");
+  assert.equal(marketBriefPeriodKey("monthly", "2026-07-11"), "2026-07");
+  assert.equal(marketBriefQualityStatus(report), "pending");
+  assert.equal(
+    marketBriefContentHash(report),
+    marketBriefContentHash({ ...report, generatedAt: "2026-07-12T10:00:00.000Z" }),
+  );
   assert.equal(report.period, "daily");
   assert.deepEqual(report.reportWindow, {
     startDate: "2026-07-11",

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, CalendarDays, CircleAlert, Minus } from "lucide-react";
-import { getMarketBrief } from "@/lib/reports/market-brief";
+import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots";
 import type {
   InstitutionalFlowSummary,
   MarketBrief,
@@ -77,9 +77,10 @@ function compactAmount(value: number | null, unit?: "shares" | "twd") {
 
 async function loadBrief(period: MarketBriefPeriod, asOfDate: string) {
   try {
-    return { brief: await getMarketBrief({ period, asOfDate }), error: "" };
+    const report = await getStoredOrLiveMarketBrief({ period, asOfDate });
+    return { brief: report.brief, snapshot: report.snapshot, error: "" };
   } catch (cause) {
-    return { brief: null, error: cause instanceof Error ? cause.message : "報告暫時無法產生" };
+    return { brief: null, snapshot: null, error: cause instanceof Error ? cause.message : "報告暫時無法產生" };
   }
 }
 
@@ -89,7 +90,7 @@ export default async function MarketBriefPage({ searchParams }: {
   const params = await searchParams;
   const period = (["daily", "weekly", "monthly"].includes(params.period ?? "") ? params.period : "daily") as MarketBriefPeriod;
   const asOfDate = validDate(params.asOfDate);
-  const { brief, error } = await loadBrief(period, asOfDate);
+  const { brief, snapshot, error } = await loadBrief(period, asOfDate);
 
   return (
     <main className="min-h-screen bg-[#07090d] px-4 py-6 text-zinc-100 md:px-8 md:py-10">
@@ -115,13 +116,13 @@ export default async function MarketBriefPage({ searchParams }: {
             ))}
           </div>
         </header>
-        {error || !brief ? <ErrorState message={error} /> : <Report brief={brief} />}
+        {error || !brief ? <ErrorState message={error} /> : <Report brief={brief} revision={snapshot?.revision ?? null} />}
       </div>
     </main>
   );
 }
 
-function Report({ brief }: { brief: MarketBrief }) {
+function Report({ brief, revision }: { brief: MarketBrief; revision: number | null }) {
   return (
     <>
       <section className="grid gap-6 border-b border-zinc-800 py-8 lg:grid-cols-[1.4fr_0.6fr]">
@@ -130,6 +131,7 @@ function Report({ brief }: { brief: MarketBrief }) {
             <span className="inline-flex items-center gap-1.5"><CalendarDays className="h-4 w-4" />{brief.asOfDate}</span>
             <span>{brief.reportWindow.startDate} 至 {brief.reportWindow.endDate}</span>
             <span>{brief.reportVersion}</span>
+            <span>{revision ? `固定快照 r${revision}` : "即時預覽"}</span>
           </div>
           <h2 className="mt-5 text-2xl font-black md:text-3xl">{brief.title}</h2>
           <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-300">{brief.executiveSummary}</p>

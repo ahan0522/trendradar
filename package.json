@@ -21,7 +21,8 @@
     "articles:verification-queue": "tsx scripts/list-historical-verification-queue.ts",
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
     "prices:replay": "tsx scripts/backfill-model-replay-prices.ts",
-    "prices:market-brief-us": "tsx scripts/sync-market-brief-us-prices.ts"
+    "prices:market-brief-us": "tsx scripts/sync-market-brief-us-prices.ts",
+    "reports:snapshot": "tsx scripts/generate-market-brief-snapshots.ts"
   },
   "dependencies": {
     "@next/env": "latest",

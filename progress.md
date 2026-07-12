@@ -931,3 +931,11 @@ The next milestone is complete when:
 - The report exposes both source URLs and shows the top three institutional buy/sell stocks per institution card.
 - A July 6-11 live dry-run returned four verified TPEx trading dates and all four institution labels. Local weekly report verification confirmed two official sources per flow card and combined totals.
 - Legal/quality caveat remains: share-based totals are available; value-based institutional totals, official industry indices, and full constituents remain separate gaps.
+## 40. Versioned Market Brief Snapshot Pipeline (2026-07-12)
+
+- Added the append-only `market_brief_snapshots` migration with report version, daily/weekly/monthly period key, revision, content hash, quality status, and full JSON payload.
+- Snapshot hashing excludes `generatedAt`, so unchanged report content is not duplicated. Changed content creates a new revision and preserves the earlier report.
+- Daily research automation now persists the daily report after ingestion and persists the weekly report on weekends.
+- The report API and readable page prefer the latest stored revision and visibly label it as `固定快照 rN`; before migration or before the first snapshot they safely use `即時預覽`.
+- Added `npm run reports:snapshot -- --date=YYYY-MM-DD --period=daily,weekly` for controlled first-write and recovery runs.
+- All Signal, research, lint, and production build checks passed. The migration is not yet applied because both the Supabase browser session and CLI authorization have expired; production fallback remains operational until authentication is restored.

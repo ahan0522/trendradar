@@ -23,6 +23,8 @@ import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-c
 import { LIVE_COLLECTION_POLICY, signalDataModeForDate } from "@/lib/signals/live-collection-policy";
 import { syncMarketBriefUsPrices } from "@/lib/reports/market-brief-price-sync";
 import { getMarketBrief } from "@/lib/reports/market-brief";
+import { persistMarketBriefSnapshot } from "@/lib/reports/market-brief-snapshots";
+import type { MarketBrief } from "@/types/market-report";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -177,6 +179,12 @@ export async function GET(request: NextRequest) {
     const weeklyMarketBrief = ["Sat", "Sun"].includes(currentTaipeiWeekday())
       ? await runSync(() => getMarketBrief({ period: "weekly", asOfDate: today }))
       : { status: "skipped" as const, reason: "Weekly market brief is generated on weekends." };
+    const dailyMarketBriefSnapshot = dailyMarketBrief.status === "success"
+      ? await runSync(() => persistMarketBriefSnapshot(dailyMarketBrief.data as MarketBrief))
+      : { status: "skipped" as const, reason: "Daily market brief generation did not complete." };
+    const weeklyMarketBriefSnapshot = weeklyMarketBrief.status === "success"
+      ? await runSync(() => persistMarketBriefSnapshot(weeklyMarketBrief.data as MarketBrief))
+      : { status: "skipped" as const, reason: "Weekly market brief was not generated in this run." };
     const replayValidation = {
       status: "skipped" as const,
       reason: "Historical replay runs through the dedicated admin endpoint, outside the daily ingestion budget.",
@@ -213,6 +221,8 @@ export async function GET(request: NextRequest) {
       publicationDrafts,
       dailyMarketBrief,
       weeklyMarketBrief,
+      dailyMarketBriefSnapshot,
+      weeklyMarketBriefSnapshot,
       replayValidation,
       finalizedMonth,
     });

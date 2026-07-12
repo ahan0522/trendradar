@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMarketBrief } from "@/lib/reports/market-brief";
+import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots";
 import type { MarketBriefPeriod } from "@/types/market-report";
 
 export const runtime = "nodejs";
@@ -18,11 +18,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const brief = await getMarketBrief({
+    const report = await getStoredOrLiveMarketBrief({
       period: periodParam as MarketBriefPeriod,
       asOfDate: searchParams.get("asOfDate") ?? undefined,
     });
-    return NextResponse.json(brief);
+    return NextResponse.json({
+      ...report.brief,
+      snapshot: report.snapshot ? {
+        id: report.snapshot.id,
+        revision: report.snapshot.revision,
+        periodKey: report.snapshot.periodKey,
+        qualityStatus: report.snapshot.qualityStatus,
+        createdAt: report.snapshot.createdAt,
+      } : null,
+      reportSource: report.source,
+    });
   } catch (error) {
     return NextResponse.json(
       {
