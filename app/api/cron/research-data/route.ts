@@ -21,6 +21,7 @@ import { createMissingPublicationDrafts } from "@/lib/signals/publication-review
 import { materializeCurrentModelResearchEvidence } from "@/lib/signals/evidence-materialization";
 import { recalculateResearchConfidenceSnapshots } from "@/lib/signals/research-confidence-assessment";
 import { LIVE_COLLECTION_POLICY, signalDataModeForDate } from "@/lib/signals/live-collection-policy";
+import { syncMarketBriefUsPrices } from "@/lib/reports/market-brief-price-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,6 +134,10 @@ export async function GET(request: NextRequest) {
     ]);
     const qualityAfter = await getResearchDataQualityReport();
     const today = currentTaipeiDate();
+    const marketBriefUsPrices = await runSync(() => syncMarketBriefUsPrices({
+      startDate: today,
+      dryRun: false,
+    }));
     const signalLedger = await runSync(() => generateSignalLedger(today));
     const researchEvidence = await runSync(async () => {
       if (signalLedger.status !== "success") {
@@ -183,6 +188,7 @@ export async function GET(request: NextRequest) {
       nvidia,
       fred,
       eia,
+      marketBriefUsPrices,
       quality: qualityAfter,
       signalLedger,
       researchEvidence,

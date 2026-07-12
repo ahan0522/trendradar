@@ -899,3 +899,12 @@ The next milestone is complete when:
 - The output is explicitly marked `partial`: ETF proxies can describe sector direction, but they are not complete constituent rankings or individual top-stock movers.
 - Market brief data requirements now mark US sector movers as partial while keeping constituent rankings, individual top 3-5 stocks, and independent-source verification as open gaps.
 - Price target metadata now includes the US sector ETFs as `sector_etf` targets that still require an independent close provider before becoming fully ready.
+
+## 36. Automated US Market Brief Price Sync (2026-07-12)
+
+- Added a dedicated US market-brief price queue covering the four report indices and twelve sector ETF proxies.
+- The daily research cron now runs this queue independently of Signal beneficiary price backfills, so report targets are no longer omitted merely because they are not in a current watchlist.
+- Every US report price still passes the existing exact-date Yahoo plus Alpha Vantage close comparison before database upsert. A missing `ALPHA_VANTAGE_API_KEY` returns an explicit skipped result and writes no single-source price.
+- Added `npm run prices:market-brief-us -- --start=YYYY-MM-DD --end=YYYY-MM-DD [--dry-run]` for bounded July backfills and operational audits.
+- The July 1-11 dry-run produced 16 unique targets and 176 date-target requests. It safely skipped all writes because the independent-source API key is not configured in the current environment.
+- Production report values must remain pending until the key is configured and the first verified sync writes enough dates for index streaks and ETF-period returns.

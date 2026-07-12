@@ -20,7 +20,8 @@
     "articles:verify-manifest": "tsx scripts/verify-historical-source-manifest.ts",
     "articles:verification-queue": "tsx scripts/list-historical-verification-queue.ts",
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
-    "prices:replay": "tsx scripts/backfill-model-replay-prices.ts"
+    "prices:replay": "tsx scripts/backfill-model-replay-prices.ts",
+    "prices:market-brief-us": "tsx scripts/sync-market-brief-us-prices.ts"
   },
   "dependencies": {
     "@next/env": "latest",

@@ -103,9 +103,13 @@ import {
   buildIndexMoveFromPrices,
   buildMarketBrief,
   buildTaiwanThemeMovesFromPrices,
-    buildUsSectorEtfMovesFromPrices,
+  buildUsSectorEtfMovesFromPrices,
   reportStartDateForPeriod,
 } from "../lib/reports/market-brief";
+import {
+  marketBriefPriceSyncDates,
+  marketBriefUsPriceRequests,
+} from "../lib/reports/market-brief-price-sync";
 import {
   dedupeArticlesByEvent,
   dedupeArticlesByEventWindow,
@@ -258,6 +262,15 @@ function testLiveCollectionPolicy() {
 }
 
 function testMarketBriefContract() {
+  assert.deepEqual(
+    marketBriefPriceSyncDates("2026-07-01", "2026-07-03"),
+    ["2026-07-01", "2026-07-02", "2026-07-03"],
+  );
+  assert.throws(() => marketBriefPriceSyncDates("2026-07-03", "2026-07-01"));
+  const usPriceRequests = marketBriefUsPriceRequests("2026-07-10", "2026-07-10");
+  assert.equal(usPriceRequests.length, 16);
+  assert.ok(usPriceRequests.some((item) => item.symbol === "^GSPC" && item.market === "US"));
+  assert.ok(usPriceRequests.some((item) => item.symbol === "XLK" && item.market === "US"));
   const report = buildMarketBrief({
     period: "daily",
     asOfDate: "2026-07-11",
