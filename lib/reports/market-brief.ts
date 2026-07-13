@@ -11,6 +11,7 @@ import {
 } from "@/lib/signals/live-collection-policy";
 import type {
   InstitutionalFlowSummary,
+  MarginTradingSummary,
   MarketBrief,
   MarketBriefDataQualityItem,
   MarketBriefPeriod,
@@ -63,6 +64,17 @@ type FuturesOiRow = {
   long_contracts: number | null;
   short_contracts: number | null;
   net_contracts: number | null;
+  source_url: string | null;
+};
+
+type MarginBalanceRow = {
+  trade_date: string;
+  margin_balance_lots: number | null;
+  margin_balance_change_lots: number | null;
+  margin_balance_amount_thousand: number | null;
+  margin_balance_change_amount_thousand: number | null;
+  short_balance_lots: number | null;
+  short_balance_change_lots: number | null;
   source_url: string | null;
 };
 
@@ -485,6 +497,40 @@ function buildFuturesPositioning(
     status: "partial",
     sourceUrl: latest.source_url ?? undefined,
     reason: "資料來自 TAIFEX 官方三大法人期貨契約未平倉統計；目前僅有單日資料，尚無法計算連續天數或趨勢。",
+  };
+}
+
+// TWSE's MI_MARGN endpoint returns both the prior and current day's balance
+// in one call, so a single-day change is available immediately -- but the
+// endpoint itself only ever exposes the latest published day, so (like
+// futures OI) there is no multi-day streak here yet.
+function buildMarginTradingSummary(rows: MarginBalanceRow[] | null | undefined): MarginTradingSummary {
+  const latest = (rows ?? []).slice().sort((a, b) => b.trade_date.localeCompare(a.trade_date))[0];
+  if (!latest) {
+    return {
+      tradeDate: null,
+      marginBalanceLots: null,
+      marginBalanceChangeLots: null,
+      marginBalanceAmountTwd: null,
+      marginBalanceChangeAmountTwd: null,
+      shortBalanceLots: null,
+      shortBalanceChangeLots: null,
+      status: "pending",
+      reason: "尚未取得 TWSE 官方融資融券餘額資料；僅能逐日累積，暫無歷史回補。",
+    };
+  }
+  const toTwd = (thousand: number | null) => (thousand === null ? null : thousand * 1000);
+  return {
+    tradeDate: latest.trade_date,
+    marginBalanceLots: latest.margin_balance_lots,
+    marginBalanceChangeLots: latest.margin_balance_change_lots,
+    marginBalanceAmountTwd: toTwd(latest.margin_balance_amount_thousand),
+    marginBalanceChangeAmountTwd: toTwd(latest.margin_balance_change_amount_thousand),
+    shortBalanceLots: latest.short_balance_lots,
+    shortBalanceChangeLots: latest.short_balance_change_lots,
+    status: "partial",
+    sourceUrl: latest.source_url ?? undefined,
+    reason: "資料來自 TWSE 官方信用交易統計（融資融券餘額）；目前僅有單日資料與日變動，尚無法計算連續天數或趨勢。",
   };
 }
 
@@ -923,6 +969,7 @@ export function buildMarketBrief(input: {
   twInstitutionalFlows?: TwseInstitutionalTradingSummary[];
   twInstitutionValueFlows?: InstitutionValueFlowRow[];
   taifexFuturesOi?: FuturesOiRow[];
+  twMarginTrading?: MarginBalanceRow[];
   taiwanSectors?: MarketSectorMove[];
   usSectors?: MarketSectorMove[];
   signals?: MarketBriefSignal[];
@@ -954,6 +1001,7 @@ export function buildMarketBrief(input: {
       institutionFromValueFlow(label, input.twInstitutionValueFlows, input.twInstitutionalFlows)),
     futuresPositioning: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
       buildFuturesPositioning(label, input.taifexFuturesOi)),
+    marginTrading: buildMarginTradingSummary(input.twMarginTrading),
   };
   const us: MarketBriefSection = {
     market: "US",
@@ -1080,6 +1128,7 @@ export async function getMarketBrief(options?: {
     tpexInstitutionalFlows,
     { data: institutionValueRows },
     { data: taifexFuturesOiRows },
+    { data: marginTradingRows },
   ] = await Promise.all([
     supabase
       .from("signal_events")
@@ -1114,6 +1163,12 @@ export async function getMarketBrief(options?: {
       .gte("trade_date", institutionLookbackStart)
       .lte("trade_date", asOfDate)
       .returns<FuturesOiRow[]>(),
+    supabase
+      .from("tw_margin_trading_balance")
+      .select("trade_date, margin_balance_lots, margin_balance_change_lots, margin_balance_amount_thousand, margin_balance_change_amount_thousand, short_balance_lots, short_balance_change_lots, source_url")
+      .gte("trade_date", institutionLookbackStart)
+      .lte("trade_date", asOfDate)
+      .returns<MarginBalanceRow[]>(),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -1145,6 +1200,7 @@ export async function getMarketBrief(options?: {
     twInstitutionalFlows,
     twInstitutionValueFlows: institutionValueRows ?? [],
     taifexFuturesOi: taifexFuturesOiRows ?? [],
+    twMarginTrading: marginTradingRows ?? [],
     taiwanSectors,
     usSectors,
     signals: briefSignals,

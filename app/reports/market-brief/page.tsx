@@ -3,6 +3,7 @@ import { ArrowDownRight, ArrowUpRight, CalendarDays, CircleAlert, Minus } from "
 import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots";
 import type {
   InstitutionalFlowSummary,
+  MarginTradingSummary,
   MarketBrief,
   MarketBriefOutlook,
   MarketBriefPeriod,
@@ -264,6 +265,7 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
       </div>
       {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
+      {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
       {/* US sector/theme movers temporarily hidden -- indices only for now
           while TW data quality work is prioritized; the underlying data and
           outlook evidence computation are untouched, just not rendered. */}
@@ -354,6 +356,28 @@ function FuturesPositioning({ items }: { items: TaiwanFuturesPositioning[] }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function MarginTrading({ margin }: { margin: MarginTradingSummary }) {
+  if (margin.status === "pending") return null;
+  return (
+    <div className="mt-7">
+      <h3 className="text-sm font-black text-zinc-300">融資融券餘額（上市）</h3>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
+          <strong className="text-sm">融資餘額</strong>
+          <p className="mt-3 font-mono text-lg font-black text-zinc-200">{compactAmount(margin.marginBalanceAmountTwd, "twd")}</p>
+          <p className="mt-1 text-[11px] text-zinc-600">{compactAmount(margin.marginBalanceChangeAmountTwd, "twd")}（單日）</p>
+        </div>
+        <div className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
+          <strong className="text-sm">融券餘額</strong>
+          <p className="mt-3 font-mono text-lg font-black text-zinc-200">{margin.shortBalanceLots?.toLocaleString("zh-TW") ?? "待補"} 張</p>
+          <p className="mt-1 text-[11px] text-zinc-600">{signedAmount(margin.shortBalanceChangeLots, 0)} 張（單日）</p>
+        </div>
+      </div>
+      {margin.reason ? <p className="mt-2 text-xs leading-5 text-zinc-600">{margin.reason}</p> : null}
     </div>
   );
 }

@@ -68,6 +68,19 @@ export type TaiwanFuturesPositioning = {
   reason?: string;
 };
 
+export type MarginTradingSummary = {
+  tradeDate: string | null;
+  marginBalanceLots: number | null;
+  marginBalanceChangeLots: number | null;
+  marginBalanceAmountTwd: number | null;
+  marginBalanceChangeAmountTwd: number | null;
+  shortBalanceLots: number | null;
+  shortBalanceChangeLots: number | null;
+  status: MarketBriefStatus;
+  sourceUrl?: string;
+  reason?: string;
+};
+
 export type MarketBriefSignal = {
   id: string;
   topic: string;
@@ -91,6 +104,7 @@ export type MarketBriefSection = {
   sectors: MarketSectorMove[];
   institutionalFlows?: InstitutionalFlowSummary[];
   futuresPositioning?: TaiwanFuturesPositioning[];
+  marginTrading?: MarginTradingSummary;
 };
 
 export type TomorrowWatchItem = {

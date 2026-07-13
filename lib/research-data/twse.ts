@@ -12,6 +12,7 @@ const TWSE_TAIEX_HIST_URL = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST"
 const TWSE_FOREIGN_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/TWT38U";
 const TWSE_INSTITUTIONAL_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/T86";
 const TWSE_INSTITUTIONAL_VALUE_URL = "https://www.twse.com.tw/rwd/zh/fund/BFI82U";
+const TWSE_MARGIN_BALANCE_URL = "https://www.twse.com.tw/exchangeReport/MI_MARGN";
 
 type TwseActionRow = {
   出表日期?: string;
@@ -576,6 +577,78 @@ export async function fetchTwseInstitutionalValueFlow(options?: { date?: string 
   const url = twseInstitutionalValueUrl(date);
   const payload = await fetchJson<TwseInstitutionalValueResponse>(url);
   return parseTwseInstitutionalValueFlow(payload, url, fetchedAt);
+}
+
+function twseMarginBalanceUrl(date: string) {
+  return `${TWSE_MARGIN_BALANCE_URL}?response=json&date=${date.replaceAll("-", "")}&selectType=MS`;
+}
+
+export type TwseMarginTradingBalance = {
+  tradeDate: string;
+  marginBalanceLots: number | null;
+  marginBalanceChangeLots: number | null;
+  marginBalanceAmountThousand: number | null;
+  marginBalanceChangeAmountThousand: number | null;
+  shortBalanceLots: number | null;
+  shortBalanceChangeLots: number | null;
+  sourceUrl: string;
+  fetchedAt: string;
+};
+
+type TwseMarginBalanceResponse = {
+  stat?: string;
+  date?: string;
+  tables?: Array<{ fields?: string[]; data?: string[][] }>;
+};
+
+// MI_MARGN's "MS" (信用交易統計) view returns three rows keyed by 項目 name,
+// each with columns [買進, 賣出, 現金(券)償還, 前日餘額, 今日餘額]. Both the
+// prior and current day's balance come back in a single call, so a single-day
+// change can be computed without a second request.
+export function parseTwseMarginTradingBalance(
+  payload: TwseMarginBalanceResponse,
+  sourceUrl: string,
+  fetchedAt: string,
+): TwseMarginTradingBalance | null {
+  if (payload.stat !== "OK" || !Array.isArray(payload.tables) || payload.tables.length === 0) return null;
+  const rows = payload.tables[0]?.data;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const tradeDate = parseTwseCalendarDate(payload.date);
+  const byLabel = new Map(rows.map((row) => [row[0]?.trim(), row]));
+
+  const marginUnits = byLabel.get("融資(交易單位)");
+  const shortUnits = byLabel.get("融券(交易單位)");
+  const marginAmount = byLabel.get("融資金額(仟元)");
+  if (!marginUnits && !shortUnits && !marginAmount) return null;
+
+  const prevBalance = (row: string[] | undefined) => parseSignedNumber(row?.[4]);
+  const todayBalance = (row: string[] | undefined) => parseSignedNumber(row?.[5]);
+  const change = (today: number | null, prev: number | null) =>
+    today !== null && prev !== null ? today - prev : null;
+
+  const marginBalanceLots = todayBalance(marginUnits);
+  const shortBalanceLots = todayBalance(shortUnits);
+  const marginBalanceAmountThousand = todayBalance(marginAmount);
+
+  return {
+    tradeDate,
+    marginBalanceLots,
+    marginBalanceChangeLots: change(marginBalanceLots, prevBalance(marginUnits)),
+    marginBalanceAmountThousand,
+    marginBalanceChangeAmountThousand: change(marginBalanceAmountThousand, prevBalance(marginAmount)),
+    shortBalanceLots,
+    shortBalanceChangeLots: change(shortBalanceLots, prevBalance(shortUnits)),
+    sourceUrl,
+    fetchedAt,
+  };
+}
+
+export async function fetchTwseMarginTradingBalance(options?: { date?: string }) {
+  const fetchedAt = new Date().toISOString();
+  const date = options?.date ?? fetchedAt.slice(0, 10);
+  const url = twseMarginBalanceUrl(date);
+  const payload = await fetchJson<TwseMarginBalanceResponse>(url);
+  return parseTwseMarginTradingBalance(payload, url, fetchedAt);
 }
 
 export async function syncTwseResearchData(options?: {

@@ -9,6 +9,7 @@ import {
 } from "@/lib/reports/market-brief-format";
 import type {
   InstitutionalFlowSummary,
+  MarginTradingSummary,
   MarketBrief,
   MarketBriefOutlook,
   MarketBriefPeriod,
@@ -210,6 +211,7 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
 
       {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
+      {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
     </section>
   );
 }
@@ -300,6 +302,31 @@ function FuturesPositioning({ items }: { items: TaiwanFuturesPositioning[] }) {
         </tbody>
       </table>
       <p className="mt-2 text-xs text-slate-400">{items[0]?.reason ?? ""}</p>
+    </div>
+  );
+}
+
+function MarginTrading({ margin }: { margin: MarginTradingSummary }) {
+  if (margin.status === "pending") return null;
+  return (
+    <div className="mt-8">
+      <SectionLabel>融資融券餘額（上市）</SectionLabel>
+      {/* Direction here is descriptive, not evidence: rising margin balance can
+          read as either bullish leverage or a contrarian risk warning, so it
+          is deliberately shown in neutral slate rather than green/red. */}
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs text-slate-400">融資餘額</p>
+          <p className="mt-1 text-lg font-bold tabular-nums">{compactAmount(margin.marginBalanceAmountTwd, "twd")}</p>
+          <p className="text-sm tabular-nums text-slate-500">{compactAmount(margin.marginBalanceChangeAmountTwd, "twd")}（單日）</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-400">融券餘額</p>
+          <p className="mt-1 text-lg font-bold tabular-nums">{margin.shortBalanceLots?.toLocaleString("zh-TW") ?? "待補"} 張</p>
+          <p className="text-sm tabular-nums text-slate-500">{signedAmount(margin.shortBalanceChangeLots, 0)} 張（單日）</p>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">{margin.reason}</p>
     </div>
   );
 }

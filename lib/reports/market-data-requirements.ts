@@ -92,11 +92,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "台股融資融券與信用交易",
     market: "TW",
     priority: "medium",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly", "monthly"],
     suggestedSources: ["TWSE official margin trading", "TPEx official margin trading"],
     blocksReportNumbers: false,
-    reason: "融資融券可判斷籌碼熱度與風險，但未接入前不輸出信用籌碼結論。",
+    reason: "已由 TWSE 官方 MI_MARGN 信用交易統計端點提供上市融資餘額（張數／金額）與融券餘額（張數）之單日變動；僅涵蓋上市（不含櫃買），且該端點僅回傳最新交易日，尚無法計算連續天數或趨勢。",
   },
   {
     id: "tw-fx-rates",
