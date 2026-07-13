@@ -259,7 +259,10 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
       </div>
       {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
-      <div className="mt-7 grid gap-4 lg:grid-cols-2">
+      {/* US sector/theme movers temporarily hidden -- indices only for now
+          while TW data quality work is prioritized; the underlying data and
+          outlook evidence computation are untouched, just not rendered. */}
+      <div className={`mt-7 grid gap-4 lg:grid-cols-2 ${section.market === "US" ? "hidden" : ""}`}>
         {section.sectors.map((sector) => (
           <article key={`${section.market}-${sector.label}`} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-5">
             <div className="flex items-center justify-between gap-3">

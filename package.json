@@ -22,6 +22,7 @@
     "backtest:replay": "tsx scripts/run-model-replay-backtest.ts",
     "prices:replay": "tsx scripts/backfill-model-replay-prices.ts",
     "prices:market-brief-us": "tsx scripts/sync-market-brief-us-prices.ts",
+    "flows:backfill-tw-institutional-value": "tsx scripts/backfill-tw-institutional-value-flow.ts",
     "reports:snapshot": "tsx scripts/generate-market-brief-snapshots.ts"
   },
   "dependencies": {

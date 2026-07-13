@@ -36,18 +36,8 @@ export async function fetchTwInstitutionalValueFlowToday(): Promise<TwseInstitut
   return mergeInstitutionalValueFlows(twse, tpex);
 }
 
-export async function syncTwInstitutionalValueFlow(options?: { dryRun?: boolean }) {
-  const dryRun = options?.dryRun ?? true;
-  const flows = await fetchTwInstitutionalValueFlowToday();
-
-  if (dryRun) {
-    return { ok: true, dryRun: true, flowCount: flows.length, flows };
-  }
-
-  if (flows.length === 0) {
-    return { ok: true, dryRun: false, flowCount: 0 };
-  }
-
+async function upsertInstitutionalValueFlows(flows: TwseInstitutionalValueFlow[]) {
+  if (flows.length === 0) return { count: 0 };
   const supabase = getSupabaseAdmin();
   const { error } = await supabase
     .from("tw_institutional_value_flows")
@@ -69,6 +59,73 @@ export async function syncTwInstitutionalValueFlow(options?: { dryRun?: boolean 
       { onConflict: "trade_date,label" },
     );
   if (error) throw error;
+  return { count: flows.length };
+}
 
-  return { ok: true, dryRun: false, flowCount: flows.length };
+export async function syncTwInstitutionalValueFlow(options?: { dryRun?: boolean }) {
+  const dryRun = options?.dryRun ?? true;
+  const flows = await fetchTwInstitutionalValueFlowToday();
+
+  if (dryRun) {
+    return { ok: true, dryRun: true, flowCount: flows.length, flows };
+  }
+  if (flows.length === 0) {
+    return { ok: true, dryRun: false, flowCount: 0 };
+  }
+  const { count } = await upsertInstitutionalValueFlows(flows);
+  return { ok: true, dryRun: false, flowCount: count };
+}
+
+function eachCalendarDate(startDate: string, endDate: string) {
+  const dates: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(end.getTime()) || cursor > end) return dates;
+  while (cursor <= end) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+// TWSE's BFI82U endpoint supports real historical date queries (confirmed
+// live), but TPEx's tpex_3insti_summary does not (it always returns the
+// latest day regardless of any date parameter). So historical backfill can
+// only recover the TWSE (上市) leg for past dates -- TPEx (上櫃) contribution
+// stays absent for backfilled days, same honesty policy as everywhere else
+// in this codebase (missing data is missing, not estimated).
+export async function backfillTwseInstitutionalValueFlow(options: {
+  startDate: string;
+  endDate: string;
+  dryRun?: boolean;
+}) {
+  const dryRun = options.dryRun ?? true;
+  const dates = eachCalendarDate(options.startDate, options.endDate);
+  const perDate = await Promise.all(dates.map(async (date) => {
+    try {
+      return await fetchTwseInstitutionalValueFlow({ date });
+    } catch {
+      return [];
+    }
+  }));
+  const flows = perDate.flat();
+
+  if (dryRun) {
+    return {
+      ok: true,
+      dryRun: true,
+      requestedDates: dates.length,
+      tradingDaysFound: perDate.filter((rows) => rows.length > 0).length,
+      flowCount: flows.length,
+      flows,
+    };
+  }
+  const { count } = await upsertInstitutionalValueFlows(flows);
+  return {
+    ok: true,
+    dryRun: false,
+    requestedDates: dates.length,
+    tradingDaysFound: perDate.filter((rows) => rows.length > 0).length,
+    flowCount: count,
+  };
 }
