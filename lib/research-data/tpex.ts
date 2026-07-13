@@ -4,12 +4,14 @@ import type { ResearchSource } from "@/types/research-data";
 import type {
   TwseInstitutionalInvestorLabel,
   TwseInstitutionalTradingSummary,
+  TwseInstitutionalValueFlow,
 } from "@/lib/research-data/twse";
 
 const TPEX_PRICES_URL = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes";
 const TPEX_OTC_INDEX_URL = "https://www.tpex.org.tw/www/zh-tw/indexInfo/inx";
 const TPEX_OTC_INDEX_SYMBOL = "^TWOII";
 const TPEX_INSTITUTIONAL_TRADING_URL = "https://www.tpex.org.tw/www/zh-tw/insti/dailyTrade";
+const TPEX_INSTITUTIONAL_VALUE_URL = "https://www.tpex.org.tw/openapi/v1/tpex_3insti_summary";
 
 type TpexPriceRow = {
   Date?: string;
@@ -335,6 +337,52 @@ export async function fetchTpexInstitutionalTradingRange(options: { startDate: s
     }
   }));
   return daily.flat().sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
+}
+
+type TpexInstitutionalValueRow = {
+  Date?: string;
+  Investor?: string;
+  PurchaseAmount?: string;
+  SaleAmount?: string;
+  Net?: string;
+};
+
+export async function fetchTpexInstitutionalValueFlow(): Promise<TwseInstitutionalValueFlow[]> {
+  const fetchedAt = new Date().toISOString();
+  const rows = await fetchTpexJson<TpexInstitutionalValueRow[]>(TPEX_INSTITUTIONAL_VALUE_URL);
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+
+  const byInvestor = new Map(rows.map((row) => [row.Investor?.trim(), row]));
+  const amount = (row: TpexInstitutionalValueRow | undefined, field: "PurchaseAmount" | "SaleAmount" | "Net") =>
+    parseSignedNumber(row?.[field]) ?? 0;
+  const valuesFor = (investor: string) => {
+    const row = byInvestor.get(investor);
+    return { buy: amount(row, "PurchaseAmount"), sell: amount(row, "SaleAmount"), net: amount(row, "Net") };
+  };
+
+  const dateRow = rows[0];
+  if (!dateRow?.Date) return [];
+  const tradeDate = parseTpexRocDate(dateRow.Date);
+
+  const build = (
+    label: TwseInstitutionalValueFlow["label"],
+    values: { buy: number; sell: number; net: number },
+  ): TwseInstitutionalValueFlow => ({
+    label,
+    tradeDate,
+    buyAmountTwd: values.buy,
+    sellAmountTwd: values.sell,
+    netAmountTwd: values.net,
+    sourceUrl: TPEX_INSTITUTIONAL_VALUE_URL,
+    fetchedAt,
+  });
+
+  return [
+    build("外資", valuesFor("外資及陸資合計")),
+    build("投信", valuesFor("投信")),
+    build("自營商", valuesFor("自營商合計")),
+    build("三大法人", valuesFor("三大法人合計*")),
+  ];
 }
 
 export async function syncTpexResearchData(options?: {

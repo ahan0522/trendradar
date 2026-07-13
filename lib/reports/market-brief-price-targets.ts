@@ -21,13 +21,13 @@ export const MARKET_BRIEF_INDEX_PRICE_TARGETS: MarketBriefPriceTarget[] = [
     reason: "已由 TWSE MI_5MINS_HIST 官方端點寫入 ^TWII；不可改用個股 STOCK_DAY 抓取。",
   },
   {
-    symbol: "^TWOII",
-    label: "櫃買指數",
+    symbol: "WTX&",
+    label: "台指期(盤後)",
     market: "TW",
     assetType: "index",
     automationStatus: "ready",
-    preferredSource: "TPEx official indexInfo/inx endpoint",
-    reason: "已由 TPEx 官方櫃買指數月查詢端點寫入 ^TWOII；不可把 ^TWOII 當個股代號送進 tradingStock。",
+    preferredSource: "TAIFEX openapi DailyMarketReportFut (TX, 盤後 session, front month)",
+    reason: "已由 TAIFEX 官方 DailyMarketReportFut 端點寫入台指期盤後前月合約報價；該端點不支援歷史日期查詢，僅能逐日累積。",
   },
   {
     symbol: "^DJI",

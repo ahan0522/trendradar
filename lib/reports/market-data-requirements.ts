@@ -29,14 +29,14 @@ export type MarketDataRequirement = {
 export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
   {
     id: "tw-index-prices",
-    label: "台股加權與櫃買指數日資料",
+    label: "台股加權指數與台指期(盤後)日資料",
     market: "TW",
     priority: "critical",
     status: "ready",
     requiredFor: ["daily", "weekly", "monthly"],
-    suggestedSources: ["TWSE official TAIEX history", "TPEx official indexInfo/inx", "verified price provider"],
+    suggestedSources: ["TWSE official TAIEX history", "TAIFEX official DailyMarketReportFut (TX, 盤後)", "verified price provider"],
     blocksReportNumbers: true,
-    reason: "加權指數與櫃買指數皆已有官方 connector；每日/每週/月報仍必須確認資料庫已同步且交易日資料完整才可輸出數字。",
+    reason: "加權指數與台指期盤後前月合約皆已有官方 connector；每日/每週/月報仍必須確認資料庫已同步且交易日資料完整才可輸出數字。台指期端點不支援歷史查詢，僅能逐日累積。",
   },
   {
     id: "tw-institutional-flows",
@@ -48,10 +48,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     suggestedSources: [
       "TWSE official institutional trading: https://www.twse.com.tw/zh/trading/foreign/twt38u.html",
       "TPEx official institutional trading",
+      "TWSE BFI82U / TPEx tpex_3insti_summary (金額制)",
       "verified licensed data provider fallback",
     ],
     blocksReportNumbers: true,
-    reason: "TWSE T86 已可提供上市外資、投信、自營商與三大法人單日、期間累積與連續買賣；櫃買法人與金額制資料仍待補齊。",
+    reason: "TWSE T86 已可提供上市外資、投信、自營商與三大法人單日、期間累積與連續買賣；TWSE BFI82U 與 TPEx 官方買賣金額統計表已補上金額制（新台幣元）資料，但該端點僅回傳最新交易日，暫無歷史回補。",
   },
   {
     id: "tw-sector-movers",
@@ -69,11 +70,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "外資台指期多空與未平倉",
     market: "TW",
     priority: "high",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly"],
     suggestedSources: ["TAIFEX official futures institutional OI", "TAIFEX official large trader data if applicable"],
     blocksReportNumbers: false,
-    reason: "期貨多空可強化明日偏多/偏空判斷；未接入前不得輸出台指期淨多單或籌碼結論。",
+    reason: "已由 TAIFEX 官方三大法人期貨契約未平倉端點提供臺股期貨多單/空單/淨口數；該端點僅回傳最新交易日，尚無法計算連續天數或趨勢，需逐日累積。",
   },
   {
     id: "tw-options-sentiment",

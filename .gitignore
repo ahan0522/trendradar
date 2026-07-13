@@ -8,3 +8,5 @@ build/
 *.log
 app.7z
 *.tsbuildinfo
+.vercel
+.env*

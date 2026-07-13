@@ -8,6 +8,7 @@ import type {
   MarketBriefPeriod,
   MarketBriefSection,
   MarketBriefStatus,
+  TaiwanFuturesPositioning,
 } from "@/types/market-report";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,11 @@ function signedPercent(value: number | null) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function signedAmount(value: number | null, decimals = 2) {
+  if (value === null) return "待補";
+  return `${value >= 0 ? "+" : ""}${value.toFixed(decimals)}`;
+}
+
 function compactAmount(value: number | null, unit?: "shares" | "twd") {
   if (value === null) return "待補";
   const sign = value > 0 ? "+" : "";
@@ -71,6 +77,11 @@ function compactAmount(value: number | null, unit?: "shares" | "twd") {
     if (absolute >= 100_000_000) return `${sign}${(value / 100_000_000).toFixed(2)} 億股`;
     if (absolute >= 10_000) return `${sign}${(value / 10_000).toFixed(1)} 萬股`;
     return `${sign}${value.toLocaleString("zh-TW")} 股`;
+  }
+  if (unit === "twd") {
+    if (absolute >= 100_000_000) return `${sign}${(value / 100_000_000).toFixed(2)} 億元`;
+    if (absolute >= 10_000) return `${sign}${(value / 10_000).toFixed(1)} 萬元`;
+    return `${sign}${value.toLocaleString("zh-TW")} 元`;
   }
   return `${sign}${value.toLocaleString("zh-TW")}`;
 }
@@ -125,6 +136,8 @@ export default async function MarketBriefPage({ searchParams }: {
 function Report({ brief, revision }: { brief: MarketBrief; revision: number | null }) {
   return (
     <>
+      <MarketSection section={brief.taiwan} outlook={brief.outlook.taiwan} />
+
       <section className="grid gap-6 border-b border-zinc-800 py-8 lg:grid-cols-[1.4fr_0.6fr]">
         <div>
           <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-zinc-500">
@@ -151,7 +164,6 @@ function Report({ brief, revision }: { brief: MarketBrief; revision: number | nu
         </div>
       </section>
 
-      <MarketSection section={brief.taiwan} outlook={brief.outlook.taiwan} />
       <MarketSection section={brief.us} outlook={brief.outlook.us} />
 
       <section className="border-b border-zinc-800 py-8">
@@ -236,13 +248,17 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
                 </div>
                 {positive ? <ArrowUpRight className="h-5 w-5 text-emerald-300" /> : negative ? <ArrowDownRight className="h-5 w-5 text-rose-300" /> : <Minus className="h-5 w-5 text-zinc-600" />}
               </div>
-              <p className={`mt-3 font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-rose-300" : "text-zinc-600"}`}>{signedPercent(index.changePct)}</p>
+              <p className={`mt-3 font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-rose-300" : "text-zinc-600"}`}>
+                {signedPercent(index.changePct)}
+                <span className="ml-2 text-xs font-normal text-zinc-500">{signedAmount(index.changePoint)} 點</span>
+              </p>
               <p className="mt-2 text-xs leading-5 text-zinc-600">{index.streakLabel}</p>
             </article>
           );
         })}
       </div>
       {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
+      {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
       <div className="mt-7 grid gap-4 lg:grid-cols-2">
         {section.sectors.map((sector) => (
           <article key={`${section.market}-${sector.label}`} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-5">
@@ -254,14 +270,20 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
                   {sector.dataTier === "provisional" ? <span className="rounded border border-amber-300/30 px-1.5 py-0.5 text-[10px] font-black text-amber-200">單一來源</span> : null}
                 </div>
               </div>
-              <span className={`font-mono text-lg font-black ${sector.direction === "up" ? "text-emerald-300" : sector.direction === "down" ? "text-rose-300" : "text-zinc-600"}`}>{signedPercent(sector.changePct)}</span>
+              <span className="text-right">
+                <span className={`font-mono text-lg font-black ${sector.direction === "up" ? "text-emerald-300" : sector.direction === "down" ? "text-rose-300" : "text-zinc-600"}`}>{signedPercent(sector.changePct)}</span>
+                <span className="ml-2 font-mono text-xs text-zinc-500">{signedAmount(sector.changePoint)}{section.market === "TW" ? " 元" : " USD"}</span>
+              </span>
             </div>
             {sector.topStocks.length > 0 ? (
               <div className="mt-4 divide-y divide-zinc-800 border-t border-zinc-800">
                 {sector.topStocks.map((stock) => (
                   <div key={`${sector.label}-${stock.symbol}`} className="flex items-center justify-between gap-3 py-3 text-sm">
                     <span><strong>{stock.companyName}</strong><span className="ml-2 font-mono text-xs text-zinc-600">{stock.symbol}</span></span>
-                    <span className="font-mono text-zinc-300">{signedPercent(stock.changePct)}</span>
+                    <span className="text-right">
+                      <span className="font-mono text-zinc-300">{signedPercent(stock.changePct)}</span>
+                      <span className="ml-2 font-mono text-xs text-zinc-500">{signedAmount(stock.changePoint)}{section.market === "TW" ? "元" : "$"}</span>
+                    </span>
                   </div>
                 ))}
               </div>
@@ -301,6 +323,26 @@ function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
                 </div>
               </div>
             ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FuturesPositioning({ items }: { items: TaiwanFuturesPositioning[] }) {
+  return (
+    <div className="mt-7">
+      <h3 className="text-sm font-black text-zinc-300">台指期三大法人未平倉</h3>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map((item) => (
+          <div key={item.investor} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
+            <div className="flex items-center justify-between gap-2"><strong className="text-sm">{item.investor}</strong><StatusBadge status={item.status} /></div>
+            <p className={`mt-3 font-mono text-lg font-black ${item.direction === "net_long" ? "text-emerald-300" : item.direction === "net_short" ? "text-rose-300" : "text-zinc-600"}`}>
+              淨 {item.netContracts !== null ? `${item.netContracts >= 0 ? "+" : ""}${item.netContracts.toLocaleString("zh-TW")}` : "待補"} 口
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-600">多單 {item.longContracts?.toLocaleString("zh-TW") ?? "待補"} 口 ／ 空單 {item.shortContracts?.toLocaleString("zh-TW") ?? "待補"} 口</p>
+            {item.reason ? <p className="mt-2 text-xs leading-5 text-zinc-600">{item.reason}</p> : null}
           </div>
         ))}
       </div>

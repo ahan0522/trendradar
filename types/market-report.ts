@@ -8,6 +8,7 @@ export type MarketIndexMove = {
   market: "TW" | "US";
   close: number | null;
   changePct: number | null;
+  changePoint: number | null;
   streakLabel: string;
   status: MarketBriefStatus;
   dataTier?: "verified" | "provisional";
@@ -18,10 +19,12 @@ export type MarketSectorMove = {
   label: string;
   direction: "up" | "down" | "mixed" | "pending";
   changePct: number | null;
+  changePoint: number | null;
   topStocks: Array<{
     symbol: string;
     companyName: string;
     changePct: number | null;
+    changePoint: number | null;
     reason?: string;
   }>;
   status: MarketBriefStatus;
@@ -52,6 +55,19 @@ export type InstitutionalFlowSummary = {
   reason?: string;
 };
 
+export type TaiwanFuturesPositioning = {
+  contractLabel: string;
+  investor: "外資" | "投信" | "自營商" | "三大法人";
+  tradeDate: string | null;
+  longContracts: number | null;
+  shortContracts: number | null;
+  netContracts: number | null;
+  direction: "net_long" | "net_short" | "flat" | "pending";
+  status: MarketBriefStatus;
+  sourceUrl?: string;
+  reason?: string;
+};
+
 export type MarketBriefSignal = {
   id: string;
   topic: string;
@@ -74,6 +90,7 @@ export type MarketBriefSection = {
   indices: MarketIndexMove[];
   sectors: MarketSectorMove[];
   institutionalFlows?: InstitutionalFlowSummary[];
+  futuresPositioning?: TaiwanFuturesPositioning[];
 };
 
 export type TomorrowWatchItem = {

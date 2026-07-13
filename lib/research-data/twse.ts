@@ -11,6 +11,7 @@ const TWSE_PRICES_URL = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY
 const TWSE_TAIEX_HIST_URL = "https://www.twse.com.tw/rwd/zh/TAIEX/MI_5MINS_HIST";
 const TWSE_FOREIGN_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/TWT38U";
 const TWSE_INSTITUTIONAL_TRADING_URL = "https://www.twse.com.tw/rwd/zh/fund/T86";
+const TWSE_INSTITUTIONAL_VALUE_URL = "https://www.twse.com.tw/rwd/zh/fund/BFI82U";
 
 type TwseActionRow = {
   出表日期?: string;
@@ -498,6 +499,85 @@ export async function fetchTwseInstitutionalTradingRange(options: {
   }));
   return daily.flat().sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
 }
+
+function twseInstitutionalValueUrl(date: string) {
+  return `${TWSE_INSTITUTIONAL_VALUE_URL}?response=json&dayDate=${date.replaceAll("-", "")}`;
+}
+
+export type TwseInstitutionalValueFlow = {
+  label: "外資" | "投信" | "自營商" | "三大法人";
+  tradeDate: string;
+  buyAmountTwd: number;
+  sellAmountTwd: number;
+  netAmountTwd: number;
+  sourceUrl: string;
+  fetchedAt: string;
+};
+
+type TwseInstitutionalValueResponse = {
+  stat?: string;
+  date?: string;
+  data?: string[][];
+};
+
+export function parseTwseInstitutionalValueFlow(
+  payload: TwseInstitutionalValueResponse,
+  sourceUrl: string,
+  fetchedAt: string,
+): TwseInstitutionalValueFlow[] {
+  if (payload.stat !== "OK" || !Array.isArray(payload.data) || payload.data.length === 0) return [];
+  const tradeDate = parseTwseCalendarDate(payload.date);
+  const byName = new Map(payload.data.map((row) => [row[0]?.trim(), row]));
+  const amount = (row: string[] | undefined, index: number) => parseSignedNumber(row?.[index]) ?? 0;
+  const sumRows = (names: string[]) => names
+    .map((name) => byName.get(name))
+    .reduce(
+      (acc, row) => ({
+        buy: acc.buy + amount(row, 1),
+        sell: acc.sell + amount(row, 2),
+        net: acc.net + amount(row, 3),
+      }),
+      { buy: 0, sell: 0, net: 0 },
+    );
+
+  const trustRow = byName.get("投信");
+  const totalRow = byName.get("合計");
+  if (!trustRow || !totalRow) return [];
+
+  const dealer = sumRows(["自營商(自行買賣)", "自營商(避險)"]);
+  const foreign = sumRows(["外資及陸資(不含外資自營商)", "外資自營商"]);
+  const trust = { buy: amount(trustRow, 1), sell: amount(trustRow, 2), net: amount(trustRow, 3) };
+  const total = { buy: amount(totalRow, 1), sell: amount(totalRow, 2), net: amount(totalRow, 3) };
+
+  const build = (
+    label: TwseInstitutionalValueFlow["label"],
+    values: { buy: number; sell: number; net: number },
+  ): TwseInstitutionalValueFlow => ({
+    label,
+    tradeDate,
+    buyAmountTwd: values.buy,
+    sellAmountTwd: values.sell,
+    netAmountTwd: values.net,
+    sourceUrl,
+    fetchedAt,
+  });
+
+  return [
+    build("外資", foreign),
+    build("投信", trust),
+    build("自營商", dealer),
+    build("三大法人", total),
+  ];
+}
+
+export async function fetchTwseInstitutionalValueFlow(options?: { date?: string }) {
+  const fetchedAt = new Date().toISOString();
+  const date = options?.date ?? fetchedAt.slice(0, 10);
+  const url = twseInstitutionalValueUrl(date);
+  const payload = await fetchJson<TwseInstitutionalValueResponse>(url);
+  return parseTwseInstitutionalValueFlow(payload, url, fetchedAt);
+}
+
 export async function syncTwseResearchData(options?: {
   dryRun?: boolean;
   includeActions?: boolean;

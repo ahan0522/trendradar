@@ -19,6 +19,7 @@ import type {
   MarketBriefSignal,
   MarketIndexMove,
   MarketSectorMove,
+  TaiwanFuturesPositioning,
   TomorrowWatchItem,
 } from "@/types/market-report";
 
@@ -48,9 +49,26 @@ type PriceRow = {
   quality_status: string | null;
 };
 
+type InstitutionValueFlowRow = {
+  trade_date: string;
+  label: InstitutionalFlowSummary["label"];
+  buy_amount_twd: number | null;
+  sell_amount_twd: number | null;
+  net_amount_twd: number | null;
+};
+
+type FuturesOiRow = {
+  trade_date: string;
+  investor: TaiwanFuturesPositioning["investor"];
+  long_contracts: number | null;
+  short_contracts: number | null;
+  net_contracts: number | null;
+  source_url: string | null;
+};
+
 const TW_INDEX_SYMBOLS = [
   { label: "加權指數", symbol: "^TWII" },
-  { label: "櫃買指數", symbol: "^TWOII" },
+  { label: "台指期(盤後)", symbol: "WTX&" },
 ];
 
 const US_INDEX_SYMBOLS = [
@@ -151,11 +169,13 @@ const US_SECTOR_ETF_SYMBOLS = [...new Set(US_SECTOR_ETF_GROUPS.flatMap((group) =
 type ThemeGroupMove = {
   label: string;
   changePct: number;
+  changePoint: number;
   dataTier: "verified" | "provisional";
   stockMoves: Array<{
     symbol: string;
     companyName: string;
     changePct: number;
+    changePoint: number;
     dataTier: "verified" | "provisional";
   }>;
 };
@@ -200,6 +220,7 @@ function pendingIndex(label: string, symbol: string, market: "TW" | "US"): Marke
     market,
     close: null,
     changePct: null,
+    changePoint: null,
     streakLabel: "待補資料",
     status: "pending",
     reason: "尚未建立可信指數日資料與連漲連跌序列。",
@@ -211,6 +232,7 @@ function pendingSector(label: string, reason: string): MarketSectorMove {
     label,
     direction: "pending",
     changePct: null,
+    changePoint: null,
     topStocks: [],
     status: "pending",
     reason,
@@ -330,6 +352,104 @@ function institutionFromTwse(
   };
 }
 
+// Combines the new NT$ value-based flow (BFI82U/tpex_3insti_summary, aggregate-
+// only, forward-accumulating from the day this shipped) with the existing
+// share-based flow's topStocks and consecutiveDays (per-stock breakdown isn't
+// available from the value-based sources, and the share streak already has
+// real multi-day history — no reason to reset it just because the NT$ table
+// is new).
+function institutionFromValueFlow(
+  label: InstitutionalFlowSummary["label"],
+  valueRows: InstitutionValueFlowRow[] | null | undefined,
+  shareFlows: TwseInstitutionalTradingSummary[] | null | undefined,
+): InstitutionalFlowSummary {
+  const shareResult = institutionFromTwse(label, shareFlows);
+  const labelValueRows = (valueRows ?? [])
+    .filter((item) => item.label === label)
+    .sort((a, b) => a.trade_date.localeCompare(b.trade_date));
+  const latest = labelValueRows.at(-1);
+
+  if (!latest) {
+    return {
+      ...shareResult,
+      singleDayAmount: null,
+      singleDayBuyAmount: null,
+      singleDaySellAmount: null,
+      cumulativeAmount: null,
+      cumulativeBuyAmount: null,
+      cumulativeSellAmount: null,
+      unit: "twd",
+      status: "pending",
+      reason: "尚未取得 TWSE BFI82U／TPEx 官方三大法人買賣金額資料，金額僅能逐日累積，暫無歷史回補。",
+    };
+  }
+
+  const netAmountTwd = latest.net_amount_twd ?? 0;
+  const cumulativeAmount = labelValueRows.reduce((sum, item) => sum + (item.net_amount_twd ?? 0), 0);
+  const cumulativeBuyAmount = labelValueRows.reduce((sum, item) => sum + (item.buy_amount_twd ?? 0), 0);
+  const cumulativeSellAmount = labelValueRows.reduce((sum, item) => sum + (item.sell_amount_twd ?? 0), 0);
+
+  return {
+    ...shareResult,
+    singleDayAmount: netAmountTwd,
+    singleDayBuyAmount: latest.buy_amount_twd,
+    singleDaySellAmount: latest.sell_amount_twd,
+    cumulativeAmount,
+    cumulativeBuyAmount,
+    cumulativeSellAmount,
+    direction: institutionDirection(netAmountTwd),
+    unit: "twd",
+    status: "partial",
+    reason: "單日與累積金額來自 TWSE BFI82U／TPEx 官方三大法人買賣金額統計表（新台幣元）；連續買賣天數與個股前五大仍沿用 T86／TPEx 股數序列。",
+  };
+}
+
+function futuresDirection(netContracts: number | null): TaiwanFuturesPositioning["direction"] {
+  if (netContracts === null) return "pending";
+  if (netContracts > 0) return "net_long";
+  if (netContracts < 0) return "net_short";
+  return "flat";
+}
+
+// TAIFEX's OI endpoint only ever returns the latest available trading day
+// (no historical date-range query support, confirmed during research) -- so
+// unlike the share/value institutional flows, there is no multi-day lookback
+// or streak here yet. This will naturally gain history once the daily cron
+// starts accumulating rows.
+function buildFuturesPositioning(
+  label: TaiwanFuturesPositioning["investor"],
+  rows: FuturesOiRow[] | null | undefined,
+): TaiwanFuturesPositioning {
+  const latest = (rows ?? [])
+    .filter((item) => item.investor === label)
+    .sort((a, b) => b.trade_date.localeCompare(a.trade_date))[0];
+  if (!latest) {
+    return {
+      contractLabel: "臺股期貨",
+      investor: label,
+      tradeDate: null,
+      longContracts: null,
+      shortContracts: null,
+      netContracts: null,
+      direction: "pending",
+      status: "pending",
+      reason: "尚未取得 TAIFEX 官方三大法人期貨未平倉資料；僅能逐日累積，暫無歷史回補。",
+    };
+  }
+  return {
+    contractLabel: "臺股期貨",
+    investor: label,
+    tradeDate: latest.trade_date,
+    longContracts: latest.long_contracts,
+    shortContracts: latest.short_contracts,
+    netContracts: latest.net_contracts,
+    direction: futuresDirection(latest.net_contracts),
+    status: "partial",
+    sourceUrl: latest.source_url ?? undefined,
+    reason: "資料來自 TAIFEX 官方三大法人期貨契約未平倉統計；目前僅有單日資料，尚無法計算連續天數或趨勢。",
+  };
+}
+
 function indexCoverageQuality(
   label: string,
   indices: MarketIndexMove[],
@@ -406,6 +526,7 @@ export function buildIndexMoveFromPrices(
     return pendingIndex(label, symbol, market);
   }
   const changePct = ((latestClose - previousClose) / previousClose) * 100;
+  const changePoint = latestClose - previousClose;
   const dataTier = latest.quality_status === "verified" && previous.quality_status === "verified"
     ? "verified"
     : "provisional";
@@ -415,6 +536,7 @@ export function buildIndexMoveFromPrices(
     market,
     close: latestClose,
     changePct: Number(changePct.toFixed(2)),
+    changePoint: Number(changePoint.toFixed(2)),
     streakLabel: indexStreakLabel(rows),
     status: "partial",
     dataTier,
@@ -454,7 +576,7 @@ function singleSymbolMove(
   market: "TW" | "US",
   startDate: string,
   asOfDate: string,
-): { changePct: number; dataTier: "verified" | "provisional" } | null {
+): { changePct: number; changePoint: number; dataTier: "verified" | "provisional" } | null {
   const rows = reportRowsForSymbol(prices, symbol, market);
   const latest = latestVerifiedOnOrBefore(rows, asOfDate);
   if (!latest) return null;
@@ -465,6 +587,7 @@ function singleSymbolMove(
   if (!Number.isFinite(latestClose) || !Number.isFinite(baseClose) || baseClose <= 0) return null;
   return {
     changePct: Number((((latestClose - baseClose) / baseClose) * 100).toFixed(2)),
+    changePoint: Number((latestClose - baseClose).toFixed(2)),
     dataTier: latest.quality_status === "verified" && base.quality_status === "verified"
       ? "verified"
       : "provisional",
@@ -486,17 +609,18 @@ function buildThemeGroupMoves(
         symbol: stock.symbol,
         companyName: stock.companyName,
         changePct: move.changePct,
+        changePoint: move.changePoint,
         dataTier: move.dataTier,
       }];
     });
 
     if (group.proxySymbol) {
-      // Headline changePct/dataTier comes from the proxy (e.g. the sector
-      // ETF's own price move), which is more accurate than averaging a
-      // small hand-picked constituent sample. Constituents populate
-      // stockMoves/topStocks when their price data is available; until
-      // then, gracefully fall back to the proxy itself as the sole mover
-      // (e.g. before the constituent backfill has run) rather than
+      // Headline changePct/changePoint/dataTier comes from the proxy (e.g.
+      // the sector ETF's own price move), which is more accurate than
+      // averaging a small hand-picked constituent sample. Constituents
+      // populate stockMoves/topStocks when their price data is available;
+      // until then, gracefully fall back to the proxy itself as the sole
+      // mover (e.g. before the constituent backfill has run) rather than
       // dropping the whole sector.
       const proxyMove = singleSymbolMove(prices, group.proxySymbol.symbol, market, startDate, asOfDate);
       if (!proxyMove) return [];
@@ -506,11 +630,13 @@ function buildThemeGroupMoves(
             symbol: group.proxySymbol.symbol,
             companyName: group.proxySymbol.companyName,
             changePct: proxyMove.changePct,
+            changePoint: proxyMove.changePoint,
             dataTier: proxyMove.dataTier,
           }];
       return [{
         label: group.label,
         changePct: proxyMove.changePct,
+        changePoint: proxyMove.changePoint,
         dataTier: proxyMove.dataTier,
         stockMoves: effectiveStockMoves,
       }];
@@ -518,9 +644,11 @@ function buildThemeGroupMoves(
 
     if (stockMoves.length < Math.min(2, group.symbols.length)) return [];
     const changePct = stockMoves.reduce((sum, item) => sum + item.changePct, 0) / stockMoves.length;
+    const changePoint = stockMoves.reduce((sum, item) => sum + item.changePoint, 0) / stockMoves.length;
     return [{
       label: group.label,
       changePct: Number(changePct.toFixed(2)),
+      changePoint: Number(changePoint.toFixed(2)),
       dataTier: stockMoves.every((item) => item.dataTier === "verified") ? "verified" : "provisional",
       stockMoves,
     }];
@@ -540,10 +668,12 @@ function themeMoveToSector(
     label: group.label,
     direction,
     changePct: group.changePct,
+    changePoint: group.changePoint,
     topStocks: sortedStocks.map((item) => ({
       symbol: item.symbol,
       companyName: item.companyName,
       changePct: item.changePct,
+      changePoint: item.changePoint,
       reason: item.dataTier === "verified" ? reasons.stock : reasons.provisionalStock,
     })),
     status: "partial",
@@ -683,7 +813,11 @@ export function buildMarketOutlook(section: MarketBriefSection): MarketBriefOutl
     }
   }
   for (const flow of section.institutionalFlows ?? []) {
-    if (flow.direction === "pending" || flow.singleDayAmount === null) {
+    // `direction` (not `singleDayAmount`) is the real signal here: it may
+    // come from share-based data even while the NT$ amount is still null
+    // (NT$ history hasn't accumulated yet) -- don't discard a known
+    // directional signal just because the amount unit is temporarily unset.
+    if (flow.direction === "pending") {
       unresolvedData.push(`${flow.label} 資金流待補`);
     } else if (flow.direction === "buy") {
       positiveEvidence.push(`${flow.label} 單日淨買超`);
@@ -745,6 +879,8 @@ export function buildMarketBrief(input: {
   taiwanIndices?: MarketIndexMove[];
   usIndices?: MarketIndexMove[];
   twInstitutionalFlows?: TwseInstitutionalTradingSummary[];
+  twInstitutionValueFlows?: InstitutionValueFlowRow[];
+  taifexFuturesOi?: FuturesOiRow[];
   taiwanSectors?: MarketSectorMove[];
   usSectors?: MarketSectorMove[];
   signals?: MarketBriefSignal[];
@@ -758,7 +894,7 @@ export function buildMarketBrief(input: {
   const dataGaps = [
     ...(input.dataGaps ?? []),
     hasCombinedInstitutionMarkets
-      ? "台股官方產業指數、法人金額制資料與完整官方成分股漲跌排行仍需接入官方或授權資料源。"
+      ? "台股官方產業指數與完整官方成分股漲跌排行仍需接入官方或授權資料源；法人買賣金額僅能逐日累積，暫無歷史回補。"
       : "台股官方產業指數、櫃買法人與完整官方成分股漲跌排行仍需接入官方或授權資料源。",
     "美股產業漲跌目前以 sector ETF 自身漲跌與維護的代表成分股呈現；完整官方成分股排行與雙來源驗證仍需接入可信資料源。",
   ];
@@ -773,7 +909,9 @@ export function buildMarketBrief(input: {
       pendingSector("下跌族群", "尚未接入可信主題籃子或官方產業分類與成分股日漲跌資料。"),
     ],
     institutionalFlows: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
-      institutionFromTwse(label, input.twInstitutionalFlows)),
+      institutionFromValueFlow(label, input.twInstitutionValueFlows, input.twInstitutionalFlows)),
+    futuresPositioning: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
+      buildFuturesPositioning(label, input.taifexFuturesOi)),
   };
   const us: MarketBriefSection = {
     market: "US",
@@ -893,7 +1031,14 @@ export async function getMarketBrief(options?: {
     ? institutionStreakLookbackStart
     : startDate;
 
-  const [{ data: signals }, { data: prices }, twseInstitutionalFlows, tpexInstitutionalFlows] = await Promise.all([
+  const [
+    { data: signals },
+    { data: prices },
+    twseInstitutionalFlows,
+    tpexInstitutionalFlows,
+    { data: institutionValueRows },
+    { data: taifexFuturesOiRows },
+  ] = await Promise.all([
     supabase
       .from("signal_events")
       .select("id, as_of_date, topic, signal_strength, confidence_score, model_version")
@@ -914,6 +1059,19 @@ export async function getMarketBrief(options?: {
       .returns<PriceRow[]>(),
     fetchTwseInstitutionalTradingRange({ startDate: institutionLookbackStart, endDate: asOfDate }).catch(() => []),
     fetchTpexInstitutionalTradingRange({ startDate: institutionLookbackStart, endDate: asOfDate }).catch(() => []),
+    supabase
+      .from("tw_institutional_value_flows")
+      .select("trade_date, label, buy_amount_twd, sell_amount_twd, net_amount_twd")
+      .gte("trade_date", institutionLookbackStart)
+      .lte("trade_date", asOfDate)
+      .returns<InstitutionValueFlowRow[]>(),
+    supabase
+      .from("taifex_futures_institutional_oi")
+      .select("trade_date, investor, long_contracts, short_contracts, net_contracts, source_url")
+      .eq("contract_code", "臺股期貨")
+      .gte("trade_date", institutionLookbackStart)
+      .lte("trade_date", asOfDate)
+      .returns<FuturesOiRow[]>(),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -943,6 +1101,8 @@ export async function getMarketBrief(options?: {
     taiwanIndices,
     usIndices,
     twInstitutionalFlows,
+    twInstitutionValueFlows: institutionValueRows ?? [],
+    taifexFuturesOi: taifexFuturesOiRows ?? [],
     taiwanSectors,
     usSectors,
     signals: briefSignals,

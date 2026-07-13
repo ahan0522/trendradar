@@ -10,6 +10,8 @@ import { syncMicronInvestorData } from "@/lib/research-data/micron-investor";
 import { syncNvidiaSecData } from "@/lib/research-data/nvidia-sec";
 import { syncTwseResearchData } from "@/lib/research-data/twse";
 import { syncTpexResearchData } from "@/lib/research-data/tpex";
+import { syncTaifexResearchData } from "@/lib/research-data/taifex";
+import { syncTwInstitutionalValueFlow } from "@/lib/research-data/institutional-value-flow";
 import { finalizeMonthlySignals, previousMonthEnd } from "@/lib/signals/monthly-ledger";
 import { generateSignalLedger } from "@/lib/signals/generate-ledger";
 import {
@@ -116,9 +118,11 @@ export async function GET(request: NextRequest) {
     }
 
     const usSymbols = await getUsWatchlistSymbols();
-    const [twse, tpex, sec, secFacts, micron, nvidia, fred, eia] = await Promise.all([
+    const [twse, tpex, taifex, twInstitutionalValue, sec, secFacts, micron, nvidia, fred, eia] = await Promise.all([
       runSync(() => syncTwseResearchData({ dryRun: false }), 1),
       runSync(() => syncTpexResearchData({ dryRun: false }), 1),
+      runSync(() => syncTaifexResearchData({ dryRun: false }), 1),
+      runSync(() => syncTwInstitutionalValueFlow({ dryRun: false }), 1),
       runSync(() => syncSecResearchData({
         dryRun: false,
         symbols: usSymbols.length > 0 ? usSymbols : undefined,
@@ -194,8 +198,8 @@ export async function GET(request: NextRequest) {
       : null;
 
     return NextResponse.json({
-      ok: [twse, tpex, sec, secFacts, micron, nvidia, fred].some((result) => result.status === "success"),
-      degraded: [twse, tpex, sec, secFacts, micron, nvidia, fred].some((result) => result.status !== "success"),
+      ok: [twse, tpex, taifex, twInstitutionalValue, sec, secFacts, micron, nvidia, fred].some((result) => result.status === "success"),
+      degraded: [twse, tpex, taifex, twInstitutionalValue, sec, secFacts, micron, nvidia, fred].some((result) => result.status !== "success"),
       mode: "daily-research-data",
       collectionPolicy: {
         ...LIVE_COLLECTION_POLICY,
@@ -205,6 +209,8 @@ export async function GET(request: NextRequest) {
       durationMs: Date.now() - startedAt,
       twse,
       tpex,
+      taifex,
+      twInstitutionalValue,
       sec,
       secFacts,
       micron,

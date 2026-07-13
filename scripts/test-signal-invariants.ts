@@ -404,16 +404,34 @@ function testMarketBriefContract() {
       },
     ],
   });
-  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].status, "partial");
-  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].unit, "shares");
+  // No twInstitutionValueFlows provided in this scenario, so the combined
+  // summary correctly reports "pending" (NT$ data not yet available) and
+  // nulls out the NT$-labeled amount fields (never mislabels share counts as
+  // "twd") while still carrying over the share-based topStocks and
+  // consecutiveDays from the existing T86/TPEx pipeline unchanged.
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].status, "pending");
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].unit, "twd");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].topStocks?.[0].symbol, "2408.TW");
-  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].cumulativeAmount, 4234);
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].cumulativeAmount, null);
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[0].consecutiveDays, 2);
   assert.ok(foreignFlowReport.taiwan.institutionalFlows?.[0].sourceUrl?.includes("T86"));
-  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].status, "partial");
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].status, "pending");
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].topStocks?.[0].symbol, "2382.TW");
-  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].cumulativeAmount, 1000);
+  assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].cumulativeAmount, null);
   assert.equal(foreignFlowReport.taiwan.institutionalFlows?.[1].consecutiveDays, 1);
+
+  const ntdFlowReport = buildMarketBrief({
+    period: "daily",
+    asOfDate: "2026-07-11",
+    generatedAt: "2026-07-11T00:00:00.000Z",
+    twInstitutionValueFlows: [
+      { trade_date: "2026-07-11", label: "外資", buy_amount_twd: 5_000_000_000, sell_amount_twd: 4_000_000_000, net_amount_twd: 1_000_000_000 },
+    ],
+  });
+  assert.equal(ntdFlowReport.taiwan.institutionalFlows?.[0].status, "partial");
+  assert.equal(ntdFlowReport.taiwan.institutionalFlows?.[0].unit, "twd");
+  assert.equal(ntdFlowReport.taiwan.institutionalFlows?.[0].singleDayAmount, 1_000_000_000);
+  assert.equal(ntdFlowReport.taiwan.institutionalFlows?.[0].direction, "buy");
   assert.ok(foreignFlowReport.outlook.taiwan.positiveEvidence.some((item) => item.includes("外資")));
   assert.ok(foreignFlowReport.outlook.taiwan.positiveEvidence.some((item) => item.includes("投信")));
   assert.equal(buildMarketOutlook({
@@ -422,8 +440,8 @@ function testMarketBriefContract() {
     status: "partial",
     summary: "test",
     indices: [
-      { label: "S&P 500", symbol: "^GSPC", market: "US", close: 5100, changePct: 1, streakLabel: "上漲", status: "partial" },
-      { label: "Nasdaq", symbol: "^IXIC", market: "US", close: 18000, changePct: 2, streakLabel: "上漲", status: "partial" },
+      { label: "S&P 500", symbol: "^GSPC", market: "US", close: 5100, changePct: 1, changePoint: 50, streakLabel: "上漲", status: "partial" },
+      { label: "Nasdaq", symbol: "^IXIC", market: "US", close: 18000, changePct: 2, changePoint: 350, streakLabel: "上漲", status: "partial" },
     ],
     sectors: [],
   }).bias, "constructive");
@@ -508,7 +526,7 @@ function testMarketBriefContract() {
     item.suggestedSources.some((source) => source.includes("twt38u.html"))));
   assert.ok(report.dataRequirements.some((item) =>
     item.id === "tw-futures-positioning" &&
-    item.status === "pending" &&
+    item.status === "partial" &&
     item.suggestedSources.some((source) => source.includes("TAIFEX"))));
   assert.ok(report.dataRequirements.some((item) =>
     item.id === "global-macro-cross-assets" &&
@@ -525,9 +543,9 @@ function testMarketBriefContract() {
     item.symbol === "^TWII" &&
     item.automationStatus === "ready"));
   assert.ok(report.priceTargets.some((item) =>
-    item.symbol === "^TWOII" &&
+    item.symbol === "WTX&" &&
     item.automationStatus === "ready" &&
-    item.preferredSource.includes("indexInfo/inx")));
+    item.preferredSource.includes("DailyMarketReportFut")));
   assert.ok(report.dataRequirements.some((item) =>
     item.id === "tw-index-prices" &&
     item.status === "ready" &&
