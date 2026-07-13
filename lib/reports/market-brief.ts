@@ -137,6 +137,43 @@ const TW_THEME_GROUPS: MarketThemeGroup[] = [
       { symbol: "3163.TW", companyName: "波若威" },
     ],
   },
+  {
+    label: "金融族群",
+    symbols: [
+      { symbol: "2881.TW", companyName: "富邦金" },
+      { symbol: "2882.TW", companyName: "國泰金" },
+      { symbol: "2891.TW", companyName: "中信金" },
+      { symbol: "2886.TW", companyName: "兆豐金" },
+      { symbol: "2884.TW", companyName: "玉山金" },
+    ],
+  },
+  {
+    label: "航運族群",
+    symbols: [
+      { symbol: "2603.TW", companyName: "長榮" },
+      { symbol: "2609.TW", companyName: "陽明" },
+      { symbol: "2615.TW", companyName: "萬海" },
+    ],
+  },
+  {
+    label: "PCB 族群",
+    symbols: [
+      { symbol: "6274.TW", companyName: "台燿" },
+      { symbol: "3037.TW", companyName: "欣興" },
+      { symbol: "2368.TW", companyName: "金像電" },
+      { symbol: "2367.TW", companyName: "燿華" },
+      { symbol: "2383.TW", companyName: "台光電" },
+    ],
+  },
+  {
+    label: "機器人與自動化族群",
+    symbols: [
+      { symbol: "2049.TW", companyName: "上銀" },
+      { symbol: "1590.TW", companyName: "亞德客-KY" },
+      { symbol: "7750.TW", companyName: "新代" },
+      { symbol: "6438.TW", companyName: "迅得" },
+    ],
+  },
 ];
 
 function usSectorGroup(label: string, proxySymbol: string, proxyCompanyName: string): MarketThemeGroup {

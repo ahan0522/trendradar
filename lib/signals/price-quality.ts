@@ -197,6 +197,24 @@ const sanityRanges: Record<string, SanityRange> = {
   "2634.TW::TW": { min: 20, max: 300, note: "漢翔台股報價合理區間" },
   "2049.TW::TW": { min: 50, max: 1500, note: "上銀台股報價合理區間" },
 
+  // 金融、航運、PCB、機器人與自動化族群（2026-07 新增）
+  "2881.TW::TW": { min: 40, max: 450, note: "富邦金台股報價合理區間" },
+  "2882.TW::TW": { min: 30, max: 350, note: "國泰金台股報價合理區間" },
+  "2891.TW::TW": { min: 20, max: 250, note: "中信金台股報價合理區間" },
+  "2886.TW::TW": { min: 15, max: 170, note: "兆豐金台股報價合理區間" },
+  "2884.TW::TW": { min: 10, max: 130, note: "玉山金台股報價合理區間" },
+  "2603.TW::TW": { min: 50, max: 700, note: "長榮台股報價合理區間" },
+  "2609.TW::TW": { min: 15, max: 200, note: "陽明台股報價合理區間" },
+  "2615.TW::TW": { min: 25, max: 300, note: "萬海台股報價合理區間" },
+  "6274.TW::TW": { min: 400, max: 5500, note: "台燿台股報價合理區間" },
+  "3037.TW::TW": { min: 250, max: 3200, note: "欣興台股報價合理區間" },
+  "2368.TW::TW": { min: 30, max: 400, note: "金像電台股報價合理區間" },
+  "2367.TW::TW": { min: 15, max: 200, note: "燿華台股報價合理區間" },
+  "2383.TW::TW": { min: 30, max: 400, note: "台光電台股報價合理區間" },
+  "1590.TW::TW": { min: 300, max: 4500, note: "亞德客-KY 台股報價合理區間" },
+  "7750.TW::TW": { min: 500, max: 7000, note: "新代台股報價合理區間" },
+  "6438.TW::TW": { min: 40, max: 500, note: "迅得台股報價合理區間" },
+
   "000660.KS::KR": { min: 50000, max: 600000, note: "SK Hynix KRW quote range" },
   "005930.KS::KR": { min: 30000, max: 150000, note: "Samsung Electronics KRW quote range" },
 };
