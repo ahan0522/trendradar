@@ -4,6 +4,7 @@ import {
   type TwseInstitutionalValueFlow,
 } from "@/lib/research-data/twse";
 import { fetchTpexInstitutionalValueFlow } from "@/lib/research-data/tpex";
+import { isTwTradingDay } from "@/lib/trading-calendar";
 
 function mergeInstitutionalValueFlows(
   ...groups: TwseInstitutionalValueFlow[][]
@@ -100,7 +101,11 @@ export async function backfillTwseInstitutionalValueFlow(options: {
   dryRun?: boolean;
 }) {
   const dryRun = options.dryRun ?? true;
-  const dates = eachCalendarDate(options.startDate, options.endDate);
+  const allDates = eachCalendarDate(options.startDate, options.endDate);
+  const tradingFlags = await Promise.all(allDates.map((date) => isTwTradingDay(date)));
+  const dates = allDates.filter((_, index) => tradingFlags[index]);
+  const skippedNonTradingDays = allDates.length - dates.length;
+
   const perDate = await Promise.all(dates.map(async (date) => {
     try {
       return await fetchTwseInstitutionalValueFlow({ date });
@@ -114,7 +119,8 @@ export async function backfillTwseInstitutionalValueFlow(options: {
     return {
       ok: true,
       dryRun: true,
-      requestedDates: dates.length,
+      requestedDates: allDates.length,
+      skippedNonTradingDays,
       tradingDaysFound: perDate.filter((rows) => rows.length > 0).length,
       flowCount: flows.length,
       flows,
@@ -124,7 +130,8 @@ export async function backfillTwseInstitutionalValueFlow(options: {
   return {
     ok: true,
     dryRun: false,
-    requestedDates: dates.length,
+    requestedDates: allDates.length,
+    skippedNonTradingDays,
     tradingDaysFound: perDate.filter((rows) => rows.length > 0).length,
     flowCount: count,
   };
