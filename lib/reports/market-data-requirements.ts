@@ -136,11 +136,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "美股 VIX 與風險情緒",
     market: "US",
     priority: "medium",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly", "monthly"],
     suggestedSources: ["CBOE VIX official data", "verified market data provider fallback"],
     blocksReportNumbers: false,
-    reason: "VIX 可輔助判斷隔日風險偏好；未接入前不輸出恐慌或風險分數。",
+    reason: "VIX 已隨美股指數同步（Yahoo 單一來源，標示暫定），並已計入 outlook 證據（方向與一般指數相反）；官方 CBOE 來源與雙來源驗證仍待補齊。",
   },
   {
     id: "global-macro-cross-assets",

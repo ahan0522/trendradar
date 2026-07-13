@@ -234,8 +234,13 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
       <div className="flex flex-wrap items-end justify-between gap-3"><SectionHeading eyebrow={section.market} title={section.title} /><p className={`text-sm font-black ${biasClass(outlook)}`}>{biasText(outlook)}</p></div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {section.indices.map((index) => {
-          const positive = (index.changePct ?? 0) > 0;
-          const negative = (index.changePct ?? 0) < 0;
+          // VIX is a fear gauge: rising is bad news for equities, so its
+          // color/arrow polarity is the inverse of every other index here.
+          const isInverseVolatility = index.symbol === "^VIX";
+          const rawPositive = (index.changePct ?? 0) > 0;
+          const rawNegative = (index.changePct ?? 0) < 0;
+          const positive = isInverseVolatility ? rawNegative : rawPositive;
+          const negative = isInverseVolatility ? rawPositive : rawNegative;
           return (
             <article key={index.symbol} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
               <div className="flex items-start justify-between gap-3">

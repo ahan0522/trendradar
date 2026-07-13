@@ -76,6 +76,7 @@ const US_INDEX_SYMBOLS = [
   { label: "那斯達克", symbol: "^IXIC" },
   { label: "S&P 500", symbol: "^GSPC" },
   { label: "費城半導體", symbol: "^SOX" },
+  { label: "VIX 恐慌指數", symbol: "^VIX" },
 ];
 
 type MarketThemeGroup = {
@@ -832,12 +833,16 @@ export function buildMarketOutlook(section: MarketBriefSection): MarketBriefOutl
   const unresolvedData: string[] = [];
 
   for (const index of section.indices) {
+    // VIX is a fear gauge, not an equity index -- rising VIX means rising
+    // risk aversion (bearish for equities), the opposite polarity of every
+    // other index here, so its evidence direction must be inverted.
+    const isInverseVolatility = index.symbol === "^VIX";
     if (index.changePct === null || index.status === "pending") {
       unresolvedData.push(`${index.label} 漲跌與連續天數待補`);
     } else if (index.changePct > 0) {
-      positiveEvidence.push(`${index.label} ${signedPercent(index.changePct)}`);
+      (isInverseVolatility ? negativeEvidence : positiveEvidence).push(`${index.label} ${signedPercent(index.changePct)}`);
     } else if (index.changePct < 0) {
-      negativeEvidence.push(`${index.label} ${signedPercent(index.changePct)}`);
+      (isInverseVolatility ? positiveEvidence : negativeEvidence).push(`${index.label} ${signedPercent(index.changePct)}`);
     }
   }
   for (const sector of section.sectors) {

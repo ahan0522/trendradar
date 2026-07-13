@@ -53,9 +53,10 @@ function periodHref(period: MarketBriefPeriod, asOfDate: string) {
   return `/brief?period=${period}&asOfDate=${asOfDate}`;
 }
 
-function moveColor(direction: number | null) {
+function moveColor(direction: number | null, inverse = false) {
   if (direction === null || direction === 0) return "text-slate-500";
-  return direction > 0 ? "text-emerald-600" : "text-rose-600";
+  const rising = direction > 0;
+  return (inverse ? !rising : rising) ? "text-emerald-600" : "text-rose-600";
 }
 
 function barWidthPercent(changePct: number | null) {
@@ -184,7 +185,7 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
               {index.dataTier === "provisional" ? <span className="text-amber-500">單一來源</span> : null}
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
-            <p className={`text-sm font-semibold tabular-nums ${moveColor(index.changePct)}`}>
+            <p className={`text-sm font-semibold tabular-nums ${moveColor(index.changePct, index.symbol === "^VIX")}`}>
               {signedPercent(index.changePct)}
               <span className="ml-1.5 font-normal text-slate-400">{signedAmount(index.changePoint)} 點</span>
             </p>

@@ -66,6 +66,15 @@ export const MARKET_BRIEF_INDEX_PRICE_TARGETS: MarketBriefPriceTarget[] = [
     reason: "美股正式報告需要雙來源驗證；未確認獨立來源支援費城半導體指數前不輸出數字。",
   },
   {
+    symbol: "^VIX",
+    label: "VIX 恐慌指數",
+    market: "US",
+    assetType: "index",
+    automationStatus: "needs_independent_source",
+    preferredSource: "Yahoo chart plus independent index close provider",
+    reason: "與其他美股指數相同，Alpha Vantage TIME_SERIES_DAILY 對原始指數代碼（含 ^VIX）不提供可靠雙來源驗證；未接入獨立來源前僅以單一來源暫定行情顯示。VIX 上升代表風險趨避（對多方不利），outlook 證據方向與一般指數相反，已在 buildMarketOutlook 中特別處理。",
+  },
+  {
     symbol: "XLK",
     label: "科技 ETF",
     market: "US",

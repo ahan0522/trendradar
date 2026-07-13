@@ -82,6 +82,7 @@ const sanityRanges: Record<string, SanityRange> = {
   "^IXIC::US": { min: 9000, max: 66000, note: "Nasdaq Composite market-brief USD quote range" },
   "^GSPC::US": { min: 2650, max: 19000, note: "S&P 500 market-brief USD quote range" },
   "^SOX::US": { min: 4550, max: 32000, note: "Philadelphia Semiconductor Index market-brief USD quote range" },
+  "^VIX::US": { min: 5, max: 100, note: "CBOE Volatility Index market-brief quote range (wide band to cover crisis spikes)" },
   "XLK::US": { min: 60, max: 650, note: "Technology Select Sector SPDR market-brief USD quote range" },
   "SMH::US": { min: 180, max: 2100, note: "VanEck Semiconductor ETF market-brief USD quote range" },
   "XLC::US": { min: 35, max: 400, note: "Communication Services Select Sector SPDR market-brief USD quote range" },
