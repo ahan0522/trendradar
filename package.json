@@ -27,15 +27,16 @@
   },
   "dependencies": {
     "@next/env": "latest",
+    "@supabase/supabase-js": "latest",
     "clsx": "latest",
     "framer-motion": "latest",
     "lucide-react": "latest",
+    "motion-dom": "latest",
+    "motion-utils": "latest",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "motion-dom": "latest",
-    "motion-utils": "latest",
-    "@supabase/supabase-js": "latest"
+    "stripe": "^22.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
