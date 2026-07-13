@@ -127,7 +127,10 @@ export default async function BriefPage({ searchParams }: {
         {error || !brief ? <ErrorState message={error} /> : <Report brief={brief} revision={snapshot?.revision ?? null} />}
 
         <footer className="mt-12 border-t border-slate-200 pt-6 text-xs leading-6 text-slate-400">
-          本報告內容僅為市場資料整理與研究觀察，非投資建議、非個股買賣推薦，亦不保證未來報酬。單一來源行情標示為暫定，不進入回測與績效統計。投資前請自行查證並評估風險。
+          <p>
+            本報告內容僅為市場資料整理與研究觀察，非投資建議、非個股買賣推薦，亦不保證未來報酬。單一來源行情標示為暫定，不進入回測與績效統計。投資前請自行查證並評估風險。詳見
+            {" "}<Link href="/legal/disclaimer" className="underline hover:text-slate-600">免責聲明</Link>。
+          </p>
         </footer>
       </div>
     </main>

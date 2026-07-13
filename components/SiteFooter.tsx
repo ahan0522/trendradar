@@ -14,6 +14,7 @@ export function SiteFooter() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3 text-sm font-bold">
+          <Link href="/brief" className="hover:text-white">市場晨報</Link>
           <Link href="/radar" className="hover:text-white">全市場雷達</Link>
           <Link href="/signals" className="hover:text-white">市場訊號</Link>
           <Link href="/signals/monthly" className="hover:text-white">月度訊號</Link>
@@ -22,6 +23,11 @@ export function SiteFooter() {
           <Link href="/reports/signal-validation" className="hover:text-white">驗證報告</Link>
           <Link href="/failed-signals" className="hover:text-white">失敗紀錄</Link>
         </div>
+      </div>
+      <div className="mx-auto mt-6 flex max-w-7xl flex-wrap gap-4 border-t border-zinc-900 pt-4 text-xs text-zinc-600">
+        <Link href="/legal/disclaimer" className="hover:text-zinc-300">免責聲明</Link>
+        <Link href="/legal/terms" className="hover:text-zinc-300">服務條款</Link>
+        <Link href="/legal/privacy" className="hover:text-zinc-300">隱私權政策</Link>
       </div>
     </footer>
   );
