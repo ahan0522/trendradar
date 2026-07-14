@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots";
 import {
   biasText,
@@ -65,6 +66,13 @@ function moveColor(direction: number | null) {
   return direction > 0 ? "text-rose-600" : "text-emerald-600";
 }
 
+function MoveIcon({ direction }: { direction: number | null }) {
+  if (direction === null || direction === 0) return null;
+  return direction > 0
+    ? <TrendingUp className="h-4 w-4 text-rose-500" />
+    : <TrendingDown className="h-4 w-4 text-emerald-500" />;
+}
+
 // Diverging bar: half-width from the 0% center line, capped at ±8% move.
 function barHalfWidthPercent(changePct: number | null) {
   if (changePct === null || changePct === 0) return 0;
@@ -91,7 +99,7 @@ export default async function BriefPage({ searchParams }: {
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      <div className="mx-auto max-w-2xl px-5 py-10 sm:px-6">
+      <div className="mx-auto max-w-3xl px-5 py-10 sm:px-8">
         <header className="border-b border-slate-200 pb-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -181,37 +189,48 @@ function OutlookCard({ title, outlook }: { title: string; outlook: MarketBriefOu
 
 function MarketSection({ section }: { section: MarketBriefSection }) {
   const label = section.market === "TW" ? "台股" : "美股";
+  const hasChipData = Boolean(
+    section.institutionalFlows || section.futuresPositioning || section.marginTrading || section.optionsSentiment,
+  );
   return (
-    <section className="mt-10">
-      <SectionLabel>{label}焦點指數</SectionLabel>
-      <div className="mt-4 flex flex-wrap gap-x-8 gap-y-5">
-        {section.indices.map((index) => (
-          <div key={index.symbol}>
-            <p className="flex items-center gap-1.5 text-xs text-slate-400">
-              {index.label}
-              {index.dataTier === "provisional" ? <span className="text-amber-500">單一來源</span> : null}
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
-            <p className={`text-sm font-semibold tabular-nums ${moveColor(index.changePct)}`}>
-              {index.changePct === null ? "待補" : (
-                <>
-                  {signedPercent(index.changePct)}
-                  <span className="ml-1.5 font-normal text-slate-400">{signedAmount(index.changePoint)} 點</span>
-                </>
-              )}
-            </p>
-            <p className="text-xs text-slate-400">{index.streakLabel}</p>
-          </div>
-        ))}
+    <section className="mt-12">
+      <div className="flex items-center gap-2">
+        <span className="rounded-md bg-slate-900 px-2 py-0.5 text-xs font-bold text-white">{section.market}</span>
+        <h2 className="text-xl font-bold tracking-tight">{label}盤勢</h2>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-100 p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">焦點指數</p>
+        <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+          {section.indices.map((index) => (
+            <div key={index.symbol}>
+              <p className="flex items-center gap-1.5 text-xs text-slate-400">
+                {index.label}
+                {index.dataTier === "provisional" ? <span className="text-amber-500">單一來源</span> : null}
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
+              <p className={`flex items-center gap-1 text-sm font-semibold tabular-nums ${moveColor(index.changePct)}`}>
+                {index.changePct === null ? "待補" : (
+                  <>
+                    <MoveIcon direction={index.changePct} />
+                    {signedPercent(index.changePct)}
+                    <span className="font-normal text-slate-400">{signedAmount(index.changePoint)} 點</span>
+                  </>
+                )}
+              </p>
+              <p className="text-xs text-slate-400">{index.streakLabel}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* US sector/theme movers temporarily hidden -- indices only for now
           while TW data quality work is prioritized, same policy as the
           original /reports/market-brief page. */}
       {section.sectors.length > 0 && section.market !== "US" ? (
-        <div className="mt-8">
-          <SectionLabel>{label}族群表現</SectionLabel>
-          <div className="mt-3 divide-y divide-slate-100">
+        <div className="mt-4 rounded-2xl border border-slate-100 p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}族群表現</p>
+          <div className="mt-2 divide-y divide-slate-100">
             {section.sectors.map((sector) => (
               <SectorRow key={sector.label} sector={sector} unitLabel={section.market === "TW" ? "元" : "$"} />
             ))}
@@ -219,11 +238,17 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
         </div>
       ) : null}
 
-      {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
-      {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
-      {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
-      {section.optionsSentiment ? <OptionsSentiment options={section.optionsSentiment} /> : null}
-      {section.fxRate ? <FxRate fx={section.fxRate} /> : null}
+      {hasChipData ? (
+        <div className="mt-4 rounded-2xl border border-slate-100 p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">資金與籌碼</p>
+          {section.institutionalFlows || section.futuresPositioning ? (
+            <InvestorGrid flows={section.institutionalFlows} futures={section.futuresPositioning} />
+          ) : null}
+          {section.marginTrading || section.optionsSentiment || section.fxRate ? (
+            <QuickStats margin={section.marginTrading} options={section.optionsSentiment} fx={section.fxRate} />
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -232,18 +257,19 @@ function SectorRow({ sector, unitLabel }: { sector: MarketSectorMove; unitLabel:
   const positive = (sector.changePct ?? 0) > 0;
   const negative = (sector.changePct ?? 0) < 0;
   return (
-    <div className="py-3">
+    <div className="py-3.5">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-slate-700">{sector.label}</span>
-        <span className={`text-sm font-semibold tabular-nums ${moveColor(sector.changePct)}`}>
+        <span className={`flex items-center gap-1 text-sm font-semibold tabular-nums ${moveColor(sector.changePct)}`}>
+          <MoveIcon direction={sector.changePct} />
           {signedPercent(sector.changePct)}
-          <span className="ml-1.5 font-normal text-slate-400">{signedAmount(sector.changePoint)}{unitLabel}</span>
+          <span className="font-normal text-slate-400">{signedAmount(sector.changePoint)}{unitLabel}</span>
         </span>
       </div>
-      <div className="relative mt-1.5 h-1 w-full rounded-full bg-slate-100">
-        <div className="absolute left-1/2 top-0 h-1 w-px bg-slate-300" />
+      <div className="relative mt-2 h-1.5 w-full rounded-full bg-slate-100">
+        <div className="absolute left-1/2 top-0 h-1.5 w-px bg-slate-300" />
         <div
-          className={`absolute top-0 h-1 rounded-full ${positive ? "bg-rose-500" : negative ? "bg-emerald-500" : "bg-slate-300"}`}
+          className={`absolute top-0 h-1.5 rounded-full ${positive ? "bg-rose-500" : negative ? "bg-emerald-500" : "bg-slate-300"}`}
           style={
             positive
               ? { left: "50%", width: `${barHalfWidthPercent(sector.changePct)}%` }
@@ -252,151 +278,118 @@ function SectorRow({ sector, unitLabel }: { sector: MarketSectorMove; unitLabel:
         />
       </div>
       {sector.topStocks.length > 0 ? (
-        <p className="mt-1.5 text-xs text-slate-400">
+        <p className="mt-2 text-xs leading-5 text-slate-400">
           {sector.topStocks
             .map((stock) => `${stock.companyName} ${signedPercent(stock.changePct)}（${signedAmount(stock.changePoint)}${unitLabel}）`)
             .join(" · ")}
         </p>
       ) : sector.reason ? (
-        <p className="mt-1.5 text-xs text-slate-400">{sector.reason}</p>
+        <p className="mt-2 text-xs text-slate-400">{sector.reason}</p>
       ) : null}
     </div>
   );
 }
 
-function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
-  return (
-    <div className="mt-8">
-      <SectionLabel>法人資金流（新台幣）</SectionLabel>
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-slate-400">
-            <th className="pb-2 font-normal">類別</th>
-            <th className="pb-2 font-normal">單日</th>
-            <th className="pb-2 font-normal">區間累積</th>
-            <th className="pb-2 font-normal">連續</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {flows.map((flow) => (
-            <tr key={flow.label}>
-              <td className="py-2 font-medium">{flow.label}</td>
-              <td className={`py-2 tabular-nums ${flow.direction === "buy" ? "text-rose-600" : flow.direction === "sell" ? "text-emerald-600" : "text-slate-500"}`}>
-                {compactAmount(flow.singleDayAmount, flow.unit)}
-              </td>
-              <td className="py-2 tabular-nums text-slate-500">{compactAmount(flow.cumulativeAmount, flow.unit)}</td>
-              <td className="py-2 text-slate-500">{flow.consecutiveDays ?? "—"} 日</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+// Institutional cash flow and futures positioning are both broken down by
+// the same four investor categories, so they're combined into one card grid
+// instead of two separate tables -- avoids repeating "外資/投信/自營商/三大
+// 法人" headers twice and reads better on narrow screens than a table would.
+function InvestorGrid({
+  flows,
+  futures,
+}: {
+  flows?: InstitutionalFlowSummary[];
+  futures?: TaiwanFuturesPositioning[];
+}) {
+  const labels = ["外資", "投信", "自營商", "三大法人"] as const;
+  const flowByLabel = new Map((flows ?? []).map((item) => [item.label, item]));
+  const futuresByLabel = new Map((futures ?? []).map((item) => [item.investor, item]));
 
-function FuturesPositioning({ items }: { items: TaiwanFuturesPositioning[] }) {
   return (
-    <div className="mt-8">
-      <SectionLabel>台指期三大法人未平倉（口數）</SectionLabel>
-      <table className="mt-3 w-full text-sm">
-        <thead>
-          <tr className="text-left text-xs text-slate-400">
-            <th className="pb-2 font-normal">類別</th>
-            <th className="pb-2 font-normal">多單</th>
-            <th className="pb-2 font-normal">空單</th>
-            <th className="pb-2 font-normal">淨部位</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {items.map((item) => (
-            <tr key={item.investor}>
-              <td className="py-2 font-medium">{item.investor}</td>
-              <td className="py-2 tabular-nums text-slate-500">{item.longContracts?.toLocaleString("zh-TW") ?? "待補"}</td>
-              <td className="py-2 tabular-nums text-slate-500">{item.shortContracts?.toLocaleString("zh-TW") ?? "待補"}</td>
-              <td className={`py-2 tabular-nums ${item.direction === "net_long" ? "text-rose-600" : item.direction === "net_short" ? "text-emerald-600" : "text-slate-500"}`}>
-                {item.netContracts !== null ? `${item.netContracts >= 0 ? "+" : ""}${item.netContracts.toLocaleString("zh-TW")}` : "待補"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-2 text-xs text-slate-400">{items[0]?.reason ?? ""}</p>
-    </div>
-  );
-}
-
-function MarginTrading({ margin }: { margin: MarginTradingSummary }) {
-  if (margin.status === "pending") return null;
-  return (
-    <div className="mt-8">
-      <SectionLabel>融資融券餘額（上市）</SectionLabel>
-      {/* Direction here is descriptive, not evidence: rising margin balance can
-          read as either bullish leverage or a contrarian risk warning, so it
-          is deliberately shown in neutral slate rather than green/red. */}
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <div>
-          <p className="text-xs text-slate-400">融資餘額</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">{compactAmount(margin.marginBalanceAmountTwd, "twd")}</p>
-          <p className="text-sm tabular-nums text-slate-500">{compactAmount(margin.marginBalanceChangeAmountTwd, "twd")}（單日）</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-400">融券餘額</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">{margin.shortBalanceLots?.toLocaleString("zh-TW") ?? "待補"} 張</p>
-          <p className="text-sm tabular-nums text-slate-500">{signedAmount(margin.shortBalanceChangeLots, 0)} 張（單日）</p>
-        </div>
+    <div className="mt-3">
+      <p className="text-xs text-slate-400">現貨買賣超（新台幣）／台指期未平倉（口數）</p>
+      <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        {labels.map((label) => {
+          const flow = flowByLabel.get(label);
+          const future = futuresByLabel.get(label);
+          if (!flow && !future) return null;
+          return (
+            <div key={label} className="rounded-xl bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-700">{label}</p>
+              {flow ? (
+                <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+                  <span className="text-xs text-slate-400">現貨</span>
+                  <span className={`font-semibold tabular-nums ${flow.direction === "buy" ? "text-rose-600" : flow.direction === "sell" ? "text-emerald-600" : "text-slate-500"}`}>
+                    {compactAmount(flow.singleDayAmount, flow.unit)}
+                    <span className="ml-1 font-normal text-slate-400">連{flow.consecutiveDays ?? "—"}日</span>
+                  </span>
+                </div>
+              ) : null}
+              {future ? (
+                <div className="mt-1 flex items-center justify-between gap-2 text-sm">
+                  <span className="text-xs text-slate-400">期貨未平倉</span>
+                  <span className={`font-semibold tabular-nums ${future.direction === "net_long" ? "text-rose-600" : future.direction === "net_short" ? "text-emerald-600" : "text-slate-500"}`}>
+                    {future.netContracts !== null ? `${future.netContracts >= 0 ? "+" : ""}${future.netContracts.toLocaleString("zh-TW")} 口` : "待補"}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
-      <p className="mt-2 text-xs text-slate-400">{margin.reason}</p>
     </div>
   );
 }
 
-function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
-  if (options.status === "pending") return null;
-  return (
-    <div className="mt-8">
-      <SectionLabel>臺指選擇權 Put/Call 比</SectionLabel>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <div>
-          <p className="text-xs text-slate-400">成交量比</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">
-            {options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%
-            {options.putCallVolumeRatioChangePct !== null ? (
-              <span className="ml-1.5 text-sm font-normal text-slate-400">
-                （{options.comparisonLabel} {signedAmount(options.putCallVolumeRatioChangePct)}）
-              </span>
-            ) : null}
-          </p>
-          <p className="text-sm text-slate-500">Put {options.putVolume?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callVolume?.toLocaleString("zh-TW") ?? "—"}</p>
-        </div>
-        <div>
-          <p className="text-xs text-slate-400">未平倉比</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">
-            {options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%
-            {options.putCallOiRatioChangePct !== null ? (
-              <span className="ml-1.5 text-sm font-normal text-slate-400">
-                （{options.comparisonLabel} {signedAmount(options.putCallOiRatioChangePct)}）
-              </span>
-            ) : null}
-          </p>
-          <p className="text-sm text-slate-500">Put {options.putOpenInterest?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callOpenInterest?.toLocaleString("zh-TW") ?? "—"}</p>
-        </div>
-      </div>
-      <p className="mt-2 text-xs text-slate-400">{options.reason}</p>
-    </div>
-  );
-}
+function QuickStats({
+  margin,
+  options,
+  fx,
+}: {
+  margin?: MarginTradingSummary;
+  options?: OptionsSentimentSummary;
+  fx?: FxRateSummary;
+}) {
+  const tiles: Array<{ key: string; label: string; value: React.ReactNode; note: React.ReactNode }> = [];
 
-function FxRate({ fx }: { fx: FxRateSummary }) {
-  if (fx.status === "pending") return null;
+  if (margin && margin.status !== "pending") {
+    tiles.push({
+      key: "margin",
+      label: "融資餘額",
+      value: compactAmount(margin.marginBalanceAmountTwd, "twd"),
+      note: `${compactAmount(margin.marginBalanceChangeAmountTwd, "twd")}（單日）`,
+    });
+  }
+  if (options && options.status !== "pending") {
+    tiles.push({
+      key: "pcr",
+      label: "Put/Call 量比",
+      value: `${options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%`,
+      note: options.putCallVolumeRatioChangePct !== null
+        ? `${options.comparisonLabel} ${signedAmount(options.putCallVolumeRatioChangePct)}`
+        : null,
+    });
+  }
+  if (fx && fx.status !== "pending") {
+    tiles.push({
+      key: "fx",
+      label: `${fx.pair}${fx.dataTier === "provisional" ? "（單一來源）" : ""}`,
+      value: fx.rate?.toFixed(3) ?? "待補",
+      note: `${signedAmount(fx.changeAmount, 4)}（${signedPercent(fx.changePct)}）`,
+    });
+  }
+
+  if (tiles.length === 0) return null;
+
   return (
-    <div className="mt-8">
-      <div className="flex items-center gap-1.5">
-        <SectionLabel>{fx.pair} 匯率</SectionLabel>
-        {fx.dataTier === "provisional" ? <span className="text-xs text-amber-500">單一來源</span> : null}
-      </div>
-      <p className="mt-1 text-lg font-bold tabular-nums">{fx.rate?.toFixed(3) ?? "待補"}</p>
-      <p className="text-sm tabular-nums text-slate-500">{signedAmount(fx.changeAmount, 4)}（{signedPercent(fx.changePct)}）</p>
-      <p className="mt-2 text-xs text-slate-400">{fx.reason}</p>
+    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+      {tiles.map((tile) => (
+        <div key={tile.key} className="rounded-xl bg-slate-50 p-4">
+          <p className="text-xs text-slate-400">{tile.label}</p>
+          <p className="mt-1 text-base font-bold tabular-nums">{tile.value}</p>
+          {tile.note ? <p className="mt-0.5 text-xs tabular-nums text-slate-500">{tile.note}</p> : null}
+        </div>
+      ))}
     </div>
   );
 }
@@ -429,10 +422,6 @@ function MethodologyAppendix({ brief }: { brief: MarketBrief }) {
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{children}</p>;
-}
-
 function ErrorState({ message }: { message: string }) {
   return (
     <section className="mt-10 rounded-xl border border-rose-200 bg-rose-50 p-6">
@@ -441,4 +430,3 @@ function ErrorState({ message }: { message: string }) {
     </section>
   );
 }
-
