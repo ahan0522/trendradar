@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@next/env": "latest",
+    "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "latest",
     "clsx": "latest",
     "framer-motion": "latest",
