@@ -189,8 +189,12 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
             <p className={`text-sm font-semibold tabular-nums ${moveColor(index.changePct, index.symbol === "^VIX")}`}>
-              {signedPercent(index.changePct)}
-              <span className="ml-1.5 font-normal text-slate-400">{signedAmount(index.changePoint)} 點</span>
+              {index.changePct === null ? "待補" : (
+                <>
+                  {signedPercent(index.changePct)}
+                  <span className="ml-1.5 font-normal text-slate-400">{signedAmount(index.changePoint)} 點</span>
+                </>
+              )}
             </p>
             <p className="text-xs text-slate-400">{index.streakLabel}</p>
           </div>

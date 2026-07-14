@@ -257,8 +257,12 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
                 {positive ? <ArrowUpRight className="h-5 w-5 text-emerald-300" /> : negative ? <ArrowDownRight className="h-5 w-5 text-rose-300" /> : <Minus className="h-5 w-5 text-zinc-600" />}
               </div>
               <p className={`mt-3 font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-rose-300" : "text-zinc-600"}`}>
-                {signedPercent(index.changePct)}
-                <span className="ml-2 text-xs font-normal text-zinc-500">{signedAmount(index.changePoint)} 點</span>
+                {index.changePct === null ? "待補" : (
+                  <>
+                    {signedPercent(index.changePct)}
+                    <span className="ml-2 text-xs font-normal text-zinc-500">{signedAmount(index.changePoint)} 點</span>
+                  </>
+                )}
               </p>
               <p className="mt-2 text-xs leading-5 text-zinc-600">{index.streakLabel}</p>
             </article>
