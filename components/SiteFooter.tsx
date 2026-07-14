@@ -1,6 +1,15 @@
-import Link from "next/link";
+"use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// /brief carries its own compact disclaimer + legal link already, so the
+// full site-wide footer (other product links, extended disclaimer) would
+// just be redundant clutter under the report.
 export function SiteFooter() {
+  const pathname = usePathname();
+  if (pathname.startsWith("/brief")) return null;
+
   return (
     <footer className="border-t border-zinc-800 bg-[#05070d] px-4 py-8 text-zinc-500 md:px-8">
       <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-[1fr_auto] md:items-start">

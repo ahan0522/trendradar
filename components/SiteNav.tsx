@@ -21,8 +21,12 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+// /brief is a standalone report page -- the site-wide app navigation
+// (radar, signals, etc.) is unrelated to reading today's report, so it's
+// hidden there. The page still links back out via its own masthead.
 export function SiteNav() {
   const pathname = usePathname();
+  if (pathname.startsWith("/brief")) return null;
 
   return (
     <nav className="sticky top-0 z-50 border-b border-zinc-800/80 bg-[#05070d]/92 text-white backdrop-blur">
