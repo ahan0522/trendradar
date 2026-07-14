@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron/research-data",
-      "schedule": "0 10 * * *"
+      "schedule": "30 21 * * *"
     }
   ]
 }
