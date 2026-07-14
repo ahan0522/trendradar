@@ -245,7 +245,9 @@ function SectorRow({ sector, unitLabel }: { sector: MarketSectorMove; unitLabel:
       </div>
       {sector.topStocks.length > 0 ? (
         <p className="mt-1.5 text-xs text-slate-400">
-          {sector.topStocks.map((stock) => `${stock.companyName} ${signedPercent(stock.changePct)}`).join(" · ")}
+          {sector.topStocks
+            .map((stock) => `${stock.companyName} ${signedPercent(stock.changePct)}（${signedAmount(stock.changePoint)}${unitLabel}）`)
+            .join(" · ")}
         </p>
       ) : sector.reason ? (
         <p className="mt-1.5 text-xs text-slate-400">{sector.reason}</p>
@@ -348,12 +350,26 @@ function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <div>
           <p className="text-xs text-slate-400">成交量比</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">{options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="mt-1 text-lg font-bold tabular-nums">
+            {options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%
+            {options.putCallVolumeRatioChangePct !== null ? (
+              <span className="ml-1.5 text-sm font-normal text-slate-400">
+                （{options.comparisonLabel} {signedAmount(options.putCallVolumeRatioChangePct)}）
+              </span>
+            ) : null}
+          </p>
           <p className="text-sm text-slate-500">Put {options.putVolume?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callVolume?.toLocaleString("zh-TW") ?? "—"}</p>
         </div>
         <div>
           <p className="text-xs text-slate-400">未平倉比</p>
-          <p className="mt-1 text-lg font-bold tabular-nums">{options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="mt-1 text-lg font-bold tabular-nums">
+            {options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%
+            {options.putCallOiRatioChangePct !== null ? (
+              <span className="ml-1.5 text-sm font-normal text-slate-400">
+                （{options.comparisonLabel} {signedAmount(options.putCallOiRatioChangePct)}）
+              </span>
+            ) : null}
+          </p>
           <p className="text-sm text-slate-500">Put {options.putOpenInterest?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callOpenInterest?.toLocaleString("zh-TW") ?? "—"}</p>
         </div>
       </div>

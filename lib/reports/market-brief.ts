@@ -557,38 +557,57 @@ function buildMarginTradingSummary(rows: MarginBalanceRow[] | null | undefined):
   };
 }
 
-// TAIFEX's PutCallRatio endpoint returns full history sorted newest-first but
-// (like the other TAIFEX endpoints) offers no way to diff against a prior
-// day beyond what's already in that same array, so this stays a descriptive
-// single-day snapshot, not a streak. Ratio direction is deliberately kept out
-// of buildMarketOutlook's evidence lists -- unlike institutional flow or VIX,
-// a rising put/call ratio is genuinely read both ways in practice (more
-// downside hedging vs. a contrarian oversold signal), so asserting a bullish/
-// bearish label here would be an opinion, not a fact.
-function buildOptionsSentimentSummary(row: PutCallRatioRow | null | undefined): OptionsSentimentSummary {
-  if (!row) {
+// TAIFEX's PutCallRatio endpoint returns ~20 trading days of history in one
+// call, which the sync step now stores in full -- so day-over-day (daily
+// reports) and ~week-over-week (weekly/monthly reports, 5 trading days back)
+// comparisons come from real stored history, not just a single snapshot.
+// Ratio direction is deliberately kept out of buildMarketOutlook's evidence
+// lists -- unlike institutional flow or VIX, a rising put/call ratio is
+// genuinely read both ways in practice (more downside hedging vs. a
+// contrarian oversold signal), so asserting a bullish/bearish label here
+// would be an opinion, not a fact.
+function buildOptionsSentimentSummary(
+  rows: PutCallRatioRow[] | null | undefined,
+  period: MarketBriefPeriod,
+): OptionsSentimentSummary {
+  const sorted = (rows ?? []).slice().sort((a, b) => b.trade_date.localeCompare(a.trade_date));
+  const latest = sorted[0];
+  if (!latest) {
     return {
       tradeDate: null,
       putVolume: null,
       callVolume: null,
       putCallVolumeRatioPct: null,
+      putCallVolumeRatioChangePct: null,
       putOpenInterest: null,
       callOpenInterest: null,
       putCallOiRatioPct: null,
+      putCallOiRatioChangePct: null,
+      comparisonLabel: null,
       status: "pending",
       reason: "尚未取得 TAIFEX 官方選擇權 Put/Call 比資料；僅能逐日累積，暫無歷史回補。",
     };
   }
+
+  const compareIndex = period === "daily" ? 1 : 5;
+  const comparison = sorted[compareIndex] ?? null;
+  const comparisonLabel = period === "daily" ? "較昨日" : "較一週前";
+  const diff = (current: number | null, prior: number | null) =>
+    current !== null && prior !== null ? Number((current - prior).toFixed(2)) : null;
+
   return {
-    tradeDate: row.trade_date,
-    putVolume: row.put_volume,
-    callVolume: row.call_volume,
-    putCallVolumeRatioPct: row.put_call_volume_ratio_pct,
-    putOpenInterest: row.put_open_interest,
-    callOpenInterest: row.call_open_interest,
-    putCallOiRatioPct: row.put_call_oi_ratio_pct,
+    tradeDate: latest.trade_date,
+    putVolume: latest.put_volume,
+    callVolume: latest.call_volume,
+    putCallVolumeRatioPct: latest.put_call_volume_ratio_pct,
+    putCallVolumeRatioChangePct: comparison ? diff(latest.put_call_volume_ratio_pct, comparison.put_call_volume_ratio_pct) : null,
+    putOpenInterest: latest.put_open_interest,
+    callOpenInterest: latest.call_open_interest,
+    putCallOiRatioPct: latest.put_call_oi_ratio_pct,
+    putCallOiRatioChangePct: comparison ? diff(latest.put_call_oi_ratio_pct, comparison.put_call_oi_ratio_pct) : null,
+    comparisonLabel: comparison ? comparisonLabel : null,
     status: "partial",
-    sourceUrl: row.source_url ?? undefined,
+    sourceUrl: latest.source_url ?? undefined,
     reason: "資料來自 TAIFEX 官方臺指選擇權 Put/Call 比統計；比值升降可能反映避險需求增加，也可能是超賣訊號，本報告不代其判斷多空方向。",
   };
 }
@@ -1059,7 +1078,7 @@ export function buildMarketBrief(input: {
   twInstitutionValueFlows?: InstitutionValueFlowRow[];
   taifexFuturesOi?: FuturesOiRow[];
   twMarginTrading?: MarginBalanceRow[];
-  taifexPutCallRatio?: PutCallRatioRow | null;
+  taifexPutCallRatio?: PutCallRatioRow[];
   twFxRate?: FxRateRow | null;
   taiwanSectors?: MarketSectorMove[];
   usSectors?: MarketSectorMove[];
@@ -1093,7 +1112,7 @@ export function buildMarketBrief(input: {
     futuresPositioning: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
       buildFuturesPositioning(label, input.taifexFuturesOi)),
     marginTrading: buildMarginTradingSummary(input.twMarginTrading),
-    optionsSentiment: buildOptionsSentimentSummary(input.taifexPutCallRatio),
+    optionsSentiment: buildOptionsSentimentSummary(input.taifexPutCallRatio, input.period),
     fxRate: buildFxRateSummary(input.twFxRate),
   };
   const us: MarketBriefSection = {
@@ -1222,7 +1241,7 @@ export async function getMarketBrief(options?: {
     { data: institutionValueRows },
     { data: taifexFuturesOiRows },
     { data: marginTradingRows },
-    { data: putCallRatioRow },
+    { data: putCallRatioRows },
     { data: fxRateRow },
   ] = await Promise.all([
     supabase
@@ -1267,10 +1286,10 @@ export async function getMarketBrief(options?: {
     supabase
       .from("taifex_options_put_call_ratio")
       .select("trade_date, put_volume, call_volume, put_call_volume_ratio_pct, put_open_interest, call_open_interest, put_call_oi_ratio_pct, source_url")
+      .gte("trade_date", institutionLookbackStart)
       .lte("trade_date", asOfDate)
       .order("trade_date", { ascending: false })
-      .limit(1)
-      .maybeSingle<PutCallRatioRow>(),
+      .returns<PutCallRatioRow[]>(),
     supabase
       .from("tw_fx_rates")
       .select("trade_date, pair, rate, change_amount, change_pct, quality_status, source_url")
@@ -1311,7 +1330,7 @@ export async function getMarketBrief(options?: {
     twInstitutionValueFlows: institutionValueRows ?? [],
     taifexFuturesOi: taifexFuturesOiRows ?? [],
     twMarginTrading: marginTradingRows ?? [],
-    taifexPutCallRatio: putCallRatioRow ?? null,
+    taifexPutCallRatio: putCallRatioRows ?? [],
     twFxRate: fxRateRow ?? null,
     taiwanSectors,
     usSectors,

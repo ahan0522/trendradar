@@ -400,12 +400,26 @@ function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <div className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
           <strong className="text-sm">成交量比</strong>
-          <p className="mt-3 font-mono text-lg font-black text-zinc-200">{options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="mt-3 font-mono text-lg font-black text-zinc-200">
+            {options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%
+            {options.putCallVolumeRatioChangePct !== null ? (
+              <span className="ml-1.5 text-xs font-normal text-zinc-500">
+                （{options.comparisonLabel} {signedAmount(options.putCallVolumeRatioChangePct)}）
+              </span>
+            ) : null}
+          </p>
           <p className="mt-1 text-[11px] text-zinc-600">Put {options.putVolume?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callVolume?.toLocaleString("zh-TW") ?? "—"}</p>
         </div>
         <div className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
           <strong className="text-sm">未平倉比</strong>
-          <p className="mt-3 font-mono text-lg font-black text-zinc-200">{options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="mt-3 font-mono text-lg font-black text-zinc-200">
+            {options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%
+            {options.putCallOiRatioChangePct !== null ? (
+              <span className="ml-1.5 text-xs font-normal text-zinc-500">
+                （{options.comparisonLabel} {signedAmount(options.putCallOiRatioChangePct)}）
+              </span>
+            ) : null}
+          </p>
           <p className="mt-1 text-[11px] text-zinc-600">Put {options.putOpenInterest?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callOpenInterest?.toLocaleString("zh-TW") ?? "—"}</p>
         </div>
       </div>

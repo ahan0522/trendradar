@@ -190,37 +190,40 @@ type TaifexPutCallRatioRow = {
   "PutCallOIRatio%"?: string;
 };
 
-// This endpoint returns the full history sorted newest-first (no date
-// query param needed) -- taking row[0] is simply "the latest published
-// trading day", same convention as the other TAIFEX endpoints above which
-// only ever expose the latest day anyway.
-export async function fetchTaifexPutCallRatio(): Promise<TaifexPutCallRatio | null> {
+// This endpoint conveniently returns ~20 trading days of history sorted
+// newest-first (no date query param needed or supported) -- unlike the OI
+// and futures-quote endpoints above, which only ever expose the latest day.
+// Returning the whole array lets the report compute day-over-day and
+// week-over-week changes from stored history instead of just a single point.
+export async function fetchTaifexPutCallRatioHistory(): Promise<TaifexPutCallRatio[]> {
   const fetchedAt = new Date().toISOString();
   const rows = await fetchTaifexJson<TaifexPutCallRatioRow[]>(TAIFEX_PUT_CALL_RATIO_URL);
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-  const latest = rows[0];
-  if (!latest.Date) return null;
+  if (!Array.isArray(rows)) return [];
 
-  return {
-    tradeDate: parseTaifexCalendarDate(latest.Date),
-    putVolume: toNumber(latest.PutVolume),
-    callVolume: toNumber(latest.CallVolume),
-    putCallVolumeRatioPct: toNumber(latest["PutCallVolumeRatio%"]),
-    putOpenInterest: toNumber(latest.PutOI),
-    callOpenInterest: toNumber(latest.CallOI),
-    putCallOiRatioPct: toNumber(latest["PutCallOIRatio%"]),
-    sourceUrl: TAIFEX_PUT_CALL_RATIO_URL,
-    fetchedAt,
-  };
+  return rows.flatMap((row): TaifexPutCallRatio[] => {
+    if (!row.Date) return [];
+    return [{
+      tradeDate: parseTaifexCalendarDate(row.Date),
+      putVolume: toNumber(row.PutVolume),
+      callVolume: toNumber(row.CallVolume),
+      putCallVolumeRatioPct: toNumber(row["PutCallVolumeRatio%"]),
+      putOpenInterest: toNumber(row.PutOI),
+      callOpenInterest: toNumber(row.CallOI),
+      putCallOiRatioPct: toNumber(row["PutCallOIRatio%"]),
+      sourceUrl: TAIFEX_PUT_CALL_RATIO_URL,
+      fetchedAt,
+    }];
+  });
 }
 
 export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
   const dryRun = options?.dryRun ?? true;
-  const [oiRows, futuresQuote, putCallRatio] = await Promise.all([
+  const [oiRows, futuresQuote, putCallRatioHistory] = await Promise.all([
     fetchTaifexFuturesInstitutionalOi().catch(() => []),
     fetchTaifexFrontMonthAfterHoursFutures().catch(() => null),
-    fetchTaifexPutCallRatio().catch(() => null),
+    fetchTaifexPutCallRatioHistory().catch(() => []),
   ]);
+  const putCallRatio = putCallRatioHistory[0] ?? null;
 
   if (dryRun) {
     return {
@@ -229,6 +232,7 @@ export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
       oiCount: oiRows.length,
       futuresQuote,
       putCallRatio,
+      putCallRatioHistoryCount: putCallRatioHistory.length,
       oiSamples: oiRows.slice(0, 4),
     };
   }
@@ -287,26 +291,26 @@ export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
     if (error) throw error;
   }
 
-  if (putCallRatio) {
+  if (putCallRatioHistory.length > 0) {
     const { error } = await supabase
       .from("taifex_options_put_call_ratio")
       .upsert(
-        [{
-          trade_date: putCallRatio.tradeDate,
-          put_volume: putCallRatio.putVolume,
-          call_volume: putCallRatio.callVolume,
-          put_call_volume_ratio_pct: putCallRatio.putCallVolumeRatioPct,
-          put_open_interest: putCallRatio.putOpenInterest,
-          call_open_interest: putCallRatio.callOpenInterest,
-          put_call_oi_ratio_pct: putCallRatio.putCallOiRatioPct,
+        putCallRatioHistory.map((row) => ({
+          trade_date: row.tradeDate,
+          put_volume: row.putVolume,
+          call_volume: row.callVolume,
+          put_call_volume_ratio_pct: row.putCallVolumeRatioPct,
+          put_open_interest: row.putOpenInterest,
+          call_open_interest: row.callOpenInterest,
+          put_call_oi_ratio_pct: row.putCallOiRatioPct,
           provider: "taifex-openapi",
-          source_url: putCallRatio.sourceUrl,
-          fetched_at: putCallRatio.fetchedAt,
+          source_url: row.sourceUrl,
+          fetched_at: row.fetchedAt,
           quality_status: "verified",
-          verified_at: putCallRatio.fetchedAt,
+          verified_at: row.fetchedAt,
           verification_provider: "taifex-openapi",
-          updated_at: putCallRatio.fetchedAt,
-        }],
+          updated_at: row.fetchedAt,
+        })),
         { onConflict: "trade_date" },
       );
     if (error) throw error;
@@ -318,5 +322,6 @@ export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
     oiCount: oiRows.length,
     futuresQuote,
     putCallRatio,
+    putCallRatioHistoryCount: putCallRatioHistory.length,
   };
 }

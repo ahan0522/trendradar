@@ -86,9 +86,12 @@ export type OptionsSentimentSummary = {
   putVolume: number | null;
   callVolume: number | null;
   putCallVolumeRatioPct: number | null;
+  putCallVolumeRatioChangePct: number | null;
   putOpenInterest: number | null;
   callOpenInterest: number | null;
   putCallOiRatioPct: number | null;
+  putCallOiRatioChangePct: number | null;
+  comparisonLabel: string | null;
   status: MarketBriefStatus;
   sourceUrl?: string;
   reason?: string;
