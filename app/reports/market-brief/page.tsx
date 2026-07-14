@@ -56,9 +56,11 @@ function biasText(outlook: MarketBriefOutlook) {
   return "資料不足";
 }
 
+// Taiwan market convention: red = up/漲, green = down/跌 (the reverse of the
+// US convention) -- applied throughout this page.
 function biasClass(outlook: MarketBriefOutlook) {
-  if (outlook.bias === "constructive") return "text-emerald-300";
-  if (outlook.bias === "cautious") return "text-rose-300";
+  if (outlook.bias === "constructive") return "text-rose-300";
+  if (outlook.bias === "cautious") return "text-emerald-300";
   if (outlook.bias === "mixed") return "text-amber-200";
   return "text-zinc-500";
 }
@@ -225,8 +227,8 @@ function OutlookPanel({ title, outlook }: { title: string; outlook: MarketBriefO
       </div>
       <p className="mt-4 text-sm leading-7 text-zinc-400">{outlook.summary}</p>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <EvidenceList title="支持證據" items={outlook.positiveEvidence} tone="text-emerald-300" />
-        <EvidenceList title="反向證據" items={outlook.negativeEvidence} tone="text-rose-300" />
+        <EvidenceList title="支持證據" items={outlook.positiveEvidence} tone="text-rose-300" />
+        <EvidenceList title="反向證據" items={outlook.negativeEvidence} tone="text-emerald-300" />
       </div>
       <EvidenceList title="下一交易期觀察" items={outlook.nextSessionFocus} tone="text-cyan-300" className="mt-5" />
     </article>
@@ -239,13 +241,8 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
       <div className="flex flex-wrap items-end justify-between gap-3"><SectionHeading eyebrow={section.market} title={section.title} /><p className={`text-sm font-black ${biasClass(outlook)}`}>{biasText(outlook)}</p></div>
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {section.indices.map((index) => {
-          // VIX is a fear gauge: rising is bad news for equities, so its
-          // color/arrow polarity is the inverse of every other index here.
-          const isInverseVolatility = index.symbol === "^VIX";
-          const rawPositive = (index.changePct ?? 0) > 0;
-          const rawNegative = (index.changePct ?? 0) < 0;
-          const positive = isInverseVolatility ? rawNegative : rawPositive;
-          const negative = isInverseVolatility ? rawPositive : rawNegative;
+          const positive = (index.changePct ?? 0) > 0;
+          const negative = (index.changePct ?? 0) < 0;
           return (
             <article key={index.symbol} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
               <div className="flex items-start justify-between gap-3">
@@ -256,9 +253,9 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
                   </div>
                   <p className="mt-2 font-mono text-xl font-black">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
                 </div>
-                {positive ? <ArrowUpRight className="h-5 w-5 text-emerald-300" /> : negative ? <ArrowDownRight className="h-5 w-5 text-rose-300" /> : <Minus className="h-5 w-5 text-zinc-600" />}
+                {positive ? <ArrowUpRight className="h-5 w-5 text-rose-300" /> : negative ? <ArrowDownRight className="h-5 w-5 text-emerald-300" /> : <Minus className="h-5 w-5 text-zinc-600" />}
               </div>
-              <p className={`mt-3 font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-rose-300" : "text-zinc-600"}`}>
+              <p className={`mt-3 font-mono text-sm font-black ${positive ? "text-rose-300" : negative ? "text-emerald-300" : "text-zinc-600"}`}>
                 {index.changePct === null ? "待補" : (
                   <>
                     {signedPercent(index.changePct)}
@@ -291,7 +288,7 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
                 </div>
               </div>
               <span className="text-right">
-                <span className={`font-mono text-lg font-black ${sector.direction === "up" ? "text-emerald-300" : sector.direction === "down" ? "text-rose-300" : "text-zinc-600"}`}>{signedPercent(sector.changePct)}</span>
+                <span className={`font-mono text-lg font-black ${sector.direction === "up" ? "text-rose-300" : sector.direction === "down" ? "text-emerald-300" : "text-zinc-600"}`}>{signedPercent(sector.changePct)}</span>
                 <span className="ml-2 font-mono text-xs text-zinc-500">{signedAmount(sector.changePoint)}{section.market === "TW" ? " 元" : " USD"}</span>
               </span>
             </div>
@@ -323,7 +320,7 @@ function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
         {flows.map((flow) => (
           <div key={flow.label} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
             <div className="flex items-center justify-between gap-2"><strong className="text-sm">{flow.label}</strong><StatusBadge status={flow.status} /></div>
-            <p className={`mt-3 font-mono text-lg font-black ${flow.direction === "buy" ? "text-emerald-300" : flow.direction === "sell" ? "text-rose-300" : "text-zinc-600"}`}>{compactAmount(flow.singleDayAmount, flow.unit)}</p>
+            <p className={`mt-3 font-mono text-lg font-black ${flow.direction === "buy" ? "text-rose-300" : flow.direction === "sell" ? "text-emerald-300" : "text-zinc-600"}`}>{compactAmount(flow.singleDayAmount, flow.unit)}</p>
             <p className="mt-1 text-[11px] text-zinc-600">買 {compactAmount(flow.singleDayBuyAmount, flow.unit)} ／ 賣 {compactAmount(flow.singleDaySellAmount, flow.unit)}</p>
             <p className="mt-2 text-xs text-zinc-500">區間累積 {compactAmount(flow.cumulativeAmount, flow.unit)}</p>
             <p className="mt-1 text-[11px] text-zinc-600">累積買 {compactAmount(flow.cumulativeBuyAmount, flow.unit)} ／ 累積賣 {compactAmount(flow.cumulativeSellAmount, flow.unit)}</p>
@@ -335,7 +332,7 @@ function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
                   {flow.topStocks.slice(0, 3).map((stock) => (
                     <div key={`${flow.label}-${stock.symbol}`} className="flex items-center justify-between gap-2 text-xs">
                       <span className="truncate text-zinc-500">{stock.companyName}</span>
-                      <span className={stock.netAmount >= 0 ? "font-mono text-emerald-300" : "font-mono text-rose-300"}>
+                      <span className={stock.netAmount >= 0 ? "font-mono text-rose-300" : "font-mono text-emerald-300"}>
                         {compactAmount(stock.netAmount, stock.unit)}
                       </span>
                     </div>
@@ -358,7 +355,7 @@ function FuturesPositioning({ items }: { items: TaiwanFuturesPositioning[] }) {
         {items.map((item) => (
           <div key={item.investor} className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
             <div className="flex items-center justify-between gap-2"><strong className="text-sm">{item.investor}</strong><StatusBadge status={item.status} /></div>
-            <p className={`mt-3 font-mono text-lg font-black ${item.direction === "net_long" ? "text-emerald-300" : item.direction === "net_short" ? "text-rose-300" : "text-zinc-600"}`}>
+            <p className={`mt-3 font-mono text-lg font-black ${item.direction === "net_long" ? "text-rose-300" : item.direction === "net_short" ? "text-emerald-300" : "text-zinc-600"}`}>
               淨 {item.netContracts !== null ? `${item.netContracts >= 0 ? "+" : ""}${item.netContracts.toLocaleString("zh-TW")}` : "待補"} 口
             </p>
             <p className="mt-1 text-[11px] text-zinc-600">多單 {item.longContracts?.toLocaleString("zh-TW") ?? "待補"} 口 ／ 空單 {item.shortContracts?.toLocaleString("zh-TW") ?? "待補"} 口</p>

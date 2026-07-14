@@ -29,16 +29,19 @@ const periodLabels: Record<MarketBriefPeriod, string> = {
   monthly: "每月",
 };
 
+// Taiwan market convention: red = up/漲, green = down/跌 (the reverse of the
+// US convention) -- applied throughout this page for indices, sectors,
+// institutional flow, and futures positioning alike.
 const biasDot: Record<MarketBriefOutlook["bias"], string> = {
-  constructive: "bg-emerald-500",
-  cautious: "bg-rose-500",
+  constructive: "bg-rose-500",
+  cautious: "bg-emerald-500",
   mixed: "bg-amber-500",
   pending: "bg-slate-300",
 };
 
 const biasTextColor: Record<MarketBriefOutlook["bias"], string> = {
-  constructive: "text-emerald-700",
-  cautious: "text-rose-700",
+  constructive: "text-rose-700",
+  cautious: "text-emerald-700",
   mixed: "text-amber-700",
   pending: "text-slate-500",
 };
@@ -57,16 +60,16 @@ function periodHref(period: MarketBriefPeriod, asOfDate: string) {
   return `/brief?period=${period}&asOfDate=${asOfDate}`;
 }
 
-function moveColor(direction: number | null, inverse = false) {
+function moveColor(direction: number | null) {
   if (direction === null || direction === 0) return "text-slate-500";
-  const rising = direction > 0;
-  return (inverse ? !rising : rising) ? "text-emerald-600" : "text-rose-600";
+  return direction > 0 ? "text-rose-600" : "text-emerald-600";
 }
 
-function barWidthPercent(changePct: number | null) {
-  if (changePct === null) return 0;
+// Diverging bar: half-width from the 0% center line, capped at ±8% move.
+function barHalfWidthPercent(changePct: number | null) {
+  if (changePct === null || changePct === 0) return 0;
   const capped = Math.min(Math.abs(changePct), 8);
-  return Math.max((capped / 8) * 100, changePct === 0 ? 0 : 4);
+  return Math.max((capped / 8) * 50, 4);
 }
 
 async function loadBrief(period: MarketBriefPeriod, asOfDate: string) {
@@ -189,7 +192,7 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
               {index.dataTier === "provisional" ? <span className="text-amber-500">單一來源</span> : null}
             </p>
             <p className="mt-1 text-2xl font-bold tabular-nums">{index.close?.toLocaleString("zh-TW") ?? "—"}</p>
-            <p className={`text-sm font-semibold tabular-nums ${moveColor(index.changePct, index.symbol === "^VIX")}`}>
+            <p className={`text-sm font-semibold tabular-nums ${moveColor(index.changePct)}`}>
               {index.changePct === null ? "待補" : (
                 <>
                   {signedPercent(index.changePct)}
@@ -237,10 +240,15 @@ function SectorRow({ sector, unitLabel }: { sector: MarketSectorMove; unitLabel:
           <span className="ml-1.5 font-normal text-slate-400">{signedAmount(sector.changePoint)}{unitLabel}</span>
         </span>
       </div>
-      <div className="mt-1.5 h-1 w-full rounded-full bg-slate-100">
+      <div className="relative mt-1.5 h-1 w-full rounded-full bg-slate-100">
+        <div className="absolute left-1/2 top-0 h-1 w-px bg-slate-300" />
         <div
-          className={`h-1 rounded-full ${positive ? "bg-emerald-500" : negative ? "bg-rose-500" : "bg-slate-300"}`}
-          style={{ width: `${barWidthPercent(sector.changePct)}%` }}
+          className={`absolute top-0 h-1 rounded-full ${positive ? "bg-rose-500" : negative ? "bg-emerald-500" : "bg-slate-300"}`}
+          style={
+            positive
+              ? { left: "50%", width: `${barHalfWidthPercent(sector.changePct)}%` }
+              : { right: "50%", width: `${barHalfWidthPercent(sector.changePct)}%` }
+          }
         />
       </div>
       {sector.topStocks.length > 0 ? (
@@ -273,7 +281,7 @@ function InstitutionFlows({ flows }: { flows: InstitutionalFlowSummary[] }) {
           {flows.map((flow) => (
             <tr key={flow.label}>
               <td className="py-2 font-medium">{flow.label}</td>
-              <td className={`py-2 tabular-nums ${flow.direction === "buy" ? "text-emerald-600" : flow.direction === "sell" ? "text-rose-600" : "text-slate-500"}`}>
+              <td className={`py-2 tabular-nums ${flow.direction === "buy" ? "text-rose-600" : flow.direction === "sell" ? "text-emerald-600" : "text-slate-500"}`}>
                 {compactAmount(flow.singleDayAmount, flow.unit)}
               </td>
               <td className="py-2 tabular-nums text-slate-500">{compactAmount(flow.cumulativeAmount, flow.unit)}</td>
@@ -305,7 +313,7 @@ function FuturesPositioning({ items }: { items: TaiwanFuturesPositioning[] }) {
               <td className="py-2 font-medium">{item.investor}</td>
               <td className="py-2 tabular-nums text-slate-500">{item.longContracts?.toLocaleString("zh-TW") ?? "待補"}</td>
               <td className="py-2 tabular-nums text-slate-500">{item.shortContracts?.toLocaleString("zh-TW") ?? "待補"}</td>
-              <td className={`py-2 tabular-nums ${item.direction === "net_long" ? "text-emerald-600" : item.direction === "net_short" ? "text-rose-600" : "text-slate-500"}`}>
+              <td className={`py-2 tabular-nums ${item.direction === "net_long" ? "text-rose-600" : item.direction === "net_short" ? "text-emerald-600" : "text-slate-500"}`}>
                 {item.netContracts !== null ? `${item.netContracts >= 0 ? "+" : ""}${item.netContracts.toLocaleString("zh-TW")}` : "待補"}
               </td>
             </tr>
