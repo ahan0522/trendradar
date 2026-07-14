@@ -8,6 +8,7 @@ import {
   statusText,
 } from "@/lib/reports/market-brief-format";
 import type {
+  FxRateSummary,
   InstitutionalFlowSummary,
   MarginTradingSummary,
   MarketBrief,
@@ -214,6 +215,7 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
       {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
       {section.optionsSentiment ? <OptionsSentiment options={section.optionsSentiment} /> : null}
+      {section.fxRate ? <FxRate fx={section.fxRate} /> : null}
     </section>
   );
 }
@@ -351,6 +353,21 @@ function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-400">{options.reason}</p>
+    </div>
+  );
+}
+
+function FxRate({ fx }: { fx: FxRateSummary }) {
+  if (fx.status === "pending") return null;
+  return (
+    <div className="mt-8">
+      <div className="flex items-center gap-1.5">
+        <SectionLabel>{fx.pair} 匯率</SectionLabel>
+        {fx.dataTier === "provisional" ? <span className="text-xs text-amber-500">單一來源</span> : null}
+      </div>
+      <p className="mt-1 text-lg font-bold tabular-nums">{fx.rate?.toFixed(3) ?? "待補"}</p>
+      <p className="text-sm tabular-nums text-slate-500">{signedAmount(fx.changeAmount, 4)}（{signedPercent(fx.changePct)}）</p>
+      <p className="mt-2 text-xs text-slate-400">{fx.reason}</p>
     </div>
   );
 }

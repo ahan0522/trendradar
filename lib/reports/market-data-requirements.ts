@@ -103,11 +103,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "新台幣匯率與資金壓力",
     market: "TW",
     priority: "medium",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly", "monthly"],
     suggestedSources: ["Central Bank of Taiwan exchange rate", "verified FX provider fallback"],
     blocksReportNumbers: false,
-    reason: "匯率常影響外資流向；未接入前僅保留為明日分析缺口。",
+    reason: "已由 Yahoo Finance 單一來源提供美元兌新台幣即時匯率與單日變動；央行官方牌告匯率的歷史查詢端點目前資料已停止更新（僅至 2018 年），尚待尋找可靠的官方即時來源與雙來源驗證。",
   },
   {
     id: "us-index-prices",

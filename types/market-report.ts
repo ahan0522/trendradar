@@ -94,6 +94,18 @@ export type OptionsSentimentSummary = {
   reason?: string;
 };
 
+export type FxRateSummary = {
+  tradeDate: string | null;
+  pair: string;
+  rate: number | null;
+  changeAmount: number | null;
+  changePct: number | null;
+  status: MarketBriefStatus;
+  dataTier?: "verified" | "provisional";
+  sourceUrl?: string;
+  reason?: string;
+};
+
 export type MarketBriefSignal = {
   id: string;
   topic: string;
@@ -119,6 +131,7 @@ export type MarketBriefSection = {
   futuresPositioning?: TaiwanFuturesPositioning[];
   marginTrading?: MarginTradingSummary;
   optionsSentiment?: OptionsSentimentSummary;
+  fxRate?: FxRateSummary;
 };
 
 export type TomorrowWatchItem = {

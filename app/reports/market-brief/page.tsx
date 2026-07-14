@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, CalendarDays, CircleAlert, Minus } from "lucide-react";
 import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots";
 import type {
+  FxRateSummary,
   InstitutionalFlowSummary,
   MarginTradingSummary,
   MarketBrief,
@@ -268,6 +269,7 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
       {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
       {section.optionsSentiment ? <OptionsSentiment options={section.optionsSentiment} /> : null}
+      {section.fxRate ? <FxRate fx={section.fxRate} /> : null}
       {/* US sector/theme movers temporarily hidden -- indices only for now
           while TW data quality work is prioritized; the underlying data and
           outlook evidence computation are untouched, just not rendered. */}
@@ -402,6 +404,21 @@ function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
         </div>
       </div>
       {options.reason ? <p className="mt-2 text-xs leading-5 text-zinc-600">{options.reason}</p> : null}
+    </div>
+  );
+}
+
+function FxRate({ fx }: { fx: FxRateSummary }) {
+  if (fx.status === "pending") return null;
+  return (
+    <div className="mt-7">
+      <div className="flex items-center gap-1.5">
+        <h3 className="text-sm font-black text-zinc-300">{fx.pair} 匯率</h3>
+        {fx.dataTier === "provisional" ? <span className="rounded border border-amber-300/30 px-1.5 py-0.5 text-[10px] font-black text-amber-200">單一來源</span> : null}
+      </div>
+      <p className="mt-3 font-mono text-lg font-black text-zinc-200">{fx.rate?.toFixed(3) ?? "待補"}</p>
+      <p className="mt-1 text-[11px] text-zinc-600">{signedAmount(fx.changeAmount, 4)}（{signedPercent(fx.changePct)}）</p>
+      {fx.reason ? <p className="mt-2 text-xs leading-5 text-zinc-600">{fx.reason}</p> : null}
     </div>
   );
 }

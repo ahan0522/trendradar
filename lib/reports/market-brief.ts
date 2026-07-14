@@ -10,6 +10,7 @@ import {
   signalDataModeForDate,
 } from "@/lib/signals/live-collection-policy";
 import type {
+  FxRateSummary,
   InstitutionalFlowSummary,
   MarginTradingSummary,
   MarketBrief,
@@ -87,6 +88,16 @@ type PutCallRatioRow = {
   put_open_interest: number | null;
   call_open_interest: number | null;
   put_call_oi_ratio_pct: number | null;
+  source_url: string | null;
+};
+
+type FxRateRow = {
+  trade_date: string;
+  pair: string;
+  rate: number | null;
+  change_amount: number | null;
+  change_pct: number | null;
+  quality_status: string | null;
   source_url: string | null;
 };
 
@@ -582,6 +593,36 @@ function buildOptionsSentimentSummary(row: PutCallRatioRow | null | undefined): 
   };
 }
 
+// Single Yahoo-chart source (no independent FX provider wired in yet), so
+// this always carries dataTier "provisional" -- same honesty tier as the US
+// indices. TWD depreciation (rate rising) is read both ways depending on
+// whether the reader cares about exporters or capital-flow pressure, so
+// this stays out of buildMarketOutlook's evidence lists like margin/PCR.
+function buildFxRateSummary(row: FxRateRow | null | undefined): FxRateSummary {
+  if (!row) {
+    return {
+      tradeDate: null,
+      pair: "USD/TWD",
+      rate: null,
+      changeAmount: null,
+      changePct: null,
+      status: "pending",
+      reason: "尚未取得美元兌新台幣匯率資料。",
+    };
+  }
+  return {
+    tradeDate: row.trade_date,
+    pair: row.pair,
+    rate: row.rate,
+    changeAmount: row.change_amount,
+    changePct: row.change_pct,
+    status: "partial",
+    dataTier: "provisional",
+    sourceUrl: row.source_url ?? undefined,
+    reason: "資料來自 Yahoo Finance 單一來源即時匯率，僅供背景參考，非官方牌告匯率，不進入回測或多空證據判斷。",
+  };
+}
+
 function indexCoverageQuality(
   label: string,
   indices: MarketIndexMove[],
@@ -1019,6 +1060,7 @@ export function buildMarketBrief(input: {
   taifexFuturesOi?: FuturesOiRow[];
   twMarginTrading?: MarginBalanceRow[];
   taifexPutCallRatio?: PutCallRatioRow | null;
+  twFxRate?: FxRateRow | null;
   taiwanSectors?: MarketSectorMove[];
   usSectors?: MarketSectorMove[];
   signals?: MarketBriefSignal[];
@@ -1052,6 +1094,7 @@ export function buildMarketBrief(input: {
       buildFuturesPositioning(label, input.taifexFuturesOi)),
     marginTrading: buildMarginTradingSummary(input.twMarginTrading),
     optionsSentiment: buildOptionsSentimentSummary(input.taifexPutCallRatio),
+    fxRate: buildFxRateSummary(input.twFxRate),
   };
   const us: MarketBriefSection = {
     market: "US",
@@ -1180,6 +1223,7 @@ export async function getMarketBrief(options?: {
     { data: taifexFuturesOiRows },
     { data: marginTradingRows },
     { data: putCallRatioRow },
+    { data: fxRateRow },
   ] = await Promise.all([
     supabase
       .from("signal_events")
@@ -1227,6 +1271,14 @@ export async function getMarketBrief(options?: {
       .order("trade_date", { ascending: false })
       .limit(1)
       .maybeSingle<PutCallRatioRow>(),
+    supabase
+      .from("tw_fx_rates")
+      .select("trade_date, pair, rate, change_amount, change_pct, quality_status, source_url")
+      .eq("pair", "USD/TWD")
+      .lte("trade_date", asOfDate)
+      .order("trade_date", { ascending: false })
+      .limit(1)
+      .maybeSingle<FxRateRow>(),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -1260,6 +1312,7 @@ export async function getMarketBrief(options?: {
     taifexFuturesOi: taifexFuturesOiRows ?? [],
     twMarginTrading: marginTradingRows ?? [],
     taifexPutCallRatio: putCallRatioRow ?? null,
+    twFxRate: fxRateRow ?? null,
     taiwanSectors,
     usSectors,
     signals: briefSignals,
