@@ -224,6 +224,18 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
         </div>
       </div>
 
+      {hasChipData ? (
+        <div className="mt-4 rounded-2xl border border-slate-100 p-5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">資金與籌碼</p>
+          {section.institutionalFlows || section.futuresPositioning ? (
+            <InvestorGrid flows={section.institutionalFlows} futures={section.futuresPositioning} />
+          ) : null}
+          {section.marginTrading || section.optionsSentiment || section.fxRate ? (
+            <QuickStats margin={section.marginTrading} options={section.optionsSentiment} fx={section.fxRate} />
+          ) : null}
+        </div>
+      ) : null}
+
       {/* US sector/theme movers temporarily hidden -- indices only for now
           while TW data quality work is prioritized, same policy as the
           original /reports/market-brief page. */}
@@ -235,18 +247,6 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
               <SectorRow key={sector.label} sector={sector} unitLabel={section.market === "TW" ? "元" : "$"} />
             ))}
           </div>
-        </div>
-      ) : null}
-
-      {hasChipData ? (
-        <div className="mt-4 rounded-2xl border border-slate-100 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">資金與籌碼</p>
-          {section.institutionalFlows || section.futuresPositioning ? (
-            <InvestorGrid flows={section.institutionalFlows} futures={section.futuresPositioning} />
-          ) : null}
-          {section.marginTrading || section.optionsSentiment || section.fxRate ? (
-            <QuickStats margin={section.marginTrading} options={section.optionsSentiment} fx={section.fxRate} />
-          ) : null}
         </div>
       ) : null}
     </section>
