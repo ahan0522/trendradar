@@ -81,6 +81,19 @@ export type MarginTradingSummary = {
   reason?: string;
 };
 
+export type OptionsSentimentSummary = {
+  tradeDate: string | null;
+  putVolume: number | null;
+  callVolume: number | null;
+  putCallVolumeRatioPct: number | null;
+  putOpenInterest: number | null;
+  callOpenInterest: number | null;
+  putCallOiRatioPct: number | null;
+  status: MarketBriefStatus;
+  sourceUrl?: string;
+  reason?: string;
+};
+
 export type MarketBriefSignal = {
   id: string;
   topic: string;
@@ -105,6 +118,7 @@ export type MarketBriefSection = {
   institutionalFlows?: InstitutionalFlowSummary[];
   futuresPositioning?: TaiwanFuturesPositioning[];
   marginTrading?: MarginTradingSummary;
+  optionsSentiment?: OptionsSentimentSummary;
 };
 
 export type TomorrowWatchItem = {

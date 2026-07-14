@@ -15,6 +15,7 @@ import type {
   MarketBriefPeriod,
   MarketBriefSection,
   MarketSectorMove,
+  OptionsSentimentSummary,
   TaiwanFuturesPositioning,
 } from "@/types/market-report";
 
@@ -212,6 +213,7 @@ function MarketSection({ section }: { section: MarketBriefSection }) {
       {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
       {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
+      {section.optionsSentiment ? <OptionsSentiment options={section.optionsSentiment} /> : null}
     </section>
   );
 }
@@ -327,6 +329,28 @@ function MarginTrading({ margin }: { margin: MarginTradingSummary }) {
         </div>
       </div>
       <p className="mt-2 text-xs text-slate-400">{margin.reason}</p>
+    </div>
+  );
+}
+
+function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
+  if (options.status === "pending") return null;
+  return (
+    <div className="mt-8">
+      <SectionLabel>臺指選擇權 Put/Call 比</SectionLabel>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs text-slate-400">成交量比</p>
+          <p className="mt-1 text-lg font-bold tabular-nums">{options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="text-sm text-slate-500">Put {options.putVolume?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callVolume?.toLocaleString("zh-TW") ?? "—"}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-400">未平倉比</p>
+          <p className="mt-1 text-lg font-bold tabular-nums">{options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="text-sm text-slate-500">Put {options.putOpenInterest?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callOpenInterest?.toLocaleString("zh-TW") ?? "—"}</p>
+        </div>
+      </div>
+      <p className="mt-2 text-xs text-slate-400">{options.reason}</p>
     </div>
   );
 }

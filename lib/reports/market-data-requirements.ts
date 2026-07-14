@@ -81,11 +81,11 @@ export const MARKET_DATA_REQUIREMENTS: MarketDataRequirement[] = [
     label: "選擇權 PCR 與市場情緒",
     market: "TW",
     priority: "medium",
-    status: "pending",
+    status: "partial",
     requiredFor: ["daily", "weekly"],
     suggestedSources: ["TAIFEX official options put/call data"],
     blocksReportNumbers: false,
-    reason: "選擇權 PCR 可作為情緒輔助指標；未接入前不產生情緒分數。",
+    reason: "已由 TAIFEX 官方 PutCallRatio 端點提供臺指選擇權 Put/Call 量與未平倉比值；僅呈現單日數字，不代為判斷多空方向，也尚無法計算連續天數或趨勢。",
   },
   {
     id: "tw-margin-short",

@@ -20,6 +20,7 @@ import type {
   MarketBriefSignal,
   MarketIndexMove,
   MarketSectorMove,
+  OptionsSentimentSummary,
   TaiwanFuturesPositioning,
   TomorrowWatchItem,
 } from "@/types/market-report";
@@ -75,6 +76,17 @@ type MarginBalanceRow = {
   margin_balance_change_amount_thousand: number | null;
   short_balance_lots: number | null;
   short_balance_change_lots: number | null;
+  source_url: string | null;
+};
+
+type PutCallRatioRow = {
+  trade_date: string;
+  put_volume: number | null;
+  call_volume: number | null;
+  put_call_volume_ratio_pct: number | null;
+  put_open_interest: number | null;
+  call_open_interest: number | null;
+  put_call_oi_ratio_pct: number | null;
   source_url: string | null;
 };
 
@@ -534,6 +546,42 @@ function buildMarginTradingSummary(rows: MarginBalanceRow[] | null | undefined):
   };
 }
 
+// TAIFEX's PutCallRatio endpoint returns full history sorted newest-first but
+// (like the other TAIFEX endpoints) offers no way to diff against a prior
+// day beyond what's already in that same array, so this stays a descriptive
+// single-day snapshot, not a streak. Ratio direction is deliberately kept out
+// of buildMarketOutlook's evidence lists -- unlike institutional flow or VIX,
+// a rising put/call ratio is genuinely read both ways in practice (more
+// downside hedging vs. a contrarian oversold signal), so asserting a bullish/
+// bearish label here would be an opinion, not a fact.
+function buildOptionsSentimentSummary(row: PutCallRatioRow | null | undefined): OptionsSentimentSummary {
+  if (!row) {
+    return {
+      tradeDate: null,
+      putVolume: null,
+      callVolume: null,
+      putCallVolumeRatioPct: null,
+      putOpenInterest: null,
+      callOpenInterest: null,
+      putCallOiRatioPct: null,
+      status: "pending",
+      reason: "尚未取得 TAIFEX 官方選擇權 Put/Call 比資料；僅能逐日累積，暫無歷史回補。",
+    };
+  }
+  return {
+    tradeDate: row.trade_date,
+    putVolume: row.put_volume,
+    callVolume: row.call_volume,
+    putCallVolumeRatioPct: row.put_call_volume_ratio_pct,
+    putOpenInterest: row.put_open_interest,
+    callOpenInterest: row.call_open_interest,
+    putCallOiRatioPct: row.put_call_oi_ratio_pct,
+    status: "partial",
+    sourceUrl: row.source_url ?? undefined,
+    reason: "資料來自 TAIFEX 官方臺指選擇權 Put/Call 比統計；比值升降可能反映避險需求增加，也可能是超賣訊號，本報告不代其判斷多空方向。",
+  };
+}
+
 function indexCoverageQuality(
   label: string,
   indices: MarketIndexMove[],
@@ -970,6 +1018,7 @@ export function buildMarketBrief(input: {
   twInstitutionValueFlows?: InstitutionValueFlowRow[];
   taifexFuturesOi?: FuturesOiRow[];
   twMarginTrading?: MarginBalanceRow[];
+  taifexPutCallRatio?: PutCallRatioRow | null;
   taiwanSectors?: MarketSectorMove[];
   usSectors?: MarketSectorMove[];
   signals?: MarketBriefSignal[];
@@ -1002,6 +1051,7 @@ export function buildMarketBrief(input: {
     futuresPositioning: (["外資", "投信", "自營商", "三大法人"] as const).map((label) =>
       buildFuturesPositioning(label, input.taifexFuturesOi)),
     marginTrading: buildMarginTradingSummary(input.twMarginTrading),
+    optionsSentiment: buildOptionsSentimentSummary(input.taifexPutCallRatio),
   };
   const us: MarketBriefSection = {
     market: "US",
@@ -1129,6 +1179,7 @@ export async function getMarketBrief(options?: {
     { data: institutionValueRows },
     { data: taifexFuturesOiRows },
     { data: marginTradingRows },
+    { data: putCallRatioRow },
   ] = await Promise.all([
     supabase
       .from("signal_events")
@@ -1169,6 +1220,13 @@ export async function getMarketBrief(options?: {
       .gte("trade_date", institutionLookbackStart)
       .lte("trade_date", asOfDate)
       .returns<MarginBalanceRow[]>(),
+    supabase
+      .from("taifex_options_put_call_ratio")
+      .select("trade_date, put_volume, call_volume, put_call_volume_ratio_pct, put_open_interest, call_open_interest, put_call_oi_ratio_pct, source_url")
+      .lte("trade_date", asOfDate)
+      .order("trade_date", { ascending: false })
+      .limit(1)
+      .maybeSingle<PutCallRatioRow>(),
   ]);
   const signalIds = (signals ?? []).map((item) => item.id);
   const { data: watchlists } = signalIds.length > 0
@@ -1201,6 +1259,7 @@ export async function getMarketBrief(options?: {
     twInstitutionValueFlows: institutionValueRows ?? [],
     taifexFuturesOi: taifexFuturesOiRows ?? [],
     twMarginTrading: marginTradingRows ?? [],
+    taifexPutCallRatio: putCallRatioRow ?? null,
     taiwanSectors,
     usSectors,
     signals: briefSignals,

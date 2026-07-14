@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 const TAIFEX_INSTITUTIONAL_OI_URL =
   "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate";
 const TAIFEX_DAILY_FUTURES_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut";
+const TAIFEX_PUT_CALL_RATIO_URL = "https://openapi.taifex.com.tw/v1/PutCallRatio";
 const TW_INDEX_FUTURES_CONTRACT_CODE = "臺股期貨";
 const TW_INDEX_FUTURES_CONTRACT = "TX";
 const AFTER_HOURS_FRONT_MONTH_SYMBOL = "WTX&";
@@ -167,11 +168,58 @@ export async function fetchTaifexFrontMonthAfterHoursFutures(): Promise<TaifexFr
   };
 }
 
+export type TaifexPutCallRatio = {
+  tradeDate: string;
+  putVolume: number | null;
+  callVolume: number | null;
+  putCallVolumeRatioPct: number | null;
+  putOpenInterest: number | null;
+  callOpenInterest: number | null;
+  putCallOiRatioPct: number | null;
+  sourceUrl: string;
+  fetchedAt: string;
+};
+
+type TaifexPutCallRatioRow = {
+  Date?: string;
+  PutVolume?: string;
+  CallVolume?: string;
+  "PutCallVolumeRatio%"?: string;
+  PutOI?: string;
+  CallOI?: string;
+  "PutCallOIRatio%"?: string;
+};
+
+// This endpoint returns the full history sorted newest-first (no date
+// query param needed) -- taking row[0] is simply "the latest published
+// trading day", same convention as the other TAIFEX endpoints above which
+// only ever expose the latest day anyway.
+export async function fetchTaifexPutCallRatio(): Promise<TaifexPutCallRatio | null> {
+  const fetchedAt = new Date().toISOString();
+  const rows = await fetchTaifexJson<TaifexPutCallRatioRow[]>(TAIFEX_PUT_CALL_RATIO_URL);
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const latest = rows[0];
+  if (!latest.Date) return null;
+
+  return {
+    tradeDate: parseTaifexCalendarDate(latest.Date),
+    putVolume: toNumber(latest.PutVolume),
+    callVolume: toNumber(latest.CallVolume),
+    putCallVolumeRatioPct: toNumber(latest["PutCallVolumeRatio%"]),
+    putOpenInterest: toNumber(latest.PutOI),
+    callOpenInterest: toNumber(latest.CallOI),
+    putCallOiRatioPct: toNumber(latest["PutCallOIRatio%"]),
+    sourceUrl: TAIFEX_PUT_CALL_RATIO_URL,
+    fetchedAt,
+  };
+}
+
 export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
   const dryRun = options?.dryRun ?? true;
-  const [oiRows, futuresQuote] = await Promise.all([
+  const [oiRows, futuresQuote, putCallRatio] = await Promise.all([
     fetchTaifexFuturesInstitutionalOi().catch(() => []),
     fetchTaifexFrontMonthAfterHoursFutures().catch(() => null),
+    fetchTaifexPutCallRatio().catch(() => null),
   ]);
 
   if (dryRun) {
@@ -180,6 +228,7 @@ export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
       dryRun: true,
       oiCount: oiRows.length,
       futuresQuote,
+      putCallRatio,
       oiSamples: oiRows.slice(0, 4),
     };
   }
@@ -238,10 +287,36 @@ export async function syncTaifexResearchData(options?: { dryRun?: boolean }) {
     if (error) throw error;
   }
 
+  if (putCallRatio) {
+    const { error } = await supabase
+      .from("taifex_options_put_call_ratio")
+      .upsert(
+        [{
+          trade_date: putCallRatio.tradeDate,
+          put_volume: putCallRatio.putVolume,
+          call_volume: putCallRatio.callVolume,
+          put_call_volume_ratio_pct: putCallRatio.putCallVolumeRatioPct,
+          put_open_interest: putCallRatio.putOpenInterest,
+          call_open_interest: putCallRatio.callOpenInterest,
+          put_call_oi_ratio_pct: putCallRatio.putCallOiRatioPct,
+          provider: "taifex-openapi",
+          source_url: putCallRatio.sourceUrl,
+          fetched_at: putCallRatio.fetchedAt,
+          quality_status: "verified",
+          verified_at: putCallRatio.fetchedAt,
+          verification_provider: "taifex-openapi",
+          updated_at: putCallRatio.fetchedAt,
+        }],
+        { onConflict: "trade_date" },
+      );
+    if (error) throw error;
+  }
+
   return {
     ok: true,
     dryRun: false,
     oiCount: oiRows.length,
     futuresQuote,
+    putCallRatio,
   };
 }

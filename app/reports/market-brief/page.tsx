@@ -9,6 +9,7 @@ import type {
   MarketBriefPeriod,
   MarketBriefSection,
   MarketBriefStatus,
+  OptionsSentimentSummary,
   TaiwanFuturesPositioning,
 } from "@/types/market-report";
 
@@ -266,6 +267,7 @@ function MarketSection({ section, outlook }: { section: MarketBriefSection; outl
       {section.institutionalFlows ? <InstitutionFlows flows={section.institutionalFlows} /> : null}
       {section.futuresPositioning ? <FuturesPositioning items={section.futuresPositioning} /> : null}
       {section.marginTrading ? <MarginTrading margin={section.marginTrading} /> : null}
+      {section.optionsSentiment ? <OptionsSentiment options={section.optionsSentiment} /> : null}
       {/* US sector/theme movers temporarily hidden -- indices only for now
           while TW data quality work is prioritized; the underlying data and
           outlook evidence computation are untouched, just not rendered. */}
@@ -378,6 +380,28 @@ function MarginTrading({ margin }: { margin: MarginTradingSummary }) {
         </div>
       </div>
       {margin.reason ? <p className="mt-2 text-xs leading-5 text-zinc-600">{margin.reason}</p> : null}
+    </div>
+  );
+}
+
+function OptionsSentiment({ options }: { options: OptionsSentimentSummary }) {
+  if (options.status === "pending") return null;
+  return (
+    <div className="mt-7">
+      <h3 className="text-sm font-black text-zinc-300">臺指選擇權 Put/Call 比</h3>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
+          <strong className="text-sm">成交量比</strong>
+          <p className="mt-3 font-mono text-lg font-black text-zinc-200">{options.putCallVolumeRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="mt-1 text-[11px] text-zinc-600">Put {options.putVolume?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callVolume?.toLocaleString("zh-TW") ?? "—"}</p>
+        </div>
+        <div className="rounded-lg border border-zinc-800 bg-[#0d1016] p-4">
+          <strong className="text-sm">未平倉比</strong>
+          <p className="mt-3 font-mono text-lg font-black text-zinc-200">{options.putCallOiRatioPct?.toFixed(2) ?? "待補"}%</p>
+          <p className="mt-1 text-[11px] text-zinc-600">Put {options.putOpenInterest?.toLocaleString("zh-TW") ?? "—"} ／ Call {options.callOpenInterest?.toLocaleString("zh-TW") ?? "—"}</p>
+        </div>
+      </div>
+      {options.reason ? <p className="mt-2 text-xs leading-5 text-zinc-600">{options.reason}</p> : null}
     </div>
   );
 }
