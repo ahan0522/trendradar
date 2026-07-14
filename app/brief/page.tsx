@@ -3,6 +3,7 @@ import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots
 import {
   biasText,
   compactAmount,
+  formatTaipeiTimestamp,
   signedAmount,
   signedPercent,
   statusText,
@@ -146,7 +147,7 @@ function Report({ brief, revision }: { brief: MarketBrief; revision: number | nu
     <div className="mt-8">
       <p className="text-lg leading-8 text-slate-700">{brief.executiveSummary}</p>
       <p className="mt-3 text-xs text-slate-400">
-        {brief.reportWindow.startDate} 至 {brief.reportWindow.endDate} · {revision ? `定版快照 r${revision}` : "即時預覽"}
+        {brief.reportWindow.startDate} 至 {brief.reportWindow.endDate} · {revision ? `定版快照 r${revision}` : "即時預覽"} · 最後更新 {formatTaipeiTimestamp(brief.generatedAt)}
       </p>
 
       <section className="mt-8 grid gap-4 sm:grid-cols-2">

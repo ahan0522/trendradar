@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, CalendarDays, CircleAlert, Minus } from "lucide-react";
 import { getStoredOrLiveMarketBrief } from "@/lib/reports/market-brief-snapshots";
+import { formatTaipeiTimestamp } from "@/lib/reports/market-brief-format";
 import type {
   FxRateSummary,
   InstitutionalFlowSummary,
@@ -148,6 +149,7 @@ function Report({ brief, revision }: { brief: MarketBrief; revision: number | nu
             <span>{brief.reportWindow.startDate} 至 {brief.reportWindow.endDate}</span>
             <span>{brief.reportVersion}</span>
             <span>{revision ? `固定快照 r${revision}` : "即時預覽"}</span>
+            <span>最後更新 {formatTaipeiTimestamp(brief.generatedAt)}</span>
           </div>
           <h2 className="mt-5 text-2xl font-black md:text-3xl">{brief.title}</h2>
           <p className="mt-4 max-w-3xl text-base leading-8 text-zinc-300">{brief.executiveSummary}</p>

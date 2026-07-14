@@ -33,6 +33,21 @@ export function statusText(status: MarketBriefStatus) {
   return "等待資料";
 }
 
+export function formatTaipeiTimestamp(iso: string) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const formatted = new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  return `${formatted.replace(/\//g, "-")}（台北時間）`;
+}
+
 export function biasText(outlook: MarketBriefOutlook) {
   if (outlook.bias === "constructive") return "偏多觀察";
   if (outlook.bias === "cautious") return "偏空觀察";
